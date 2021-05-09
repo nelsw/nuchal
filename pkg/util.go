@@ -1,20 +1,21 @@
 package pkg
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 )
 
 const (
-	Fee     = 0.005
-	Won     = "🟢"
-	Lost    = "🔴"
+	Fee  = 0.005
+	Won  = "🟢"
+	Lost = "🔴"
 	Dmnd = "💎"
-	Poop    = "💩"
-	Twzr  = "🎯"
-	Gain    = "🔺"
-	Loss    = "🔻"
+	Poop = "💩"
+	Twzr = "🎯"
+	Gain = "🔺"
+	Loss = "🔻"
 )
 
 func Product(symbol string) string {
@@ -39,4 +40,13 @@ func Int(s string) int {
 
 func Price(f float64) string {
 	return fmt.Sprintf("%.3f", f)
+}
+
+func Price2(f float64) string {
+	return fmt.Sprintf("%.2f", f)
+}
+
+func Print(v interface{}) string {
+	b, _ := json.MarshalIndent(&v, "", "  ")
+	return string(b)
 }

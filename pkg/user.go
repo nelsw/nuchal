@@ -25,7 +25,10 @@ func init() {
 }
 
 func SetupUser() {
-	name := os.Args[3]
+	SetUser(os.Args[3])
+}
+
+func SetUser(name string) {
 	db.Where("name = ?", name).First(&user)
 	if user == (User{}) {
 		panic(errors.New(fmt.Sprintf("no user found for [%s]", name)))

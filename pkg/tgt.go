@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,22 +9,18 @@ import (
 
 type Target struct {
 	ProductId string `json:"product_id" gorm:"primaryKey"`
-	Tweezer float64
-	Gain    float64
-	Loss    float64
+	Tweezer   float64
+	Gain      float64
+	Loss      float64
 }
 
-func (t Target) Print(pretty ...bool) string {
+func (t Target) Json() string {
 	b, _ := json.Marshal(&t)
-	if len(pretty) > 0 && pretty[0] {
-		var bb bytes.Buffer
-		_ = json.Indent(&bb, b, "", "  ")
-	}
 	return string(b)
 }
 
 var (
-	target Target
+	target  Target
 	targets []Target
 )
 
@@ -38,16 +33,20 @@ func init() {
 }
 
 func SetupTarget() {
-	productId := strings.ToUpper(os.Args[2]) + toUSD
-	fmt.Println("setting up target for productId", productId)
+	SetTarget(os.Args[2])
+}
+
+func SetTarget(symbol string) {
+	productId := strings.ToUpper(symbol) + toUSD
+	fmt.Println("setting up target for", productId)
 	db.Where(query, productId).First(&target)
 	if target == (Target{}) {
 		fmt.Println("target not found")
-		target = Target{productId, Float(os.Args[3]), Float(os.Args[4]), Float(os.Args[5])}
+		target = Target{productId, 0.0001, 0.0195, 0.35}
 		db.Save(&target)
-		fmt.Println("created target", &target)
+		fmt.Println("created target")
 	}
-	fmt.Println("setup target", target)
+	fmt.Println("setup target", Print(&target))
 	fmt.Println()
 	setupTargets()
 }
@@ -55,35 +54,48 @@ func SetupTarget() {
 func setupTargets() {
 	fmt.Println("setting up targets")
 
-	for g := 0.5; g <= 1.5; g+=0.1 {
-		for l := 0.5; l <= 1.5; l+=0.1 {
-			targets = append(targets, Target{
-				ProductId: target.ProductId,
-				Tweezer:   .0001,
-				Gain:      target.Gain * g,
-				Loss:      target.Loss * l,
-			})
-		}
-	}
+	targets = append(targets, target)
+
+	//for g := 0.01; g <= 0.2; g+=0.001 {
+	//	for l := 0.01; l <= 0.6; l+=0.001 {
+	//		targets = append(targets, Target{
+	//			ProductId: target.ProductId,
+	//			Tweezer:   .0001,
+	//			Gain:      g,
+	//			Loss:      l,
+	//		})
+	//	}
+	//}
 
 	fmt.Println("setup targets")
 	fmt.Println()
 }
 
 func Size() string {
+
 	switch target.ProductId {
-	case "ETC" + toUSD:
-		return "1"
-	case "EOS" + toUSD:
-		return "5"
-	case "XTZ" + toUSD:
-		return "5"
+
+	// 10
 	case "MATIC" + toUSD:
-		return "10"
-	case "MANA" + toUSD:
-		return "5"
+		fallthrough
 	case "BAT" + toUSD:
 		return "10"
+
+	//5
+	case "EOS" + toUSD:
+		fallthrough
+	case "XTZ" + toUSD:
+		fallthrough
+	case "RLC" + toUSD:
+		fallthrough
+	case "MANA" + toUSD:
+		return "5"
+
+	//1
+	case "ETC" + toUSD:
+		fallthrough
+	case "CTSI" + toUSD:
+		fallthrough
 	default:
 		return "1"
 	}

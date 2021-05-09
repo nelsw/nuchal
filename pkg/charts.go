@@ -15,8 +15,18 @@ func CreateCharts() {
 
 	page := components.NewPage()
 
-	for _, play := range best {
-		kline := createChart(play)
+	result := results[0]
+
+	fmt.Println()
+	fmt.Println("   target", result.Target)
+	fmt.Println("    plays", len(result.Plays))
+	fmt.Println("      won", result.Won)
+	fmt.Println("     lost", result.Loss)
+	fmt.Println("   result", result.sum())
+	fmt.Println()
+
+	for _, play := range result.recentPlays() {
+		kline := createChart(result.Target, play)
 		addData(kline, play.Rates)
 		page.AddCharts(kline)
 	}
@@ -58,27 +68,29 @@ func addData(kline *charts.Kline, rates []Rate) {
 				},
 			}),
 			charts.WithItemStyleOpts(opts.ItemStyle{
-				Color0:        "#ec0000",
-				Color:       "#00da3c",
-				BorderColor0:  "#8A0000",
-				BorderColor: "#008F28",
+				Color0:       "#ec0000",
+				Color:        "#00da3c",
+				BorderColor0: "#8A0000",
+				BorderColor:  "#008F28",
 			}),
 		)
 }
 
-func createChart(play Play) *charts.Kline {
+func createChart(target Target, play Play) *charts.Kline {
 	kline := charts.NewKLine()
+	t := fmt.Sprintf("RESULT: %f\tENTER: %f\tEXIT: %f\t", play.Result, play.Enter, play.Exit)
+	s := fmt.Sprintf(target.Json())
 	kline.SetGlobalOptions(
 		charts.WithTitleOpts(opts.Title{
-			Title: fmt.Sprintf("%f", play.Result),
-			Subtitle: fmt.Sprintf("DURATION: %s\nENTER: %f\nEXIT: %f\n", play.Duration, play.Enter, play.Exit),
+			Title:    t,
+			Subtitle: s,
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
 			SplitNumber: 20,
 		}),
 		charts.WithYAxisOpts(opts.YAxis{
 			SplitNumber: 10,
-			Scale: true,
+			Scale:       true,
 		}),
 		charts.WithDataZoomOpts(opts.DataZoom{
 			Start:      0,

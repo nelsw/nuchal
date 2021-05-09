@@ -6,10 +6,11 @@ import (
 )
 
 const (
-	target = "tgt"
-	trade = "trade"
+	target     = "tgt"
+	trade      = "trade"
 	simulation = "sim"
-	charts = "cht"
+	charts     = "cht"
+	history    = "hst"
 )
 
 func main() {
@@ -20,6 +21,9 @@ func main() {
 
 	switch os.Args[1] {
 
+	case history:
+		SetupRates()
+
 	case charts:
 		SetupRates()
 		CreateSim()
@@ -28,9 +32,9 @@ func main() {
 	case simulation:
 		SetupRates()
 		CreateSim()
+		CreateCharts()
 
 	case trade:
-		SetupWebsocket()
 		CreateTrades()
 	}
 

@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"math"
 	"time"
@@ -9,28 +10,33 @@ import (
 
 func CreateTrades() {
 
-	SetupWebsocket()
+	fmt.Println("setting up websocket for user", user)
+
+	var wsDialer ws.Dialer
+	wsConn, _, err := wsDialer.Dial(WsUrl, nil)
+	if err != nil {
+		panic(err)
+	}
+	defer func(wsConn *ws.Conn) {
+		if err := wsConn.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}(wsConn)
+
+	fmt.Println("set up websocket for user", user)
+	fmt.Println()
 
 	start := time.Now().Round(time.Minute)
 	stop := start.Add(time.Minute)
 
 	var then, that Rate
 
-	for  {
+	for {
 
-		this := buildRate(start, stop)
+		this := buildRate(wsConn, start, stop)
+		fmt.Println("processing rate", this)
 
-		if then == (Rate{}) {
-			then = this
-			continue
-		}
-
-		if that == (Rate{}) {
-			that = this
-			continue
-		}
-
-		if then.IsDown() && that.IsDown() && this.IsUp() {
+		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
 			if math.Max(thatFloor, thisFloor)-math.Min(thatFloor, thisFloor) <= target.Tweezer {
@@ -45,7 +51,7 @@ func CreateTrades() {
 	}
 }
 
-func buildRate(from, to time.Time) Rate {
+func buildRate(wsConn *ws.Conn, from, to time.Time) Rate {
 
 	rate := Rate{
 		Unix:   from.Unix(),
@@ -53,7 +59,7 @@ func buildRate(from, to time.Time) Rate {
 	}
 
 	for {
-		p := GetPrice()
+		p := GetPrice(wsConn)
 		if rate.Low == 0 {
 			rate.Low = p
 			rate.High = p
@@ -78,23 +84,44 @@ func createOrders() {
 		panic(err)
 	} else {
 
-		size := order.Size
-		price := Float(order.Price)
+		settledOrder := getOrder(order.ID)
+
+		size := settledOrder.Size
+		price := Float(settledOrder.ExecutedValue)
 
 		stopGain := Price(price + (price * target.Gain))
 		if gainExit, err := createEntryOrder(size, stopGain); err != nil {
-			fmt.Println("error creating gain exit order",err)
-		} else  {
+			fmt.Println("error creating gain exit order", err)
+		} else {
 			fmt.Println("successfully created gain exit order", gainExit)
 		}
-
-		stopLoss := Price(price - (price * target.Loss))
-		if lossExit, err := createExitOrder(size, stopLoss); err != nil {
-			fmt.Println("error creating loss exit order",err)
-		} else  {
-			fmt.Println("successfully created loss exit order", lossExit)
-		}
 	}
+}
+
+func getOrder(id string) cb.Order {
+	return attemptGetOrder(id, 0)
+}
+
+func cancelOrder(id string) {
+	err := client.CancelOrder(id)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func attemptGetOrder(id string, attempt int) cb.Order {
+	order, err := GetOrder(id)
+	if err != nil {
+		attempt++
+		if attempt < 100 {
+			return attemptGetOrder(id, attempt)
+		}
+		panic(err)
+	}
+	if !order.Settled {
+		return attemptGetOrder(id, 0)
+	}
+	return order
 }
 
 func createMarketOrder() (*cb.Order, error) {
@@ -113,19 +140,6 @@ func createEntryOrder(size, price string) (*cb.Order, error) {
 		Side:      "sell",
 		Size:      size,
 		StopPrice: price,
-		Type:      "entry",
-	}, 0)
+		Stop:      "entry",
+	}, 10)
 }
-
-func createExitOrder(size, price string) (*cb.Order, error) {
-	return CreateOrder(&cb.Order{
-		Price:     price,
-		ProductID: target.ProductId,
-		Side:      "sell",
-		Size:      size,
-		StopPrice: price,
-		Type:      "loss",
-	}, 0)
-}
-
-

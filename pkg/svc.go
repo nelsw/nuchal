@@ -9,55 +9,34 @@ import (
 )
 
 const (
-	granularity = 60
-	ticker = "ticker"
-	subscribe = "subscribe"
+	granularity   = 60
+	ticker        = "ticker"
+	subscribe     = "subscribe"
 	subscriptions = "subscriptions"
-	BaseUrl = "https://api.pro.worker.com"
-	WsUrl   = "wss://ws-feed.pro.worker.com"
+	BaseUrl       = "https://api.pro.coinbase.com"
+	WsUrl         = "wss://ws-feed.pro.coinbase.com"
 )
 
 var (
 	client = cb.NewClient()
-	wsDialer ws.Dialer
-	wsConn *ws.Conn
 )
 
 func SetupClientConfig() {
-	fmt.Println("setting up client config for user", user)
+	fmt.Println("setting up client config for", user.Name)
 	client.UpdateConfig(&cb.ClientConfig{
 		BaseUrl,
 		user.Key,
 		user.Passphrase,
 		user.Secret,
 	})
-	fmt.Println("setup client config for user", user)
+	fmt.Println("setup client config for", user.Name)
 	fmt.Println()
 }
 
-func SetupWebsocket() {
-	fmt.Println("setting up websocket for user", user)
-	conn, _, err := wsDialer.Dial(WsUrl, nil)
-	if err != nil {
-		panic(err)
-	} else {
-		wsConn = conn
-		defer func(wsConn *ws.Conn) {
-			if err = wsConn.Close(); err != nil {
-				fmt.Println(err)
-			}
-		}(wsConn)
-	}
-	fmt.Println("set up websocket for user", user)
-	fmt.Println()
-}
-
-func GetPrice() float64 {
-
-	fmt.Println("getting price")
+func GetPrice(wsConn *ws.Conn) float64 {
 
 	if err := wsConn.WriteJSON(&cb.Message{
-		Type: subscribe,
+		Type:     subscribe,
 		Channels: []cb.MessageChannel{{ticker, []string{target.ProductId}}},
 	}); err != nil {
 		panic(err)
@@ -77,22 +56,67 @@ func GetPrice() float64 {
 		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
 
-	price := Float(receivedMessage.Price)
+	return Float(receivedMessage.Price)
+}
 
-	fmt.Println("got price", price)
-	fmt.Println()
+func GetOrders() []cb.Order {
 
-	return price
+	cursor := client.ListOrders(cb.ListOrdersParams{
+		ProductID: target.ProductId,
+	})
+	var chunks, allChunks []cb.Order
+	for cursor.HasMore {
+		if err := cursor.NextPage(&chunks); err != nil {
+			panic(err)
+		}
+		for _, o := range chunks {
+			allChunks = append(allChunks, o)
+		}
+	}
+	return allChunks
+}
+
+func GetFills() []cb.Fill {
+	cursor := client.ListFills(cb.ListFillsParams{
+		OrderID:    "",
+		ProductID:  target.ProductId,
+		Pagination: cb.PaginationParams{},
+	})
+
+	var fills []cb.Fill
+	var allFills []cb.Fill
+
+	for cursor.HasMore {
+		if err := cursor.NextPage(&fills); err != nil {
+			panic(err)
+		}
+		for _, o := range fills {
+			allFills = append(allFills, o)
+		}
+	}
+
+	return allFills
+}
+
+func GetOrder(id string) (cb.Order, error) {
+	fmt.Println("getting order", id)
+	order, err := client.GetOrder(id)
+	if err != nil {
+		fmt.Println("error getting order", id)
+	} else {
+		fmt.Println("got order", Print(order))
+	}
+	return order, err
 }
 
 func CreateOrder(order *cb.Order, attempt int) (*cb.Order, error) {
-	fmt.Println("creating order", order)
+	fmt.Println("creating order", Print(order))
 	if r, err := client.CreateOrder(order); err == nil {
-		fmt.Println("order created", r)
+		fmt.Println("order created", Print(r))
 		fmt.Println()
 		return &r, nil
 	} else {
-		fmt.Println("failed to create", order)
+		fmt.Println("failed to create", Print(order))
 		attempt++
 		if attempt < 10 {
 			return CreateOrder(order, attempt)
@@ -104,13 +128,12 @@ func CreateOrder(order *cb.Order, attempt int) (*cb.Order, error) {
 
 func BuildRates() []Rate {
 
-	fmt.Println("building rates for", target)
+	fmt.Println("building rates for", target.ProductId)
 
 	var rates []Rate
 	for {
 
 		for _, rate := range getHistoricRates(0) {
-			fmt.Println("found rate", rate)
 			rates = append(rates, Rate{
 				rate.Time.UnixNano(),
 				target.ProductId,
@@ -120,11 +143,10 @@ func BuildRates() []Rate {
 				rate.Close,
 				rate.Volume,
 			})
-			fmt.Println("appended rate")
 		}
 
 		if to.After(time.Now()) {
-			fmt.Println("built rates for", target)
+			fmt.Println("built rates")
 			fmt.Println()
 			return rates
 		}
@@ -143,6 +165,7 @@ func getHistoricRates(attempt int) []cb.HistoricRate {
 		to,
 		granularity,
 	}); err != nil {
+		fmt.Println(err)
 		attempt++
 		if attempt < 100 {
 			return getHistoricRates(attempt)

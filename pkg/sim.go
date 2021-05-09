@@ -1,36 +1,59 @@
 package pkg
 
 import (
-	"fmt"
 	"math"
 	"sort"
+	"time"
 )
 
 type Play struct {
-	Rates []Rate
+	Time                time.Time
+	Rates               []Rate
 	Enter, Exit, Result float64
-	Duration string
+}
+
+type Result struct {
+	Won, Lost float64
+	Plays     []Play
 	Target
 }
 
+func (r Result) bestPlays() []Play {
+	sort.SliceStable(r.Plays, func(i, j int) bool {
+		return r.Plays[i].Result > r.Plays[j].Result
+	})
+	return r.Plays[:25]
+}
+
+func (r Result) recentPlays() []Play {
+	sort.SliceStable(r.Plays, func(i, j int) bool {
+		return r.Plays[i].Time.Unix() > r.Plays[j].Time.Unix()
+	})
+	return r.Plays[:25]
+}
+
+func (r Result) sum() float64 {
+	return r.Won + r.Lost
+}
+
 var (
-	pivots []int
-	plays, best []Play
+	pivots  []int
+	results []Result
 )
 
 func CreateSim() {
 	for _, target := range targets {
 		pivots = []int{}
-		plays = []Play{}
 		buildPositions(target)
 		buildPostures(target)
 	}
 
-	sort.SliceStable(plays, func(i, j int) bool {
-		return plays[i].Result > plays[j].Result
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].sum() > results[j].sum()
 	})
 
-	best = plays[:10]
+	//newTarget := results[0].Target
+	//db.Save(newTarget)
 }
 
 func buildPositions(target Target) {
@@ -38,20 +61,10 @@ func buildPositions(target Target) {
 	var then, that Rate
 	for i, this := range rates {
 
-		if then == (Rate{}) {
-			then = this
-			continue
-		}
-
-		if that == (Rate{}) {
-			that = this
-			continue
-		}
-
-		if then.IsDown() && that.IsDown() && this.IsUp() {
+		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
-			if math.Abs(thatFloor- thisFloor) <= target.Tweezer {
+			if math.Abs(thatFloor-thisFloor) <= target.Tweezer {
 				pivots = append(pivots, i)
 			}
 		}
@@ -61,17 +74,15 @@ func buildPositions(target Target) {
 	}
 }
 
-func buildPostures(target Target)  {
+func buildPostures(target Target) {
 
-	totalLost := 0.0
-	totalWon := 0.0
+	result := Result{0, 0, []Play{}, target}
 
 	for _, i := range pivots {
 
-		alpha := i-2
+		alpha := i - 2
 
 		entryPrice := rates[i].Open
-		entryFee := entryPrice * Fee
 
 		exitGain := entryPrice + (entryPrice * target.Gain)
 		exitLoss := entryPrice - (entryPrice * target.Loss)
@@ -79,49 +90,34 @@ func buildPostures(target Target)  {
 		for j, exit := range rates[i:] {
 
 			if exit.High >= exitGain {
-
-				exitMargin := exitGain - entryPrice
-				exitFee := exitGain * Fee
-				result := exitMargin - entryFee - exitFee
-				duration := exit.Time().Sub(rates[alpha].Time()).String()
-
-				plays = append(plays, Play{
-					rates[alpha : i+j+1],
-					entryPrice,
-					exitGain,
-					result,
-					duration,
-					target,
-				})
-				totalWon += result
+				result.addPlay(exit.Time(), entryPrice, exitGain, rates[alpha:i+j+1])
 				break
 			}
 
 			if exit.Low <= exitLoss {
-
-				exitMargin := entryPrice - exitLoss
-				exitFee := exitLoss * Fee
-				result := exitMargin - entryFee - exitFee
-				duration := exit.Time().Sub(rates[alpha].Time()).String()
-
-				plays = append(plays, Play{
-					rates[alpha : i+j],
-					entryPrice,
-					exitLoss,
-					result,
-					duration,
-					target,
-					})
-				totalLost += result
+				result.addPlay(exit.Time(), entryPrice, exitLoss, rates[alpha:i+j+1])
 				break
 			}
 		}
 	}
 
-	fmt.Println("   target", target)
-	fmt.Println("    plays", len(plays))
-	fmt.Println("      won", totalWon)
-	fmt.Println("     lost", totalLost)
-	fmt.Println("   result", totalWon+totalLost)
-	fmt.Println()
+	results = append(results, result)
+
+}
+
+func (r *Result) addPlay(t time.Time, enter, exit float64, rates []Rate) {
+	p := Play{
+		t,
+		rates,
+		enter,
+		exit,
+		exit - enter - (enter * Fee) - (exit * Fee),
+	}
+	r.Plays = append(r.Plays, p)
+	if p.Result > 0 {
+		r.Won += p.Result
+	} else {
+		r.Lost += p.Result
+	}
+
 }

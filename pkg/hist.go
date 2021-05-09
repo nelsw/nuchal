@@ -36,7 +36,7 @@ const (
 	desc  = "unix desc"
 	asc   = "unix asc"
 	year  = 2021
-	month = 4
+	month = 5
 	day   = 1
 	hour  = 0
 	min   = 0
@@ -56,10 +56,10 @@ func init() {
 }
 
 func SetupRates() {
-	fmt.Println("setting up rates", target)
+	fmt.Println("setting up rates for", target.ProductId)
 	db.Where(query, target.ProductId).Order(asc).Find(&rates)
 	if len(rates) == 0 {
-		fmt.Println("no rates found", target)
+		fmt.Println("no rates found for", target.ProductId)
 		setupTimes()
 		rates = BuildRates()
 		fmt.Println("built rates", len(rates))
@@ -80,13 +80,13 @@ func setupTimes() {
 
 	var rate Rate
 	db.Where(query, target.ProductId).Order(desc).First(&rate)
-	if rate != (Rate{}) {
-		fmt.Println("no rate found for", target)
-		from = rate.Time()
+	if rate == (Rate{}) {
+		fmt.Println("no rate found for", target.ProductId)
 	} else {
-		fmt.Println("rate found", rate)
+		fmt.Println("rate found", Print(rate))
+		from = rate.Time()
 	}
 
-	fmt.Println("setup times to build rates", from)
+	fmt.Println("setup times to build rates")
 	fmt.Println()
 }
