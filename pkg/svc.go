@@ -259,9 +259,9 @@ func getClient(username string) *cb.Client {
 	key, pass, secret := GetUserConfig(username)
 	return &cb.Client{
 		"https://api.pro.coinbase.com",
+		*secret,
 		*key,
 		*pass,
-		*secret,
 		&http.Client{
 			Timeout: 15 * time.Second,
 		},
