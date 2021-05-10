@@ -9,6 +9,7 @@ import (
 func log(username, productId, message string, v ...interface{}) {
 	if v == nil || len(v) == 0 {
 		fmt.Println(fmt.Sprintf("%s - %s - %s", username, productId, message))
+		return
 	}
 	b, _ := json.MarshalIndent(&v, "", "  ")
 	fmt.Println(fmt.Sprintf("%s - %s - %s [%s]", username, productId, message, string(b)))
