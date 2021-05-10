@@ -13,8 +13,7 @@ var domains = regexp.MustCompile(`trade|sim|user`)
 func main() {
 
 	domain := flag.String("domain", "trade", "a program domain to execute")
-	symbol := flag.String("symbol", "btc", "a crypto product symbol")
-	symbols := flag.String("symbols", "btc,eth,xtz", "a csv list of crypto product symbols")
+	symbol := flag.String("symbol", "btc", "a crypto product symbol or csv of symbols")
 	username := flag.String("username", "Connor", "a users first or full username")
 	key := flag.String("key", "example_key", "a Coinbase Pro API key")
 	pass := flag.String("pass", "example_pass_phrase", "a Coinbase Pro API passphrase")
@@ -34,12 +33,18 @@ func main() {
 		return
 	}
 
+	if symbol == nil {
+		panic("symbol cannot be nil yeah dingus")
+	}
+
+	if *domain == "sim" {
+		ServeCharts(NewSimulation(*username, productId(symbol)))
+		return
+	}
+
 	if *domain == "trades" {
-		if symbols == nil {
-			panic("must have symbols to process trades")
-		}
 		exit := make(chan string)
-		for _, s := range strings.Split(*symbols, ",") {
+		for _, s := range strings.Split(*symbol, ",") {
 			go CreateTrades(*username, productId(&s))
 		}
 		for {
@@ -48,15 +53,6 @@ func main() {
 				os.Exit(0)
 			}
 		}
-	}
-
-	if symbol == nil {
-		panic("symbol cannot be nil yeah dingus")
-	}
-
-	if *domain == "sim" {
-		ServeCharts(NewSimulation(*username, productId(symbol)))
-		return
 	}
 
 	if *domain == "trade" {

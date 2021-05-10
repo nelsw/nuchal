@@ -41,7 +41,7 @@ func CreateTrades(username, productId string) {
 			if math.Abs(thatFloor-thisFloor) <= 0.01 {
 				fmt.Println("tweezer in range")
 				price, size := CreateMarketBuyOrder(username, productId, size(this.Close))
-				go rake(wsConn, price, username, productId, size)
+				CreateEntryOrder(username, productId, size, price)
 			} else {
 				fmt.Println("tweezer out of range")
 			}
@@ -54,9 +54,21 @@ func CreateTrades(username, productId string) {
 	}
 }
 
-func rake(wsConn *ws.Conn, marketPrice float64, username, productId, size string) {
+// todo
+func rake(marketPrice float64, username, productId, size string) {
 
 	fmt.Println("rake started")
+
+	var wsDialer ws.Dialer
+	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
+	if err != nil {
+		panic(err)
+	}
+	defer func(wsConn *ws.Conn) {
+		if err := wsConn.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}(wsConn)
 
 	var stopPrice float64
 	var orderId string
