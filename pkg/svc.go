@@ -79,36 +79,82 @@ func getOrder(username, id string) (cb.Order, error) {
 	return order, err
 }
 
-func CreateMarketOrder(username, productId, size string) (float64, string) {
-	fmt.Println("creating market order")
+func CreateMarketBuyOrder(username, productId, size string) (float64, string) {
+	fmt.Println("creating market buy order")
 	if order, err := createOrder(username, &cb.Order{
 		ProductID: productId,
 		Side:      "buy",
 		Size:      size,
 		Type:      "market",
 	}); err != nil {
+		fmt.Println("error creating market buy order", err)
 		panic(err)
 	} else {
-		fmt.Println("created market order")
+		fmt.Println("created market buy order", prettyJson(order))
 		settledOrder := FindSettledOrder(username, order.ID)
 		return float(settledOrder.ExecutedValue) / float(settledOrder.Size), settledOrder.Size
+	}
+}
+
+func CreateMarketSellOrder(username, productId, size string) {
+	fmt.Println("creating market sell order")
+	if order, err := createOrder(username, &cb.Order{
+		ProductID: productId,
+		Side:      "sell",
+		Size:      size,
+		Type:      "market",
+	}); err != nil {
+		panic(err)
+	} else {
+		fmt.Println("created market sell order", prettyJson(order))
 	}
 }
 
 func CreateEntryOrder(username, productId, size string, price float64) {
 	fmt.Println("creating entry order")
 	_, err := createOrder(username, &cb.Order{
-		Price:     fmt.Sprintf("%.3f", price),
+		Price:     formatPrice(price),
 		ProductID: productId,
 		Side:      "sell",
 		Size:      size,
-		StopPrice: fmt.Sprintf("%.3f", price),
+		StopPrice: formatPrice(price),
 		Stop:      "entry",
 	})
 	if err != nil {
 		fmt.Println("error creating entry order")
 	} else {
 		fmt.Println("created entry order")
+	}
+}
+
+func CreateStopLossOrder(username, productId, size string, price float64, attempt ...int) string {
+
+	fmt.Println("creating stop loss order")
+
+	var i int
+	if attempt != nil && len(attempt) > 0 {
+		i = attempt[0]
+	}
+
+	stopLossOrder, err := createOrder(username, &cb.Order{
+		Price:     formatPrice(price),
+		ProductID: productId,
+		Side:      "sell",
+		Size:      size,
+		StopPrice: formatPrice(price),
+		Stop:      "loss",
+	})
+	if err != nil {
+		fmt.Println("error creating stop loss order")
+		i++
+		if i > 10 {
+			panic(err)
+		}
+		time.Sleep(5 * time.Second)
+		return CreateStopLossOrder(username, productId, size, price, i)
+	} else {
+		fmt.Println("created stop loss order", prettyJson(stopLossOrder))
+		return stopLossOrder.ID
 	}
 }
 
@@ -134,6 +180,25 @@ func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, e
 	} else {
 		fmt.Println("order created", prettyJson(r))
 		return &r, nil
+	}
+}
+
+func CancelOrder(username, orderId string, attempt ...int) {
+	fmt.Println("cancelling order")
+	var i int
+	if attempt != nil && len(attempt) > 0 {
+		i = attempt[0]
+	}
+	err := getClient(username).CancelOrder(orderId)
+	if err != nil {
+		i++
+		if i > 10 {
+			fmt.Println("error canceling order", err)
+			panic(err)
+		}
+		time.Sleep(5 * time.Second)
+		CancelOrder(username, orderId, i)
+		fmt.Println("cancelled order")
 	}
 }
 
@@ -215,4 +280,8 @@ func float(s string) float64 {
 func prettyJson(v interface{}) string {
 	b, _ := json.MarshalIndent(&v, "", "  ")
 	return string(b)
+}
+
+func formatPrice(f float64) string {
+	return fmt.Sprintf("%.3f", f)
 }

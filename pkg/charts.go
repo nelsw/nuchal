@@ -19,19 +19,24 @@ func ServeCharts(simulation Simulation) {
 	page := components.NewPage()
 	fmt.Println()
 	fmt.Println("productId", simulation.ProductId)
-	fmt.Println("    plays", len(simulation.Plays))
+	fmt.Println("     from", simulation.From)
+	fmt.Println("       to", simulation.To)
+	fmt.Println("scenarios", len(simulation.Scenarios))
 	fmt.Println("      won", simulation.Won)
 	fmt.Println("     lost", simulation.Lost)
-	fmt.Println("   result", simulation.Won-simulation.Lost)
+	fmt.Println("   result", simulation.sum())
+	fmt.Println("   volume", simulation.Vol)
+	fmt.Println("   return", simulation.result())
 	fmt.Println()
 
-	sort.SliceStable(simulation.Plays, func(i, j int) bool {
-		return simulation.Plays[i].Result > simulation.Plays[j].Result
+	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
+		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
 	})
 
-	for _, play := range simulation.Plays[:25] {
+	for _, play := range simulation.Scenarios[:25] {
 		kline := charts.NewKLine()
-		t := fmt.Sprintf("RESULT: %f\tENTER: %f\tEXIT: %f\t", play.Result, play.Enter, play.Exit)
+		t := fmt.Sprintf("RESULT: %f\tENTER: %f\tEXIT: %f\tPEAK: %f\t", play.Result, play.Market, play.Entry, play.Exit)
+
 		kline.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
 				Title: t,

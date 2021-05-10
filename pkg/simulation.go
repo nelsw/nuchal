@@ -7,15 +7,24 @@ import (
 )
 
 type Simulation struct {
-	Won, Lost float64
-	Plays     []Play
-	ProductId string
+	Won, Lost, Vol float64
+	Scenarios      []Scenario
+	ProductId      string
+	From, To       time.Time
 }
 
-type Play struct {
-	Time                time.Time
-	Rates               []Rate
-	Enter, Exit, Result float64
+func (s Simulation) sum() float64 {
+	return s.Won + s.Lost
+}
+
+func (s Simulation) result() float64 {
+	return s.sum() / s.Vol
+}
+
+type Scenario struct {
+	Time                        time.Time
+	Rates                       []Rate
+	Market, Entry, Exit, Result float64
 }
 
 func NewSimulation(name, productId string) Simulation {
@@ -39,41 +48,49 @@ func NewSimulation(name, productId string) Simulation {
 		that = this
 	}
 
-	var won, lost float64
-	var plays []Play
+	var won, lost, vol float64
+	var scenarios []Scenario
 
 	for _, i := range positionIndexes {
 
 		alpha := i - 2
 
-		entry := allRates[i].Open
+		var entry, exit, result float64
+		market := allRates[i].Open
 
-		exitGain := entry + (entry * 0.0195)
-		exitLoss := entry - (entry * 0.495)
+		gain := market + (market * 0.0195)
+		loss := market - (market * 0.195)
 
 		for j, rate := range allRates[i:] {
 
-			if rate.High < exitGain && rate.Low > exitLoss {
+			if rate.High >= gain {
+				entry = gain
+				if rate.Low <= entry {
+					exit = entry
+				} else if rate.Close >= exit {
+					exit = rate.Close
+					continue
+				}
+				result = exit - market - (market * 0.005) - (exit * 0.005)
+			} else if rate.Low <= loss {
+				result = loss - market - (market * 0.005) - (loss * 0.005)
+			} else {
 				continue
 			}
 
-			var exit float64
-			if rate.High >= exitGain {
-				exit = exitGain
-			} else {
-				exit = exitLoss
-			}
-
-			result := exit - entry - (entry * 0.005) - (exit * 0.005)
+			result *= float(size(market))
 			if result > 0 {
 				won += result
 			} else {
 				lost += result
 			}
 
-			plays = append(plays, Play{
+			vol += entry
+
+			scenarios = append(scenarios, Scenario{
 				rate.Time(),
 				allRates[alpha : i+j+1],
+				market,
 				entry,
 				exit,
 				result,
@@ -82,9 +99,15 @@ func NewSimulation(name, productId string) Simulation {
 		}
 	}
 
-	simulation := Simulation{won, lost, plays, productId}
-
 	fmt.Println("created simulation")
 
-	return simulation
+	return Simulation{
+		won,
+		lost,
+		vol,
+		scenarios,
+		productId,
+		allRates[0].Time(),
+		that.Time(),
+	}
 }
