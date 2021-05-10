@@ -42,6 +42,7 @@ func CreateTrades(username, productId string) {
 				fmt.Println("tweezer in range")
 				price, size := CreateMarketBuyOrder(username, productId, size(this.Close))
 				CreateEntryOrder(username, productId, size, price)
+				go rake(price, username, productId, size)
 			} else {
 				fmt.Println("tweezer out of range")
 			}
@@ -54,7 +55,6 @@ func CreateTrades(username, productId string) {
 	}
 }
 
-// todo
 func rake(marketPrice float64, username, productId, size string) {
 
 	fmt.Println("rake started")
