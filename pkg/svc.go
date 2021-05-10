@@ -1,52 +1,32 @@
 package pkg
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nchl/pkg/util"
+	"net/http"
+	"strconv"
 	"time"
 )
 
 const (
+	buy           = "buy"
+	market        = "market"
+	sell          = "sell"
+	entry         = "entry"
 	granularity   = 60
 	ticker        = "ticker"
 	subscribe     = "subscribe"
 	subscriptions = "subscriptions"
 	BaseUrl       = "https://api.pro.coinbase.com"
-	WsUrl         = "wss://ws-feed.pro.coinbase.com"
 )
 
-var (
-	client = cb.NewClient()
-)
-
-func SetupClientConfig() {
-	fmt.Println("setting up client config for", user.Name)
-	client.UpdateConfig(&cb.ClientConfig{
-		BaseUrl,
-		user.Key,
-		user.Passphrase,
-		user.Secret,
-	})
-	fmt.Println("setup client config for", user.Name)
-	fmt.Println()
-}
-
-func GetLastPrice(productId string) string {
-	ticker, err := client.GetTicker(productId)
-	if err != nil {
-		panic(err)
-	}
-	return ticker.Price
-}
-
-func GetPrice(wsConn *ws.Conn) float64 {
+func GetTickerPrice(wsConn *ws.Conn, productId string) float64 {
 
 	if err := wsConn.WriteJSON(&cb.Message{
 		Type:     subscribe,
-		Channels: []cb.MessageChannel{{ticker, []string{target.ProductId}}},
+		Channels: []cb.MessageChannel{{ticker, []string{productId}}},
 	}); err != nil {
 		panic(err)
 	}
@@ -65,87 +45,103 @@ func GetPrice(wsConn *ws.Conn) float64 {
 		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
 
-	return util.Float(receivedMessage.Price)
+	return float(receivedMessage.Price)
 }
 
-func GetOrders() []cb.Order {
+func GetOrder(username, id string, attempt ...int) cb.Order {
 
-	cursor := client.ListOrders(cb.ListOrdersParams{
-		ProductID: target.ProductId,
-	})
-	var chunks, allChunks []cb.Order
-	for cursor.HasMore {
-		if err := cursor.NextPage(&chunks); err != nil {
-			panic(err)
-		}
-		for _, o := range chunks {
-			allChunks = append(allChunks, o)
-		}
-	}
-	return allChunks
-}
-
-func GetFills() []cb.Fill {
-	cursor := client.ListFills(cb.ListFillsParams{
-		OrderID:    "",
-		ProductID:  target.ProductId,
-		Pagination: cb.PaginationParams{},
-	})
-
-	var fills []cb.Fill
-	var allFills []cb.Fill
-
-	for cursor.HasMore {
-		if err := cursor.NextPage(&fills); err != nil {
-			panic(err)
-		}
-		for _, o := range fills {
-			allFills = append(allFills, o)
-		}
+	var i int
+	if attempt != nil && len(attempt) > 0 {
+		i = attempt[0]
 	}
 
-	return allFills
-}
+	if order, err := getOrder(username, id); err != nil {
 
-func GetOrder(id string) (cb.Order, error) {
-	fmt.Println("getting order", id)
-	order, err := client.GetOrder(id)
-	if err != nil {
-		fmt.Println("error getting order", id)
+		i++
+		if i > 10 {
+			panic(err)
+		}
+		time.Sleep(5 * time.Second)
+		return GetOrder(username, id, i)
+
+	} else if !order.Settled {
+		return GetOrder(username, id, 0)
 	} else {
-		fmt.Println("got order", util.Print(order))
+		return order
+	}
+}
+
+func getOrder(username, id string) (cb.Order, error) {
+	fmt.Println("finding order")
+	order, err := getClient(username).GetOrder(id)
+	if err != nil {
+		fmt.Println("error finding order", err)
+	} else {
+		fmt.Println("found order", prettyJson(order))
 	}
 	return order, err
 }
 
-func CreateOrder(order *cb.Order, attempt int) (*cb.Order, error) {
-	fmt.Println("creating order", util.Print(order))
-	if r, err := client.CreateOrder(order); err == nil {
-		fmt.Println("order created", util.Print(r))
-		fmt.Println()
-		return &r, nil
+func CreateMarketOrder(username, productId, size string) (float64, string) {
+	order, err := createOrder(username, &cb.Order{
+		ProductID: productId,
+		Side:      buy,
+		Size:      size,
+		Type:      market,
+	})
+	if err != nil {
+		panic(err)
 	} else {
-		fmt.Println("failed to create", util.Print(order))
-		attempt++
-		if attempt < 10 {
-			return CreateOrder(order, attempt)
-		} else {
-			return nil, errors.New(fmt.Sprintf("entry failed %v ", err))
-		}
+		settledOrder := GetOrder(username, order.ID)
+		return float(settledOrder.ExecutedValue) / float(settledOrder.Size), settledOrder.Size
 	}
 }
 
-func BuildRates() []Rate {
+func CreateEntryOrder(username, productId, size string, price float64) {
+	_, _ = createOrder(username, &cb.Order{
+		Price:     fmt.Sprintf("%.3f", price),
+		ProductID: productId,
+		Side:      sell,
+		Size:      size,
+		StopPrice: fmt.Sprintf("%.3f", price),
+		Stop:      entry,
+	})
+}
 
-	fmt.Println("building rates for", target.ProductId)
+func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, error) {
 
+	fmt.Println("creating order", prettyJson(order))
+
+	var i int
+	if attempt != nil && len(attempt) > 0 {
+		i = attempt[0]
+	}
+
+	if r, err := getClient(username).CreateOrder(order); err != nil {
+
+		i++
+		if i > 10 {
+			fmt.Println("error creating order", err)
+			return nil, err
+		}
+		time.Sleep(5 * time.Second)
+		return createOrder(username, order, i)
+
+	} else {
+		fmt.Println("order created", prettyJson(r))
+		return &r, nil
+	}
+}
+
+func NewRates(username, productId string, from time.Time) []Rate {
+
+	to := time.Now()
 	var rates []Rate
 	for {
-
-		for _, rate := range getHistoricRates(0) {
+		for _, rate := range GetHistoricRates(username, productId, from, to) {
 			rates = append(rates, Rate{
 				rate.Time.UnixNano(),
-				target.ProductId,
+				productId,
 				rate.Low,
 				rate.High,
 				rate.Open,
@@ -153,77 +149,60 @@ func BuildRates() []Rate {
 				rate.Volume,
 			})
 		}
-
 		if to.After(time.Now()) {
-			fmt.Println("built rates")
-			fmt.Println()
 			return rates
 		}
-
-		fmt.Println("looping for more rates")
 		from = to
 		to = to.Add(time.Hour * 4)
 	}
-
 }
 
-func getHistoricRates(attempt int) []cb.HistoricRate {
-	fmt.Println("getting historic rates, attempt", attempt)
-	if rates, err := client.GetHistoricRates(target.ProductId, cb.GetHistoricRatesParams{
+func GetHistoricRates(username, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
+
+	var i int
+	if attempt != nil && len(attempt) > 0 {
+		i = attempt[0]
+	}
+
+	if rates, err := getClient(username).GetHistoricRates(productId, cb.GetHistoricRatesParams{
 		from,
 		to,
 		granularity,
 	}); err != nil {
-		fmt.Println(err)
-		attempt++
-		if attempt < 100 {
-			return getHistoricRates(attempt)
+		i++
+		if i > 10 {
+			panic(err)
 		}
-		panic(err)
+		time.Sleep(time.Second * 5)
+		return GetHistoricRates(username, productId, from, to, i)
 	} else {
-		fmt.Println("returning historic rates, attempt", attempt)
-		fmt.Println()
 		return rates
 	}
 }
 
-func printAccountInfo() {
-	if accounts, err := client.GetAccounts(); err != nil {
-		panic(err)
-	} else {
-		for _, account := range accounts {
-			fmt.Println(util.Print(account))
-		}
+func getClient(username string) *cb.Client {
+	key, pass, secret := GetUserConfig(username)
+	return &cb.Client{
+		BaseUrl,
+		*key,
+		*pass,
+		*secret,
+		&http.Client{
+			Timeout: 15 * time.Second,
+		},
+		0,
 	}
 }
 
-func printPositions() {
-	if accounts, err := client.GetAccounts(); err != nil {
+func float(s string) float64 {
+	if f, err := strconv.ParseFloat(s, 32); err != nil {
 		panic(err)
 	} else {
-		total := 0.0
-		for _, account := range accounts {
-			if account.Currency == "USD" {
-				total += util.Float(account.Balance)
-				continue
-			}
-			if util.Float(account.Balance) > 0 {
-				fmt.Println(util.Print(account))
-				total += util.Float(GetLastPrice(account.Currency+toUSD)) * util.Float(account.Balance)
-			}
-		}
-		fmt.Println(total)
+		return f
 	}
 }
 
-func printCashBalance() {
-	if accounts, err := client.GetAccounts(); err != nil {
-		panic(err)
-	} else {
-		for _, account := range accounts {
-			if account.Currency == "USD" {
-				fmt.Println(util.Print(account))
-			}
-		}
-	}
+func prettyJson(v interface{}) string {
+	b, _ := json.MarshalIndent(&v, "", "  ")
+	return string(b)
 }

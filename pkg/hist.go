@@ -1,8 +1,6 @@
 package pkg
 
 import (
-	"fmt"
-	"nchl/pkg/util"
 	"time"
 )
 
@@ -33,21 +31,10 @@ func (v *Rate) Data() [4]float64 {
 }
 
 const (
-	query = "product_id = ?"
-	desc  = "unix desc"
-	asc   = "unix asc"
-	year  = 2021
-	month = 5
-	day   = 1
-	hour  = 0
-	min   = 0
-	sec   = 0
-	nsc   = 0
-)
-
-var (
-	from, to time.Time
-	rates    []Rate
+	asc     = "unix asc"
+	desc    = "unix desc"
+	query   = "product_id = ?"
+	timeVal = "2021-04-01T00:00:00+00:00"
 )
 
 func init() {
@@ -56,38 +43,21 @@ func init() {
 	}
 }
 
-func SetupRates() {
-	fmt.Println("setting up rates for", target.ProductId)
-	db.Where(query, target.ProductId).Order(asc).Find(&rates)
-	if len(rates) == 0 {
-		fmt.Println("no rates found for", target.ProductId)
-		setupTimes()
-		rates = BuildRates()
-		fmt.Println("built rates", len(rates))
-		for _, rate := range rates {
-			db.Create(rate)
-		}
-		fmt.Println("saved rates")
-	}
-	fmt.Println()
-}
-
-func setupTimes() {
-
-	fmt.Println("setting up times to build rates")
-
-	from = time.Date(year, month, day, hour, min, sec, nsc, time.UTC)
-	to = from.Add(time.Hour * 4)
+func Rates(name, productId string) []Rate {
 
 	var rate Rate
-	db.Where(query, target.ProductId).Order(desc).First(&rate)
-	if rate == (Rate{}) {
-		fmt.Println("no rate found for", target.ProductId)
-	} else {
-		fmt.Println("rate found", util.Print(rate))
+	db.Where(query, productId).Order(desc).First(&rate)
+
+	var from time.Time
+	if rate != (Rate{}) {
 		from = rate.Time()
+	} else {
+		from, _ = time.Parse(time.RFC3339, timeVal)
 	}
 
-	fmt.Println("setup times to build rates")
-	fmt.Println()
+	db.Save(NewRates(name, productId, from))
+
+	var allRates []Rate
+	db.Where(query, productId).Order(asc).Find(&allRates)
+	return allRates
 }

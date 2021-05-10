@@ -1,49 +1,58 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	. "nchl/pkg"
-	"os"
+	"regexp"
+	"strings"
 )
 
 const (
 	target     = "tgt"
 	trade      = "trade"
 	simulation = "sim"
-	charts     = "cht"
-	history    = "hst"
 	user       = "user"
+)
+
+var (
+	domains = regexp.MustCompile(fmt.Sprintf("%s|%s|%s", trade, simulation, user))
 )
 
 func main() {
 
-	domain := os.Args[1]
+	domain := flag.String("d", "trade", "a program domain to execute")
+	symbol := flag.String("s", "btc", "a crypto product symbol")
+	username := flag.String("u", "Connor", "a users first or full username")
+	key := flag.String("key", "example_key", "a Coinbase Pro API key")
+	pass := flag.String("pass", "example_pass_phrase", "a Coinbase Pro API passphrase")
+	secret := flag.String("secret", "example_secret", "a Coinbase Pro API secret")
 
-	if domain == user {
-		CreateUser()
+	flag.Parse()
+
+	// validate domain value
+	if domain == nil {
+		panic("domain cannot be nil yeah dummy")
+	} else if !domains.MatchString(*domain) {
+		panic("domain not recognized yeah ignoramus")
+	}
+
+	if *domain == user {
+		CreateUser(*username, *key, *pass, *secret)
 		return
 	}
 
-	SetupTarget()
-	SetupUser()
-	SetupClientConfig()
-
-	switch domain {
-
-	case history:
-		SetupRates()
-
-	case charts:
-		SetupRates()
-		CreateSim()
-		CreateCharts()
-
-	case simulation:
-		SetupRates()
-		CreateSim()
-		CreateCharts()
-
-	case trade:
-		CreateTrades()
+	if symbol == nil {
+		panic("symbol cannot be nil yeah dingus")
 	}
+
+	productId := strings.ToUpper(*symbol) + "-USD"
+	if *domain == simulation {
+		ServeCharts(NewSimulation(*username, productId))
+		return
+	}
+
+	// *domain == trade
+	CreateTrades(*username, productId)
 
 }

@@ -1,14 +1,10 @@
 package pkg
 
 import (
-	"errors"
 	"fmt"
 	_ "github.com/lib/pq"
 	"gorm.io/gorm"
-	"os"
 )
-
-var user User
 
 type User struct {
 	gorm.Model
@@ -18,34 +14,37 @@ type User struct {
 	Secret     string `json:"secret"`
 }
 
+const (
+	eqQuery = "name = ?"
+	lkQuery = "name LIKE ?"
+)
+
 func init() {
+	var user User
 	if err := db.AutoMigrate(user); err != nil {
 		panic(err)
 	}
 }
 
-func SetupUser() {
-	SetUser(os.Args[3])
-}
-
-func SetUser(name string) {
-	db.Where("name = ?", name).First(&user)
+func GetUserConfig(username string) (*string, *string, *string) {
+	var user User
+	db.Where(eqQuery, username).First(&user)
 	if user == (User{}) {
-		db.Where("name LIKE ?", "%"+name+"%").First(&user)
+		db.Where(lkQuery, "%"+username+"%").First(&user)
 		if user == (User{}) {
-			panic(errors.New(fmt.Sprintf("no user found for [%s]", name)))
+			panic(fmt.Sprintf("no user found where name = [%s]", username))
 		}
 	}
+	return &user.Key, &user.Passphrase, &user.Secret
 }
 
-func CreateUser() {
-	u := User{
-		Name:       os.Args[2],
-		Key:        os.Args[3],
-		Passphrase: os.Args[4],
-		Secret:     os.Args[5],
-	}
-	fmt.Println("saving user", u.Name)
-	db.Save(&u)
-	fmt.Println("saved user", u.Name)
+func CreateUser(username, key, pass, secret string) {
+	fmt.Println("creating user")
+	db.Save(User{
+		Name:       username,
+		Key:        key,
+		Passphrase: pass,
+		Secret:     secret,
+	})
+	fmt.Println("created user")
 }

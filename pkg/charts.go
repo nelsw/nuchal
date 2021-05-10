@@ -9,29 +9,71 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 )
 
-func CreateCharts() {
+func ServeCharts(simulation Simulation) {
+
+	fmt.Println("serving charts")
 
 	page := components.NewPage()
-
-	result := results[0]
-
 	fmt.Println()
-	fmt.Println("   target", result.Target)
-	fmt.Println("    plays", len(result.Plays))
-	fmt.Println("      won", result.Won)
-	fmt.Println("     lost", result.Lost)
-	fmt.Println("   result", result.sum())
+	fmt.Println("productId", simulation.ProductId)
+	fmt.Println("    plays", len(simulation.Plays))
+	fmt.Println("      won", simulation.Won)
+	fmt.Println("     lost", simulation.Lost)
+	fmt.Println("   result", simulation.Won-simulation.Lost)
 	fmt.Println()
 
-	for _, play := range result.recentPlays() {
-		kline := createChart(result.Target, play)
-		addData(kline, play.Rates)
+	sort.SliceStable(simulation.Plays, func(i, j int) bool {
+		return simulation.Plays[i].Result > simulation.Plays[j].Result
+	})
+
+	for _, play := range simulation.Plays[:25] {
+		kline := charts.NewKLine()
+		t := fmt.Sprintf("RESULT: %f\tENTER: %f\tEXIT: %f\t", play.Result, play.Enter, play.Exit)
+		kline.SetGlobalOptions(
+			charts.WithTitleOpts(opts.Title{
+				Title: t,
+			}),
+			charts.WithXAxisOpts(opts.XAxis{
+				SplitNumber: 20,
+			}),
+			charts.WithYAxisOpts(opts.YAxis{
+				SplitNumber: 10,
+				Scale:       true,
+			}),
+			charts.WithDataZoomOpts(opts.DataZoom{
+				Start:      0,
+				End:        100,
+				XAxisIndex: []int{0},
+			}),
+		)
+		x := make([]string, 0)
+		y := make([]opts.KlineData, 0)
+		for i := 0; i < len(play.Rates); i++ {
+			x = append(x, play.Rates[i].Time().String())
+			y = append(y, opts.KlineData{Value: play.Rates[i].Data()})
+		}
+
+		kline.SetXAxis(x).AddSeries("kline", y).
+			SetSeriesOptions(
+				charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
+					Label: &opts.Label{
+						Show: true,
+					},
+				}),
+				charts.WithItemStyleOpts(opts.ItemStyle{
+					Color0:       "#ec0000",
+					Color:        "#00da3c",
+					BorderColor0: "#8A0000",
+					BorderColor:  "#008F28",
+				}),
+			)
 		page.AddCharts(kline)
 	}
 
-	name := fmt.Sprintf("./html/%s.html", target.ProductId)
+	name := fmt.Sprintf("./html/%s.html", simulation.ProductId)
 
 	if f, err := os.Create(name); err != nil {
 		panic(err)
@@ -40,8 +82,9 @@ func CreateCharts() {
 	}
 
 	fs := http.FileServer(http.Dir("html"))
-	log.Println("running server at http://localhost:8089")
+	fmt.Println("served charts at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(fs)))
+
 }
 
 func logRequest(handler http.Handler) http.Handler {
@@ -49,54 +92,4 @@ func logRequest(handler http.Handler) http.Handler {
 		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
 		handler.ServeHTTP(w, r)
 	})
-}
-
-func addData(kline *charts.Kline, rates []Rate) {
-
-	x := make([]string, 0)
-	y := make([]opts.KlineData, 0)
-	for i := 0; i < len(rates); i++ {
-		x = append(x, rates[i].Time().String())
-		y = append(y, opts.KlineData{Value: rates[i].Data()})
-	}
-
-	kline.SetXAxis(x).AddSeries("kline", y).
-		SetSeriesOptions(
-			charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
-				Label: &opts.Label{
-					Show: true,
-				},
-			}),
-			charts.WithItemStyleOpts(opts.ItemStyle{
-				Color0:       "#ec0000",
-				Color:        "#00da3c",
-				BorderColor0: "#8A0000",
-				BorderColor:  "#008F28",
-			}),
-		)
-}
-
-func createChart(target Target, play Play) *charts.Kline {
-	kline := charts.NewKLine()
-	t := fmt.Sprintf("RESULT: %f\tENTER: %f\tEXIT: %f\t", play.Result, play.Enter, play.Exit)
-	s := fmt.Sprintf(target.Json())
-	kline.SetGlobalOptions(
-		charts.WithTitleOpts(opts.Title{
-			Title:    t,
-			Subtitle: s,
-		}),
-		charts.WithXAxisOpts(opts.XAxis{
-			SplitNumber: 20,
-		}),
-		charts.WithYAxisOpts(opts.YAxis{
-			SplitNumber: 10,
-			Scale:       true,
-		}),
-		charts.WithDataZoomOpts(opts.DataZoom{
-			Start:      0,
-			End:        100,
-			XAxisIndex: []int{0},
-		}),
-	)
-	return kline
 }
