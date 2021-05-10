@@ -44,7 +44,7 @@ func init() {
 	}
 }
 
-func Rates(name, productId string) []Rate {
+func GetRates(name, productId string) []Rate {
 
 	fmt.Println("finding rates")
 
@@ -58,7 +58,7 @@ func Rates(name, productId string) []Rate {
 		from, _ = time.Parse(time.RFC3339, timeVal)
 	}
 
-	db.Save(NewRates(name, productId, from))
+	db.Save(CreateHistoricRates(name, productId, from))
 
 	var allRates []Rate
 	db.Where(query, productId).Order(asc).Find(&allRates)

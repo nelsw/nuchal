@@ -31,12 +31,12 @@ func NewSimulation(name, productId string) Simulation {
 
 	fmt.Println("creating simulation")
 
-	allRates := Rates(name, productId)
+	rates := GetRates(name, productId)
 
 	var positionIndexes []int
 	var then, that Rate
 
-	for i, this := range allRates {
+	for i, this := range rates {
 		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
@@ -56,12 +56,12 @@ func NewSimulation(name, productId string) Simulation {
 		alpha := i - 2
 
 		var entry, exit, result float64
-		market := allRates[i].Open
+		market := rates[i].Open
 
-		gain := market + (market * 0.0195)
-		loss := market - (market * 0.395)
+		gain := market + (market * stopGain)
+		loss := market - (market * stopLoss)
 
-		for j, rate := range allRates[i:] {
+		for j, rate := range rates[i:] {
 
 			if rate.High >= gain {
 				entry = gain
@@ -89,7 +89,7 @@ func NewSimulation(name, productId string) Simulation {
 
 			scenarios = append(scenarios, Scenario{
 				rate.Time(),
-				allRates[alpha : i+j+1],
+				rates[alpha : i+j+1],
 				market,
 				entry,
 				exit,
@@ -107,7 +107,7 @@ func NewSimulation(name, productId string) Simulation {
 		vol,
 		scenarios,
 		productId,
-		allRates[0].Time(),
+		rates[0].Time(),
 		that.Time(),
 	}
 }

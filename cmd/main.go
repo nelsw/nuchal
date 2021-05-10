@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var domains = regexp.MustCompile(`trade|sim|user`)
+var domains = regexp.MustCompile(`trade|sim|user|tidy`)
 
 func main() {
 
@@ -38,14 +38,14 @@ func main() {
 	}
 
 	if *domain == "sim" {
-		ServeCharts(NewSimulation(*username, productId(symbol)))
+		ServeCharts(NewSimulation(*username, ProductId(symbol)))
 		return
 	}
 
 	if *domain == "trades" {
 		exit := make(chan string)
 		for _, s := range strings.Split(*symbol, ",") {
-			go CreateTrades(*username, productId(&s))
+			go CreateTrades(*username, ProductId(&s))
 		}
 		for {
 			select {
@@ -56,10 +56,11 @@ func main() {
 	}
 
 	if *domain == "trade" {
-		CreateTrades(*username, productId(symbol))
+		CreateTrades(*username, ProductId(symbol))
 	}
-}
 
-func productId(symbol *string) string {
-	return strings.ToUpper(*symbol) + "-USD"
+	if *domain == "tidy" {
+		CreateEntryOrders(*username)
+	}
+
 }

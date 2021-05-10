@@ -1,4 +1,4 @@
-.SILENT: sim tgt hst bld it
+.SILENT: sim bld it tidy user
 
 bld:
 	cd cmd && go build main.go
@@ -11,6 +11,9 @@ trades: bld
 
 sim: bld
 	cmd/main -domain=sim -symbol=${s} -username="${u}"
+
+tidy: bld
+	cmd/main -domain=tidy -username="${u}"
 
 user: bld
 	cmd/main -domain=user -username="${u}" -key=${k} -pass=${p} -secret=${s}

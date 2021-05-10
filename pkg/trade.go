@@ -40,7 +40,7 @@ func CreateTrades(username, productId string) {
 			if math.Abs(thatFloor-thisFloor) <= 0.01 {
 				log(username, productId, "tweezer in range")
 				price, size := CreateMarketBuyOrder(username, productId, size(this.Close))
-				go rake(price, username, productId, size)
+				go climb(price, username, productId, size)
 			} else {
 				log(username, productId, "tweezer out of range")
 			}
@@ -53,9 +53,9 @@ func CreateTrades(username, productId string) {
 	}
 }
 
-func rake(marketPrice float64, username, productId, size string) {
+func climb(marketPrice float64, username, productId, size string) {
 
-	log(username, productId, "rake started")
+	log(username, productId, "climb started")
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -71,8 +71,8 @@ func rake(marketPrice float64, username, productId, size string) {
 	var stopPrice float64
 	var orderId string
 	for {
-		stopPrice = GetTickerPrice(wsConn, productId)
-		if stopPrice >= marketPrice+(marketPrice*0.0195) {
+		stopPrice = GetPrice(wsConn, productId)
+		if stopPrice >= marketPrice+(marketPrice*stopGain) {
 			log(username, productId, "default stop price found")
 			orderId = CreateStopLossOrder(username, productId, size, stopPrice)
 			break
@@ -103,13 +103,13 @@ func rake(marketPrice float64, username, productId, size string) {
 		end = start.Add(time.Minute)
 	}
 
-	log(username, productId, "rake completed")
+	log(username, productId, "climb completed")
 }
 
 func rate(wsConn *ws.Conn, productId string, end time.Time) Rate {
 	rate := Rate{}
 	for {
-		price := GetTickerPrice(wsConn, productId)
+		price := GetPrice(wsConn, productId)
 		if rate.Low == 0 {
 			rate.Low = price
 			rate.High = price
@@ -126,14 +126,4 @@ func rate(wsConn *ws.Conn, productId string, end time.Time) Rate {
 		}
 	}
 	return rate
-}
-
-func size(price float64) string {
-	if price < 1 {
-		return "100"
-	} else if price < 2 {
-		return "10"
-	} else {
-		return "1"
-	}
 }
