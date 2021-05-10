@@ -59,7 +59,7 @@ func NewSimulation(name, productId string) Simulation {
 		market := allRates[i].Open
 
 		gain := market + (market * 0.0195)
-		loss := market - (market * 0.195)
+		loss := market - (market * 0.395)
 
 		for j, rate := range allRates[i:] {
 
