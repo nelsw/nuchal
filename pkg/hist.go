@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -45,6 +46,8 @@ func init() {
 
 func Rates(name, productId string) []Rate {
 
+	fmt.Println("finding rates")
+
 	var rate Rate
 	db.Where(query, productId).Order(desc).First(&rate)
 
@@ -59,5 +62,8 @@ func Rates(name, productId string) []Rate {
 
 	var allRates []Rate
 	db.Where(query, productId).Order(asc).Find(&allRates)
+
+	fmt.Println("found rates")
+
 	return allRates
 }

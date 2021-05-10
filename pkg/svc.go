@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// GetTickerPrice gets the latest ticker price for the given productId.
+// Note that we omit logging from this method to avoid blowing up the logs.
 func GetTickerPrice(wsConn *ws.Conn, productId string) float64 {
 
 	if err := wsConn.WriteJSON(&cb.Message{
@@ -36,7 +38,9 @@ func GetTickerPrice(wsConn *ws.Conn, productId string) float64 {
 	return float(receivedMessage.Price)
 }
 
-func GetOrder(username, id string, attempt ...int) cb.Order {
+func FindSettledOrder(username, id string, attempt ...int) cb.Order {
+
+	fmt.Println("find settled order")
 
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -49,12 +53,17 @@ func GetOrder(username, id string, attempt ...int) cb.Order {
 		if i > 10 {
 			panic(err)
 		}
-		time.Sleep(5 * time.Second)
-		return GetOrder(username, id, i)
+		time.Sleep(1 * time.Second)
+		return FindSettledOrder(username, id, i)
 
 	} else if !order.Settled {
-		return GetOrder(username, id, 0)
+
+		fmt.Println("found unsettled order")
+		time.Sleep(1 * time.Second)
+		return FindSettledOrder(username, id, 0)
+
 	} else {
+		fmt.Println("found settled order")
 		return order
 	}
 }
@@ -71,22 +80,24 @@ func getOrder(username, id string) (cb.Order, error) {
 }
 
 func CreateMarketOrder(username, productId, size string) (float64, string) {
-	order, err := createOrder(username, &cb.Order{
+	fmt.Println("creating market order")
+	if order, err := createOrder(username, &cb.Order{
 		ProductID: productId,
 		Side:      "buy",
 		Size:      size,
 		Type:      "market",
-	})
-	if err != nil {
+	}); err != nil {
 		panic(err)
 	} else {
-		settledOrder := GetOrder(username, order.ID)
+		fmt.Println("created market order")
+		settledOrder := FindSettledOrder(username, order.ID)
 		return float(settledOrder.ExecutedValue) / float(settledOrder.Size), settledOrder.Size
 	}
 }
 
 func CreateEntryOrder(username, productId, size string, price float64) {
-	_, _ = createOrder(username, &cb.Order{
+	fmt.Println("creating entry order")
+	_, err := createOrder(username, &cb.Order{
 		Price:     fmt.Sprintf("%.3f", price),
 		ProductID: productId,
 		Side:      "sell",
@@ -94,6 +105,11 @@ func CreateEntryOrder(username, productId, size string, price float64) {
 		StopPrice: fmt.Sprintf("%.3f", price),
 		Stop:      "entry",
 	})
+	if err != nil {
+		fmt.Println("error creating entry order")
+	} else {
+		fmt.Println("created entry order")
+	}
 }
 
 func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, error) {
@@ -123,7 +139,9 @@ func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, e
 
 func NewRates(username, productId string, from time.Time) []Rate {
 
-	to := time.Now()
+	fmt.Println("getting new rates")
+
+	to := from.Add(time.Hour * 4)
 	var rates []Rate
 	for {
 		for _, rate := range GetHistoricRates(username, productId, from, to) {
@@ -138,6 +156,7 @@ func NewRates(username, productId string, from time.Time) []Rate {
 			})
 		}
 		if to.After(time.Now()) {
+			fmt.Println("got new rates")
 			return rates
 		}
 		from = to
@@ -146,6 +165,8 @@ func NewRates(username, productId string, from time.Time) []Rate {
 }
 
 func GetHistoricRates(username, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
+
+	fmt.Println("getting historic rates")
 
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -164,6 +185,7 @@ func GetHistoricRates(username, productId string, from, to time.Time, attempt ..
 		time.Sleep(time.Second * 5)
 		return GetHistoricRates(username, productId, from, to, i)
 	} else {
+		fmt.Println("got historic rates")
 		return rates
 	}
 }

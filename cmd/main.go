@@ -11,9 +11,9 @@ var domains = regexp.MustCompile(`trade|sim|user`)
 
 func main() {
 
-	domain := flag.String("d", "trade", "a program domain to execute")
-	symbol := flag.String("s", "btc", "a crypto product symbol")
-	username := flag.String("u", "Connor", "a users first or full username")
+	domain := flag.String("domain", "trade", "a program domain to execute")
+	symbol := flag.String("symbol", "btc", "a crypto product symbol")
+	username := flag.String("username", "Connor", "a users first or full username")
 	key := flag.String("key", "example_key", "a Coinbase Pro API key")
 	pass := flag.String("pass", "example_pass_phrase", "a Coinbase Pro API passphrase")
 	secret := flag.String("secret", "example_secret", "a Coinbase Pro API secret")
