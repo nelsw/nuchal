@@ -2,29 +2,35 @@ package pkg
 
 import (
 	"fmt"
+	"nchl/pkg/util"
 	"testing"
 )
 
 func TestExitLossOrder(t *testing.T) {
 
-	SetTarget("CTSI")
-	SetUser("Bricen Lee Miller")
+	//name := "Connor Ross Van Elswyk"
+	name := "Bricen Lee Miller"
+	symbol := "SKL"
+
+	SetTarget(symbol)
+	SetUser(name)
 	SetupClientConfig()
 
-	size := "1.0"
-	stopLoss := "1.59"
-	if lossExit, err := createEntryOrder(size, stopLoss); err != nil {
-		fmt.Println("error creating loss exit order", err)
-	} else {
-		fmt.Println("successfully created loss exit order", lossExit)
-	}
+	//size := "62.8"
+	//price := "62.289"
+	//if exit, err := createEntryOrder(size, price); err != nil {
+	//	fmt.Println("error creating exit order", err)
+	//} else {
+	//	fmt.Println("successfully created exit order", exit)
+	//}
 
-	//orders := GetOrders()
+	orders := GetOrders()
 	//fills := GetFills()
 	//fmt.Println("fills", Print(fills))
-	//fmt.Println("orders", Print(orders))
+	fmt.Println("orders", util.Print(orders))
 	//
 	//// 750ee80a-09a4-405e-8907-0ae3d9b10bcd
 	//
-	//cancelOrder("a40f5169-b641-4bb7-9b3a-1f5f3155cbe9")
+	//cancelOrder("c14e8dfa-9c55-414c-ba2c-885a9e6f8bb6")
+	//cancelOrder("fd66b742-3875-4f4c-be37-1e1f7ca11cc7")
 }

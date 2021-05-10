@@ -21,3 +21,8 @@ sim: bld
 	echo "\n...run ${s} simulation for ${u}\n"
 	cmd/main sim ${s} "${u}"
 	echo "\n...ran ${s} simulation for ${u}\n"
+
+user: bld
+	echo "\n...build user ${u}"
+	cmd/main user "${u}" ${k} ${p} ${s}
+	echo "\n...built user ${u}"

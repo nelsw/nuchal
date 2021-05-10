@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"nchl/pkg/util"
 	"time"
 )
 
@@ -64,7 +65,7 @@ func SetupRates() {
 		rates = BuildRates()
 		fmt.Println("built rates", len(rates))
 		for _, rate := range rates {
-			db.Save(rate)
+			db.Create(rate)
 		}
 		fmt.Println("saved rates")
 	}
@@ -83,7 +84,7 @@ func setupTimes() {
 	if rate == (Rate{}) {
 		fmt.Println("no rate found for", target.ProductId)
 	} else {
-		fmt.Println("rate found", Print(rate))
+		fmt.Println("rate found", util.Print(rate))
 		from = rate.Time()
 	}
 

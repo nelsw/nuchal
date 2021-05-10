@@ -5,8 +5,16 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"math"
+	rule "nchl/pkg/store"
+	"nchl/pkg/util"
 	"time"
 )
+
+type tradeHandler struct{}
+
+type Handler interface {
+	Handle(then, that, this Rate, i ...int)
+}
 
 func CreateTrades() {
 
@@ -34,12 +42,11 @@ func CreateTrades() {
 	for {
 
 		this := buildRate(wsConn, start, stop)
-		fmt.Println("processing rate", this)
 
 		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
-			if math.Max(thatFloor, thisFloor)-math.Min(thatFloor, thisFloor) <= target.Tweezer {
+			if math.Abs(thatFloor-thisFloor) <= rule.Twz {
 				createOrders()
 			}
 		}
@@ -48,6 +55,17 @@ func CreateTrades() {
 		that = this
 		start = stop
 		stop = start.Add(time.Minute)
+	}
+}
+
+func (tradeHandler) Handle(then, that, this Rate, i ...int) {
+	fmt.Println("processing rate", this)
+	if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
+		thatFloor := math.Min(that.Low, that.Close)
+		thisFloor := math.Min(this.Low, this.Open)
+		if math.Abs(thatFloor-thisFloor) <= rule.Twz {
+			createOrders()
+		}
 	}
 }
 
@@ -87,9 +105,9 @@ func createOrders() {
 		settledOrder := getOrder(order.ID)
 
 		size := settledOrder.Size
-		price := Float(settledOrder.ExecutedValue)
+		price := util.Float(settledOrder.ExecutedValue) / util.Float(size)
 
-		stopGain := Price(price + (price * target.Gain))
+		stopGain := util.Price(price + (price * rule.Hi))
 		if gainExit, err := createEntryOrder(size, stopGain); err != nil {
 			fmt.Println("error creating gain exit order", err)
 		} else {
@@ -114,6 +132,7 @@ func attemptGetOrder(id string, attempt int) cb.Order {
 	if err != nil {
 		attempt++
 		if attempt < 100 {
+			time.Sleep(5 * time.Second)
 			return attemptGetOrder(id, attempt)
 		}
 		panic(err)
@@ -128,7 +147,7 @@ func createMarketOrder() (*cb.Order, error) {
 	return CreateOrder(&cb.Order{
 		ProductID: target.ProductId,
 		Side:      "buy",
-		Size:      Size(),
+		Size:      target.Size(),
 		Type:      "market",
 	}, 0)
 }
@@ -142,4 +161,14 @@ func createEntryOrder(size, price string) (*cb.Order, error) {
 		StopPrice: price,
 		Stop:      "entry",
 	}, 10)
+}
+
+func size(price float64) float64 {
+	if price < 1 {
+		return 100
+	} else if price < 2 {
+		return 10
+	} else {
+		return 1
+	}
 }

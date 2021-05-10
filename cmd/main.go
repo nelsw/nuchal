@@ -11,15 +11,23 @@ const (
 	simulation = "sim"
 	charts     = "cht"
 	history    = "hst"
+	user       = "user"
 )
 
 func main() {
+
+	domain := os.Args[1]
+
+	if domain == user {
+		CreateUser()
+		return
+	}
 
 	SetupTarget()
 	SetupUser()
 	SetupClientConfig()
 
-	switch os.Args[1] {
+	switch domain {
 
 	case history:
 		SetupRates()

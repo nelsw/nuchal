@@ -21,7 +21,7 @@ func CreateCharts() {
 	fmt.Println("   target", result.Target)
 	fmt.Println("    plays", len(result.Plays))
 	fmt.Println("      won", result.Won)
-	fmt.Println("     lost", result.Loss)
+	fmt.Println("     lost", result.Lost)
 	fmt.Println("   result", result.sum())
 	fmt.Println()
 

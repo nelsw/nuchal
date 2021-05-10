@@ -3,15 +3,13 @@ package pkg
 import (
 	"encoding/json"
 	"fmt"
+	"nchl/pkg/util"
 	"os"
 	"strings"
 )
 
 type Target struct {
 	ProductId string `json:"product_id" gorm:"primaryKey"`
-	Tweezer   float64
-	Gain      float64
-	Loss      float64
 }
 
 func (t Target) Json() string {
@@ -42,11 +40,11 @@ func SetTarget(symbol string) {
 	db.Where(query, productId).First(&target)
 	if target == (Target{}) {
 		fmt.Println("target not found")
-		target = Target{productId, 0.0001, 0.0195, 0.35}
+		target = Target{productId}
 		db.Save(&target)
 		fmt.Println("created target")
 	}
-	fmt.Println("setup target", Print(&target))
+	fmt.Println("setup target", util.Print(&target))
 	fmt.Println()
 	setupTargets()
 }
@@ -71,7 +69,7 @@ func setupTargets() {
 	fmt.Println()
 }
 
-func Size() string {
+func (t *Target) Size() string {
 
 	switch target.ProductId {
 
