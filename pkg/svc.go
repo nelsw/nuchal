@@ -1,12 +1,10 @@
 package pkg
 
 import (
-	"encoding/json"
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -38,98 +36,56 @@ func GetTickerPrice(wsConn *ws.Conn, productId string) float64 {
 	return float(receivedMessage.Price)
 }
 
-func FindSettledOrder(username, id string, attempt ...int) cb.Order {
+func FindSettledOrder(username, productId, id string, attempt ...int) cb.Order {
 
-	fmt.Println("find settled order")
+	log(username, productId, "find settled order")
 
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
 
-	if order, err := getOrder(username, id); err != nil {
+	if order, err := getClient(username).GetOrder(id); err != nil {
 
 		i++
 		if i > 10 {
+			log(username, productId, "error finding settled order", err)
 			panic(err)
 		}
 		time.Sleep(1 * time.Second)
-		return FindSettledOrder(username, id, i)
+		return FindSettledOrder(username, productId, id, i)
 
 	} else if !order.Settled {
-
-		fmt.Println("found unsettled order")
+		log(username, productId, "found unsettled order")
 		time.Sleep(1 * time.Second)
-		return FindSettledOrder(username, id, 0)
+		return FindSettledOrder(username, productId, id, 0)
 
 	} else {
-		fmt.Println("found settled order")
+		log(username, productId, "found settled order")
 		return order
 	}
 }
 
-func getOrder(username, id string) (cb.Order, error) {
-	fmt.Println("finding order")
-	order, err := getClient(username).GetOrder(id)
-	if err != nil {
-		fmt.Println("error finding order", err)
-	} else {
-		fmt.Println("found order", prettyJson(order))
-	}
-	return order, err
-}
-
 func CreateMarketBuyOrder(username, productId, size string) (float64, string) {
-	fmt.Println("creating market buy order")
+	log(username, productId, "creating market buy order")
 	if order, err := createOrder(username, &cb.Order{
 		ProductID: productId,
 		Side:      "buy",
 		Size:      size,
 		Type:      "market",
 	}); err != nil {
-		fmt.Println("error creating market buy order", err)
+		log(username, productId, "error creating market buy order", err)
 		panic(err)
 	} else {
-		fmt.Println("created market buy order", prettyJson(order))
-		settledOrder := FindSettledOrder(username, order.ID)
+		log(username, productId, "created market buy order", order)
+		settledOrder := FindSettledOrder(username, productId, order.ID)
 		return float(settledOrder.ExecutedValue) / float(settledOrder.Size), settledOrder.Size
-	}
-}
-
-func CreateMarketSellOrder(username, productId, size string) {
-	fmt.Println("creating market sell order")
-	if order, err := createOrder(username, &cb.Order{
-		ProductID: productId,
-		Side:      "sell",
-		Size:      size,
-		Type:      "market",
-	}); err != nil {
-		panic(err)
-	} else {
-		fmt.Println("created market sell order", prettyJson(order))
-	}
-}
-
-func CreateEntryOrder(username, productId, size string, price float64) {
-	fmt.Println("creating entry order")
-	_, err := createOrder(username, &cb.Order{
-		Price:     formatPrice(price),
-		ProductID: productId,
-		Side:      "sell",
-		Size:      size,
-		StopPrice: formatPrice(price),
-		Stop:      "entry",
-	})
-	if err != nil {
-		fmt.Println("error creating entry order")
-	} else {
-		fmt.Println("created entry order")
 	}
 }
 
 func CreateStopLossOrder(username, productId, size string, price float64, attempt ...int) string {
 
-	fmt.Println("creating stop loss order")
+	log(username, productId, "creating stop loss order")
 
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -145,22 +101,22 @@ func CreateStopLossOrder(username, productId, size string, price float64, attemp
 		Stop:      "loss",
 	})
 	if err != nil {
-		fmt.Println("error creating stop loss order")
 		i++
 		if i > 10 {
+			log(username, productId, "error creating stop loss order", err)
 			panic(err)
 		}
 		time.Sleep(5 * time.Second)
 		return CreateStopLossOrder(username, productId, size, price, i)
 	} else {
-		fmt.Println("created stop loss order", prettyJson(stopLossOrder))
+		log(username, productId, "created stop loss order", stopLossOrder)
 		return stopLossOrder.ID
 	}
 }
 
 func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, error) {
 
-	fmt.Println("creating order", prettyJson(order))
+	log(username, order.ProductID, "creating order", order)
 
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -171,20 +127,20 @@ func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, e
 
 		i++
 		if i > 10 {
-			fmt.Println("error creating order", err)
+			log(username, order.ProductID, "error creating order", err)
 			return nil, err
 		}
 		time.Sleep(5 * time.Second)
 		return createOrder(username, order, i)
 
 	} else {
-		fmt.Println("order created", prettyJson(r))
+		log(username, order.ProductID, "order created", r)
 		return &r, nil
 	}
 }
 
-func CancelOrder(username, orderId string, attempt ...int) {
-	fmt.Println("cancelling order")
+func CancelOrder(username, productId, orderId string, attempt ...int) {
+	log(username, productId, "cancelling order")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
@@ -193,18 +149,18 @@ func CancelOrder(username, orderId string, attempt ...int) {
 	if err != nil {
 		i++
 		if i > 10 {
-			fmt.Println("error canceling order", err)
+			log(username, productId, "error canceling order", err)
 			panic(err)
 		}
 		time.Sleep(5 * time.Second)
-		CancelOrder(username, orderId, i)
-		fmt.Println("cancelled order")
+		CancelOrder(username, productId, orderId, i)
+		log(username, productId, "cancelled order")
 	}
 }
 
 func NewRates(username, productId string, from time.Time) []Rate {
 
-	fmt.Println("getting new rates")
+	log(username, productId, "getting new rates")
 
 	to := from.Add(time.Hour * 4)
 	var rates []Rate
@@ -221,7 +177,7 @@ func NewRates(username, productId string, from time.Time) []Rate {
 			})
 		}
 		if to.After(time.Now()) {
-			fmt.Println("got new rates")
+			log(username, productId, "got new rates")
 			return rates
 		}
 		from = to
@@ -231,7 +187,7 @@ func NewRates(username, productId string, from time.Time) []Rate {
 
 func GetHistoricRates(username, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
 
-	fmt.Println("getting historic rates")
+	log(username, productId, "getting historic rates")
 
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -250,7 +206,7 @@ func GetHistoricRates(username, productId string, from, to time.Time, attempt ..
 		time.Sleep(time.Second * 5)
 		return GetHistoricRates(username, productId, from, to, i)
 	} else {
-		fmt.Println("got historic rates")
+		log(username, productId, "got historic rates")
 		return rates
 	}
 }
@@ -267,21 +223,4 @@ func getClient(username string) *cb.Client {
 		},
 		0,
 	}
-}
-
-func float(s string) float64 {
-	if f, err := strconv.ParseFloat(s, 32); err != nil {
-		panic(err)
-	} else {
-		return f
-	}
-}
-
-func prettyJson(v interface{}) string {
-	b, _ := json.MarshalIndent(&v, "", "  ")
-	return string(b)
-}
-
-func formatPrice(f float64) string {
-	return fmt.Sprintf("%.3f", f)
 }

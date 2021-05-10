@@ -25,7 +25,7 @@ func CreateTrades(username, productId string) {
 	var then, that Rate
 	for {
 
-		fmt.Println("analyzing rates")
+		log(username, productId, "analyzing rates")
 
 		start := time.Now()
 		end := start.Add(time.Minute)
@@ -33,18 +33,16 @@ func CreateTrades(username, productId string) {
 
 		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 
-			fmt.Println("pattern recognized")
-
+			log(username, productId, "pattern recognized")
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
 
 			if math.Abs(thatFloor-thisFloor) <= 0.01 {
-				fmt.Println("tweezer in range")
+				log(username, productId, "tweezer in range")
 				price, size := CreateMarketBuyOrder(username, productId, size(this.Close))
-				CreateEntryOrder(username, productId, size, price)
 				go rake(price, username, productId, size)
 			} else {
-				fmt.Println("tweezer out of range")
+				log(username, productId, "tweezer out of range")
 			}
 		}
 
@@ -57,7 +55,7 @@ func CreateTrades(username, productId string) {
 
 func rake(marketPrice float64, username, productId, size string) {
 
-	fmt.Println("rake started")
+	log(username, productId, "rake started")
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -75,7 +73,7 @@ func rake(marketPrice float64, username, productId, size string) {
 	for {
 		stopPrice = GetTickerPrice(wsConn, productId)
 		if stopPrice >= marketPrice+(marketPrice*0.0195) {
-			fmt.Println("default stop price found")
+			log(username, productId, "default stop price found")
 			orderId = CreateStopLossOrder(username, productId, size, stopPrice)
 			break
 		}
@@ -86,18 +84,18 @@ func rake(marketPrice float64, username, productId, size string) {
 		start := time.Now()
 		end := start.Add(time.Minute)
 
-		fmt.Println("analyzing rakes")
+		log(username, productId, "analyzing rakes")
 
 		rate := rate(wsConn, productId, end)
 		if rate.Low <= stopPrice {
-			fmt.Println("stop loss executed")
+			log(username, productId, "stop loss executed")
 			break
 		}
 
 		if rate.Close > stopPrice {
-			fmt.Println("better stop price found")
+			log(username, productId, "better stop price found")
 			stopPrice = rate.Close
-			CancelOrder(username, orderId)
+			CancelOrder(username, productId, orderId)
 			orderId = CreateStopLossOrder(username, productId, size, stopPrice)
 		}
 
@@ -105,11 +103,10 @@ func rake(marketPrice float64, username, productId, size string) {
 		end = start.Add(time.Minute)
 	}
 
-	fmt.Println("rake completed")
+	log(username, productId, "rake completed")
 }
 
 func rate(wsConn *ws.Conn, productId string, end time.Time) Rate {
-
 	rate := Rate{}
 	for {
 		price := GetTickerPrice(wsConn, productId)
