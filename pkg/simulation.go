@@ -31,7 +31,7 @@ func NewSimulation(name, productId string) Simulation {
 		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
-			if math.Abs(thatFloor-thisFloor) <= Twz {
+			if math.Abs(thatFloor-thisFloor) <= 0.01 {
 				positionIndexes = append(positionIndexes, i)
 			}
 		}
@@ -48,8 +48,8 @@ func NewSimulation(name, productId string) Simulation {
 
 		entry := allRates[i].Open
 
-		exitGain := entry + (entry * Hi)
-		exitLoss := entry - (entry * Lo)
+		exitGain := entry + (entry * 0.0195)
+		exitLoss := entry - (entry * 0.495)
 
 		for j, rate := range allRates[i:] {
 
@@ -64,7 +64,7 @@ func NewSimulation(name, productId string) Simulation {
 				exit = exitLoss
 			}
 
-			result := exit - entry - (entry * Fee) - (exit * Fee)
+			result := exit - entry - (entry * 0.005) - (exit * 0.005)
 			if result > 0 {
 				won += result
 			} else {

@@ -10,23 +10,11 @@ import (
 	"time"
 )
 
-const (
-	buy           = "buy"
-	market        = "market"
-	sell          = "sell"
-	entry         = "entry"
-	granularity   = 60
-	ticker        = "ticker"
-	subscribe     = "subscribe"
-	subscriptions = "subscriptions"
-	BaseUrl       = "https://api.pro.coinbase.com"
-)
-
 func GetTickerPrice(wsConn *ws.Conn, productId string) float64 {
 
 	if err := wsConn.WriteJSON(&cb.Message{
-		Type:     subscribe,
-		Channels: []cb.MessageChannel{{ticker, []string{productId}}},
+		Type:     "subscribe",
+		Channels: []cb.MessageChannel{{"ticker", []string{productId}}},
 	}); err != nil {
 		panic(err)
 	}
@@ -36,12 +24,12 @@ func GetTickerPrice(wsConn *ws.Conn, productId string) float64 {
 		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
 			panic(err)
 		}
-		if receivedMessage.Type != subscriptions {
+		if receivedMessage.Type != "subscriptions" {
 			break
 		}
 	}
 
-	if receivedMessage.Type != ticker {
+	if receivedMessage.Type != "ticker" {
 		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
 
@@ -85,9 +73,9 @@ func getOrder(username, id string) (cb.Order, error) {
 func CreateMarketOrder(username, productId, size string) (float64, string) {
 	order, err := createOrder(username, &cb.Order{
 		ProductID: productId,
-		Side:      buy,
+		Side:      "buy",
 		Size:      size,
-		Type:      market,
+		Type:      "market",
 	})
 	if err != nil {
 		panic(err)
@@ -101,10 +89,10 @@ func CreateEntryOrder(username, productId, size string, price float64) {
 	_, _ = createOrder(username, &cb.Order{
 		Price:     fmt.Sprintf("%.3f", price),
 		ProductID: productId,
-		Side:      sell,
+		Side:      "sell",
 		Size:      size,
 		StopPrice: fmt.Sprintf("%.3f", price),
-		Stop:      entry,
+		Stop:      "entry",
 	})
 }
 
@@ -167,7 +155,7 @@ func GetHistoricRates(username, productId string, from, to time.Time, attempt ..
 	if rates, err := getClient(username).GetHistoricRates(productId, cb.GetHistoricRatesParams{
 		from,
 		to,
-		granularity,
+		60,
 	}); err != nil {
 		i++
 		if i > 10 {
@@ -183,7 +171,7 @@ func GetHistoricRates(username, productId string, from, to time.Time, attempt ..
 func getClient(username string) *cb.Client {
 	key, pass, secret := GetUserConfig(username)
 	return &cb.Client{
-		BaseUrl,
+		"https://api.pro.coinbase.com",
 		*key,
 		*pass,
 		*secret,

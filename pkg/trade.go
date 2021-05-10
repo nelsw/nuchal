@@ -7,18 +7,10 @@ import (
 	"time"
 )
 
-const (
-	Fee   = 0.005
-	Hi    = 0.0295
-	Lo    = 0.495
-	Twz   = 0.01
-	WsUrl = "wss://ws-feed.pro.coinbase.com"
-)
-
 func CreateTrades(username, productId string) {
 
 	var wsDialer ws.Dialer
-	wsConn, _, err := wsDialer.Dial(WsUrl, nil)
+	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
 	if err != nil {
 		panic(err)
 	}
@@ -42,9 +34,9 @@ func CreateTrades(username, productId string) {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
 
-			if math.Abs(thatFloor-thisFloor) <= Twz {
+			if math.Abs(thatFloor-thisFloor) <= 0.01 {
 				price, size := CreateMarketOrder(username, productId, size(this.Close))
-				CreateEntryOrder(username, productId, size, price+(price*Hi))
+				CreateEntryOrder(username, productId, size, price+(price*0.0195))
 			}
 		}
 

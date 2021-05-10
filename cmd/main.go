@@ -2,22 +2,12 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	. "nchl/pkg"
 	"regexp"
 	"strings"
 )
 
-const (
-	target     = "tgt"
-	trade      = "trade"
-	simulation = "sim"
-	user       = "user"
-)
-
-var (
-	domains = regexp.MustCompile(fmt.Sprintf("%s|%s|%s", trade, simulation, user))
-)
+var domains = regexp.MustCompile(`trade|sim|user`)
 
 func main() {
 
@@ -37,7 +27,7 @@ func main() {
 		panic("domain not recognized yeah ignoramus")
 	}
 
-	if *domain == user {
+	if *domain == "user" {
 		CreateUser(*username, *key, *pass, *secret)
 		return
 	}
@@ -47,7 +37,7 @@ func main() {
 	}
 
 	productId := strings.ToUpper(*symbol) + "-USD"
-	if *domain == simulation {
+	if *domain == "sim" {
 		ServeCharts(NewSimulation(*username, productId))
 		return
 	}
