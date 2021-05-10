@@ -89,20 +89,6 @@ func GetLedgers(username, accountId string) []cb.LedgerEntry {
 	return allChunks
 }
 
-func GetTrades(username, productId string) []cb.Trade {
-	cursor := getClient(username).ListTrades(productId)
-	var newChunks, allChunks []cb.Trade
-	for cursor.HasMore {
-		if err := cursor.NextPage(&newChunks); err != nil {
-			handleError(err)
-		}
-		for _, chunk := range newChunks {
-			allChunks = append(allChunks, chunk)
-		}
-	}
-	return allChunks
-}
-
 func GetAccounts(username string) []cb.Account {
 	if accounts, err := getClient(username).GetAccounts(); err != nil {
 		handleError(err)

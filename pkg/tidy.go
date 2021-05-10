@@ -24,17 +24,18 @@ func CreateEntryOrders(username string) {
 
 	for _, account := range GetAccounts(username) {
 
-		if float(account.Available) == 0 || account.Currency != "ZRX" {
+		if float(account.Available) == 0 || float(account.Balance) == 0 || account.Currency == "USD" {
 			continue
 		}
 
 		var events []Transaction
 		for _, entry := range GetLedgers(username, account.ID) {
-			if float(entry.Balance) == 0 {
+			if float(entry.Amount) == 0 || float(entry.Balance) == 0 {
 				break
 			}
-			for _, f := range FindFillsByOrderId(username, entry.Details.OrderID) {
-				events = append(events, Transaction{entry, f})
+			fmt.Println(pretty(entry))
+			for _, fill := range FindFillsByOrderId(username, entry.Details.OrderID) {
+				events = append(events, Transaction{entry, fill})
 			}
 		}
 
@@ -48,19 +49,17 @@ func CreateEntryOrders(username string) {
 			amt := float(event.Amount)
 			if amt > 0 {
 				eventMap[bal] = event
-			} else {
-				key := math.Abs(amt) + bal
-				if _, ok := eventMap[key]; ok {
-					delete(eventMap, key)
-				} else {
-					fmt.Println("fuck")
-				}
+				continue
+			}
+			key := math.Abs(amt) + bal
+			if _, ok := eventMap[key]; ok {
+				delete(eventMap, key)
 			}
 		}
 
-		for _, v := range eventMap {
-			fmt.Println(pretty(v))
-			// calculate entry order
+		for _, event := range eventMap {
+			price := float(event.Price) + (float(event.Price) * stopGain)
+			CreateEntryOrder(username, event.ProductID, event.Size, price)
 		}
 	}
 	fmt.Println(username, "created entry orders")
