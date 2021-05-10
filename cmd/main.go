@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	. "nchl/pkg"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -13,6 +14,7 @@ func main() {
 
 	domain := flag.String("domain", "trade", "a program domain to execute")
 	symbol := flag.String("symbol", "btc", "a crypto product symbol")
+	symbols := flag.String("symbols", "btc,eth,xtz", "a csv list of crypto product symbols")
 	username := flag.String("username", "Connor", "a users first or full username")
 	key := flag.String("key", "example_key", "a Coinbase Pro API key")
 	pass := flag.String("pass", "example_pass_phrase", "a Coinbase Pro API passphrase")
@@ -32,17 +34,36 @@ func main() {
 		return
 	}
 
+	if *domain == "trades" {
+		if symbols == nil {
+			panic("must have symbols to process trades")
+		}
+		exit := make(chan string)
+		for _, s := range strings.Split(*symbols, ",") {
+			go CreateTrades(*username, productId(&s))
+		}
+		for {
+			select {
+			case <-exit:
+				os.Exit(0)
+			}
+		}
+	}
+
 	if symbol == nil {
 		panic("symbol cannot be nil yeah dingus")
 	}
 
-	productId := strings.ToUpper(*symbol) + "-USD"
 	if *domain == "sim" {
-		ServeCharts(NewSimulation(*username, productId))
+		ServeCharts(NewSimulation(*username, productId(symbol)))
 		return
 	}
 
-	// *domain == trade
-	CreateTrades(*username, productId)
+	if *domain == "trade" {
+		CreateTrades(*username, productId(symbol))
+	}
+}
 
+func productId(symbol *string) string {
+	return strings.ToUpper(*symbol) + "-USD"
 }
