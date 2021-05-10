@@ -33,9 +33,9 @@ func ServeCharts(simulation Simulation) {
 		return simulation.Scenarios[i].Time.After(simulation.Scenarios[j].Time)
 	})
 
-	for _, play := range simulation.Scenarios[:25] {
+	for _, s := range simulation.Scenarios[:25] {
 		kline := charts.NewKLine()
-		t := fmt.Sprintf("RESULT: %f\tENTER: %f\tEXIT: %f\tPEAK: %f\t", play.Result, play.Market, play.Entry, play.Exit)
+		t := fmt.Sprintf("RESULT: %f\tMARKET: %f\tENTRY: %f\tEXIT: %f\t", s.Result, s.Market, s.Entry, s.Exit)
 
 		kline.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
@@ -56,9 +56,9 @@ func ServeCharts(simulation Simulation) {
 		)
 		x := make([]string, 0)
 		y := make([]opts.KlineData, 0)
-		for i := 0; i < len(play.Rates); i++ {
-			x = append(x, play.Rates[i].Time().String())
-			y = append(y, opts.KlineData{Value: play.Rates[i].Data()})
+		for i := 0; i < len(s.Rates); i++ {
+			x = append(x, s.Rates[i].Time().String())
+			y = append(y, opts.KlineData{Value: s.Rates[i].Data()})
 		}
 
 		kline.SetXAxis(x).AddSeries("kline", y).
