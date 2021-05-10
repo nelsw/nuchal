@@ -3,26 +3,11 @@
 bld:
 	cd cmd && go build main.go
 
-cht: bld
-	echo "\n...build ${s} charts"
-	cmd/main cht ${s} "${u}"
-	echo "\n...built ${s} charts"
-
-hst: bld
-	echo "\n...build ${s} history"
-	cmd/main hst ${s} "${u}"
-	echo "\n...built ${s} history"
-
 it: bld
-	echo "\n...run ${s} trades for ${u}"
-	cmd/main trade ${s} "${u}"
+	cmd/main -domain=trade -symbol=${s} -username="${u}"
 
 sim: bld
-	echo "\n...run ${s} simulation for ${u}\n"
-	cmd/main sim ${s} "${u}"
-	echo "\n...ran ${s} simulation for ${u}\n"
+	cmd/main -domain=sim -symbol=${s} -username="${u}"
 
 user: bld
-	echo "\n...build user ${u}"
-	cmd/main user "${u}" ${k} ${p} ${s}
-	echo "\n...built user ${u}"
+	cmd/main -domain=user -username="${u}" -key=${k} -pass=${p} -secret=${s}
