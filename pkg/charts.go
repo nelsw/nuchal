@@ -30,7 +30,7 @@ func ServeCharts(simulation Simulation) {
 	fmt.Println()
 
 	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
-		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
+		return simulation.Scenarios[i].Time.After(simulation.Scenarios[j].Time)
 	})
 
 	for _, play := range simulation.Scenarios[:25] {
