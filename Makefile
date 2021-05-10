@@ -7,7 +7,7 @@ it: bld
 	cmd/main -domain=trade -symbol=${s} -username="${u}"
 
 trades: bld
-	cmd/main -domain=trades -symbols=${s} -username="${u}"
+	cmd/main -domain=trades -symbol=${s} -username="${u}"
 
 sim: bld
 	cmd/main -domain=sim -symbol=${s} -username="${u}"
