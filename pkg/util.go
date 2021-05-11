@@ -16,9 +16,9 @@ const (
 
 func size(price float64) string {
 	if price < 1 {
-		return "1"
+		return "10"
 	} else if price < 2 {
-		return "1"
+		return "5"
 	} else {
 		return "1"
 	}
@@ -46,20 +46,8 @@ func float(s string) float64 {
 	}
 }
 
-func toInt(s string) int {
-	i, err := strconv.Atoi(s)
-	if err != nil {
-		panic(err)
-	}
-	return i
-}
-
 func formatPrice(f float64) string {
 	return fmt.Sprintf("%.3f", f)
-}
-
-func float6(f float64) string {
-	return fmt.Sprintf("%.6f", f)
 }
 
 func getClient(username string) *cb.Client {

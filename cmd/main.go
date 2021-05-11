@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-var domains = regexp.MustCompile(`trade|sim|user|tidy`)
+var domains = regexp.MustCompile(`trade|sim|user|tidy|now`)
 
 func main() {
 
@@ -39,6 +39,11 @@ func main() {
 
 	if *domain == "sim" {
 		ServeCharts(NewSimulation(*username, ProductId(symbol)))
+		return
+	}
+
+	if *domain == "now" {
+		ServeCharts(NewRecentSimulation(*username, ProductId(symbol)))
 		return
 	}
 

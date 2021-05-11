@@ -27,12 +27,21 @@ type Scenario struct {
 	Market, Entry, Exit, Result float64
 }
 
+func NewRecentSimulation(name, productId string) Simulation {
+	fmt.Println("creating recent simulation")
+	s := newSimulation(GetRecentRates(name, productId), productId)
+	fmt.Println("created recent simulation")
+	return s
+}
+
 func NewSimulation(name, productId string) Simulation {
-
 	fmt.Println("creating simulation")
+	s := newSimulation(GetRates(name, productId), productId)
+	fmt.Println("crated simulation")
+	return s
+}
 
-	rates := GetRates(name, productId)
-
+func newSimulation(rates []Rate, productId string) Simulation {
 	var positionIndexes []int
 	var then, that Rate
 
@@ -89,7 +98,7 @@ func NewSimulation(name, productId string) Simulation {
 
 			scenarios = append(scenarios, Scenario{
 				rate.Time(),
-				rates[alpha : i+j+1],
+				rates[alpha : i+j+2],
 				market,
 				entry,
 				exit,

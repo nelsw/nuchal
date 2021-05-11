@@ -30,10 +30,10 @@ func ServeCharts(simulation Simulation) {
 	fmt.Println()
 
 	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
-		return simulation.Scenarios[i].Time.After(simulation.Scenarios[j].Time)
+		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
 	})
 
-	for _, s := range simulation.Scenarios[:25] {
+	for _, s := range simulation.Scenarios[:10] {
 		kline := charts.NewKLine()
 		t := fmt.Sprintf("RESULT: %f\tMARKET: %f\tENTRY: %f\tEXIT: %f\t", s.Result, s.Market, s.Entry, s.Exit)
 

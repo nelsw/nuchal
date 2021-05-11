@@ -1,4 +1,4 @@
-.SILENT: sim bld it tidy user
+.SILENT: sim bld it tidy user now
 
 bld:
 	cd cmd && go build main.go
@@ -11,6 +11,9 @@ trades: bld
 
 sim: bld
 	cmd/main -domain=sim -symbol=${s} -username="${u}"
+
+now: bld
+	cmd/main -domain=now -symbol=${s} -username="${u}"
 
 tidy: bld
 	cmd/main -domain=tidy -username="${u}"

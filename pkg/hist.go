@@ -44,6 +44,27 @@ func init() {
 	}
 }
 
+func GetRecentRates(name, productId string) []Rate {
+	fmt.Println("finding recent rates")
+
+	var rate Rate
+	db.Where(query, productId).Order(desc).First(&rate)
+
+	from := time.Now().AddDate(0, 0, -1)
+	db.Save(CreateHistoricRates(name, productId, from))
+
+	var allRates []Rate
+
+	db.Where("product_id = ?", productId).
+		Where("unix > ?", from.UnixNano()).
+		Order(asc).
+		Find(&allRates)
+
+	fmt.Println("found recent rates", len(allRates))
+
+	return allRates
+}
+
 func GetRates(name, productId string) []Rate {
 
 	fmt.Println("finding rates")
