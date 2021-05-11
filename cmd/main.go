@@ -2,32 +2,47 @@ package main
 
 import (
 	"flag"
-	"nchl/pkg/chart"
-	"nchl/pkg/model/product"
-	"nchl/pkg/simulation"
+	"nchl/pkg/conf"
+	"nchl/pkg/simulater"
 	"nchl/pkg/trade"
 	"nchl/pkg/user"
 	"os"
+	"time"
 )
 
 func main() {
 
 	username := flag.String("username", "Connor", "a user first or full username")
 	domain := flag.String("domain", "trade", "a program domain to execute")
+	duration := flag.String("duration", "5h30m40s", "the duration to execute the domain function")
 
 	flag.Parse()
 
-	switch *domain {
-	case "user":
-		user.DisplayAccountInfo(*username)
-	case "sim":
-		chart.ServeCharts(simulation.NewSimulation(*username, product.IdToSimulateTrade()))
-	case "now":
-		chart.ServeCharts(simulation.NewRecentSimulation(*username, product.IdToSimulateTrade()))
-	case "trades":
+	cfg := conf.NewDefaultConfig()
+
+	u := cfg.FindUserByFirstName(*username)
+
+	if *domain == "user" {
+		user.DisplayAccountInfo(u)
+		return
+	}
+
+	dur, err := time.ParseDuration(*duration)
+	if err != nil {
+		// we must want to simulate everything ...
+	}
+
+	p := cfg.SimulationProduct()
+
+	if *domain == "sim" {
+		from := time.Now().Add(-dur)
+		simulater.NewSimulation(u, &from, p)
+	}
+
+	if *domain == "trade" {
 		exit := make(chan string)
-		for _, productId := range product.IdsToTrade() {
-			go createTrades(*username, productId)
+		for range cfg.TradeProductIds {
+			go createTrades(u, p)
 		}
 		for {
 			select {
@@ -35,15 +50,13 @@ func main() {
 				os.Exit(0)
 			}
 		}
-	case "tidy":
-		user.CreateEntryOrders(*username)
-	default:
-		panic("domain not recognized yeah ignoramus")
 	}
+
+	panic("domain not recognized")
 }
 
-func createTrades(username, productId string) {
-	if err := trade.CreateTrades(username, productId); err != nil {
-		createTrades(username, productId)
+func createTrades(u conf.User, p conf.Product) {
+	if err := trade.CreateTrades(u, p); err != nil {
+		createTrades(u, p)
 	}
 }

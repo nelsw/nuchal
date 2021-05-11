@@ -7,29 +7,12 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"log"
-	"nchl/pkg/model/rate"
+	"nchl/pkg/conf"
+	"nchl/pkg/rate"
 	"nchl/pkg/util"
 	"net/http"
-	"os"
 	"time"
 )
-
-type User struct {
-	Name       string `json:"name"`
-	Key        string `json:"key"`
-	Passphrase string `json:"passphrase"`
-	Secret     string `json:"secret"`
-}
-
-var config = map[string]User{}
-
-func init() {
-	if file, err := os.Open("./.app/user/config.json"); err != nil {
-		panic(err)
-	} else if err = json.NewDecoder(file).Decode(&config); err != nil {
-		panic(err)
-	}
-}
 
 // GetPrice gets the latest ticker price for the given productId.
 // Note that we omit Logging from this method to avoid blowing up the Logs.
@@ -57,133 +40,84 @@ func GetPrice(wsConn *ws.Conn, productId string) (float64, error) {
 }
 
 // GetTicker gets the latest ticker price for the given productId.
-func GetTicker(username, productId string) string {
-	t, err := getClient(username).GetTicker(productId)
+func GetTicker(user conf.User, productId string) string {
+	t, err := getClient(user).GetTicker(productId)
 	if err != nil {
 		panic(err)
 	}
 	return t.Price
 }
 
-func GetOrderSizeAndPrice(username, productId, id string) (string, float64) {
-	order := GetOrder(username, productId, id)
+func GetOrderSizeAndPrice(user conf.User, productId, id string) (string, float64) {
+	order := GetOrder(user, productId, id)
 	size := order.Size
 	price := util.Float64(order.ExecutedValue) / util.Float64(size)
 	return size, price
 }
 
-func GetOrder(username, productId, id string, attempt ...int) cb.Order {
-	util.Log(username, productId, "find settled order")
+func GetOrder(user conf.User, productId, id string, attempt ...int) cb.Order {
+	Log(user.Name, productId, "find settled order")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
-	if order, err := getClient(username).GetOrder(id); err != nil {
-		util.Log(username, productId, "error finding settled order", err)
+	if order, err := getClient(user).GetOrder(id); err != nil {
+		Log(user.Name, productId, "error finding settled order", err)
 		i++
 		if i > 10 {
 			panic(err)
 		}
 		time.Sleep(time.Duration(i*3) * time.Second)
-		return GetOrder(username, productId, id, i)
+		return GetOrder(user, productId, id, i)
 	} else if !order.Settled {
-		util.Log(username, productId, "found unsettled order")
+		Log(user.Name, productId, "found unsettled order")
 		time.Sleep(1 * time.Second)
-		return GetOrder(username, productId, id, 0)
+		return GetOrder(user, productId, id, 0)
 	} else if order.Status == "pending" {
-		util.Log(username, productId, "found pending order")
+		Log(user.Name, productId, "found pending order")
 		time.Sleep(1 * time.Second)
-		return GetOrder(username, productId, id, 0)
+		return GetOrder(user, productId, id, 0)
 	} else {
-		util.Log(username, productId, "found settled order")
+		Log(user.Name, productId, "found settled order")
 		return order
 	}
 }
 
-func GetFills(username, orderId string) []cb.Fill {
-	cursor := getClient(username).ListFills(cb.ListFillsParams{
-		OrderID: orderId,
-	})
-	var newChunks, allChunks []cb.Fill
-	for cursor.HasMore {
-		if err := cursor.NextPage(&newChunks); err != nil {
-			handleError(err)
-		}
-		for _, chunk := range newChunks {
-			allChunks = append(allChunks, chunk)
-		}
-	}
-	return allChunks
-}
-
-func GetLedgers(username, accountId string) []cb.LedgerEntry {
-	cursor := getClient(username).ListAccountLedger(accountId)
-	var newChunks, allChunks []cb.LedgerEntry
-	for cursor.HasMore {
-		if err := cursor.NextPage(&newChunks); err != nil {
-			handleError(err)
-		}
-		for _, chunk := range newChunks {
-			allChunks = append(allChunks, chunk)
-		}
-	}
-	return allChunks
-}
-
-func GetAccounts(username string) []cb.Account {
-	if accounts, err := getClient(username).GetAccounts(); err != nil {
+func GetAccounts(user conf.User) []cb.Account {
+	if accounts, err := getClient(user).GetAccounts(); err != nil {
 		handleError(err)
-		return GetAccounts(username)
+		return GetAccounts(user)
 	} else {
 		return accounts
 	}
 }
 
-func CreateOrder(username string, order *cb.Order, attempt ...int) *string {
-	util.Log(username, order.ProductID, "creating order", order)
+func CreateOrder(user conf.User, order *cb.Order, attempt ...int) *string {
+	Log(user.Name, order.ProductID, "creating order", order)
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
-	if r, err := getClient(username).CreateOrder(order); err != nil {
-		util.Log(username, order.ProductID, "error creating order", err)
+	if r, err := getClient(user).CreateOrder(order); err != nil {
+		Log(user.Name, order.ProductID, "error creating order", err)
 		i++
 		if i > 10 {
 			return nil
 		}
 		time.Sleep(time.Duration(i*3) * time.Second)
-		return CreateOrder(username, order, i)
+		return CreateOrder(user, order, i)
 	} else {
-		util.Log(username, order.ProductID, "order created", r)
+		Log(user.Name, order.ProductID, "order created", r)
 		return &r.ID
 	}
 }
 
-func CancelOrder(username, productId, orderId string, attempt ...int) {
-	util.Log(username, productId, "cancelling order")
-	var i int
-	if attempt != nil && len(attempt) > 0 {
-		i = attempt[0]
-	}
-	if err := getClient(username).CancelOrder(orderId); err != nil {
-		util.Log(username, productId, "error canceling order", err)
-		i++
-		if i > 10 {
-			handleError(err)
-		}
-		time.Sleep(time.Duration(i*3) * time.Second)
-		CancelOrder(username, productId, orderId, i)
-	} else {
-		util.Log(username, productId, "cancelled order")
-	}
-}
-
-func CreateHistoricRates(username, productId string, from time.Time) []rate.Candlestick {
-	util.Log(username, productId, "getting new rates")
+func CreateHistoricRates(user conf.User, productId string, from time.Time) []rate.Candlestick {
+	Log(user.Name, productId, "getting new rates")
 	to := from.Add(time.Hour * 4)
 	var rates []rate.Candlestick
 	for {
-		for _, r := range GetHistoricRates(username, productId, from, to) {
+		for _, r := range GetHistoricRates(user, productId, from, to) {
 			rates = append(rates, rate.Candlestick{
 				r.Time.UnixNano(),
 				productId,
@@ -195,7 +129,7 @@ func CreateHistoricRates(username, productId string, from time.Time) []rate.Cand
 			})
 		}
 		if to.After(time.Now()) {
-			util.Log(username, productId, "got new rates")
+			Log(user.Name, productId, "got new rates")
 			return rates
 		}
 		from = to
@@ -203,13 +137,13 @@ func CreateHistoricRates(username, productId string, from time.Time) []rate.Cand
 	}
 }
 
-func GetHistoricRates(username, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
-	util.Log(username, productId, "getting historic rates")
+func GetHistoricRates(user conf.User, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
+	Log(user.Name, productId, "getting historic rates")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
-	if rates, err := getClient(username).GetHistoricRates(productId, cb.GetHistoricRatesParams{
+	if rates, err := getClient(user).GetHistoricRates(productId, cb.GetHistoricRatesParams{
 		from,
 		to,
 		60,
@@ -219,9 +153,9 @@ func GetHistoricRates(username, productId string, from, to time.Time, attempt ..
 			panic(err)
 		}
 		time.Sleep(time.Duration(i*3) * time.Second)
-		return GetHistoricRates(username, productId, from, to, i)
+		return GetHistoricRates(user, productId, from, to, i)
 	} else {
-		util.Log(username, productId, "got historic rates")
+		Log(user.Name, productId, "got historic rates")
 		return rates
 	}
 }
@@ -237,8 +171,7 @@ func handleError(err error) {
 	}
 }
 
-func getClient(username string) *cb.Client {
-	user := config[username]
+func getClient(user conf.User) *cb.Client {
 	return &cb.Client{
 		"https://api.pro.coinbase.com",
 		user.Secret,
@@ -249,4 +182,13 @@ func getClient(username string) *cb.Client {
 		},
 		0,
 	}
+}
+
+func Log(username, productId, message string, v ...interface{}) {
+	if v == nil || len(v) == 0 {
+		fmt.Println(fmt.Sprintf("%s - %s - %s", username, productId, message))
+		return
+	}
+	b, _ := json.MarshalIndent(&v, "", "  ")
+	fmt.Println(fmt.Sprintf("%s - %s - %s [%s]", username, productId, message, string(b)))
 }

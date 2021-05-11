@@ -18,7 +18,7 @@ var Client *gorm.DB
 var dbConfig Configuration
 
 func init() {
-	if file, err := os.Open("./.app/db/config.json"); err != nil {
+	if file, err := os.Open("./.conf/db/config.json"); err != nil {
 		panic(err)
 	} else if err = json.NewDecoder(file).Decode(&dbConfig); err != nil {
 		panic(err)
