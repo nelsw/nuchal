@@ -4,6 +4,7 @@ import (
 	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"math"
+	"nchl/pkg/config"
 	"sort"
 	"time"
 )
@@ -58,7 +59,7 @@ func CreateEntryOrders(username string) {
 		}
 
 		for _, event := range eventMap {
-			price := float(event.Price) + (float(event.Price) * stopGain)
+			price := config.PricePlusStopGain(float(event.Price))
 			_, _ = CreateOrder(username, NewStopEntryOrder(event.ProductID, event.Size, price))
 		}
 	}

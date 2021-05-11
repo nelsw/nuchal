@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	"nchl/pkg/db"
 	"time"
 )
 
@@ -39,7 +40,7 @@ const (
 )
 
 func init() {
-	if err := db.AutoMigrate(&Rate{}); err != nil {
+	if err := db.Client.AutoMigrate(&Rate{}); err != nil {
 		panic(err)
 	}
 }
@@ -48,14 +49,14 @@ func GetRecentRates(name, productId string) []Rate {
 	fmt.Println("finding recent rates")
 
 	var rate Rate
-	db.Where(query, productId).Order(desc).First(&rate)
+	db.Client.Where(query, productId).Order(desc).First(&rate)
 
 	from := time.Now().AddDate(0, 0, -1)
-	db.Save(CreateHistoricRates(name, productId, from))
+	db.Client.Save(CreateHistoricRates(name, productId, from))
 
 	var allRates []Rate
 
-	db.Where("product_id = ?", productId).
+	db.Client.Where("product_id = ?", productId).
 		Where("unix > ?", from.UnixNano()).
 		Order(asc).
 		Find(&allRates)
@@ -70,7 +71,7 @@ func GetRates(name, productId string) []Rate {
 	fmt.Println("finding rates")
 
 	var rate Rate
-	db.Where(query, productId).Order(desc).First(&rate)
+	db.Client.Where(query, productId).Order(desc).First(&rate)
 
 	var from time.Time
 	if rate != (Rate{}) {
@@ -79,10 +80,10 @@ func GetRates(name, productId string) []Rate {
 		from, _ = time.Parse(time.RFC3339, timeVal)
 	}
 
-	db.Save(CreateHistoricRates(name, productId, from))
+	db.Client.Save(CreateHistoricRates(name, productId, from))
 
 	var allRates []Rate
-	db.Where(query, productId).Order(asc).Find(&allRates)
+	db.Client.Where(query, productId).Order(asc).Find(&allRates)
 
 	fmt.Println("found rates")
 

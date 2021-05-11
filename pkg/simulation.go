@@ -3,6 +3,7 @@ package pkg
 import (
 	"fmt"
 	"math"
+	"nchl/pkg/config"
 	"time"
 )
 
@@ -67,8 +68,8 @@ func newSimulation(rates []Rate, productId string) Simulation {
 		var entry, exit, result float64
 		market := rates[i].Open
 
-		gain := market + (market * stopGain)
-		loss := market - (market * stopLoss)
+		gain := config.PricePlusStopGain(market)
+		loss := config.PriceMinusStopLoss(market)
 
 		for j, rate := range rates[i:] {
 
@@ -80,9 +81,9 @@ func newSimulation(rates []Rate, productId string) Simulation {
 					exit = rate.Close
 					continue
 				}
-				result = exit - market - (market * 0.005) - (exit * 0.005)
+				result = exit - market - (market * config.Fee()) - (exit * config.Fee())
 			} else if rate.Low <= loss {
-				result = loss - market - (market * 0.005) - (loss * 0.005)
+				result = loss - market - (market * config.Fee()) - (loss * config.Fee())
 			} else {
 				continue
 			}

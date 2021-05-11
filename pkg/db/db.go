@@ -1,21 +1,20 @@
-package pkg
+package db
 
 import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	gol "log"
+	"nchl/pkg/config"
 	"os"
 	"time"
 )
 
-var db *gorm.DB
-
-const dsn = "host=localhost user=postgres password=somePassword dbname=nuchal port=5432"
+var Client *gorm.DB
 
 func init() {
 	var err error
-	if db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	if Client, err = gorm.Open(postgres.Open(config.DatabaseUrl()), &gorm.Config{
 		Logger: logger.New(
 			gol.New(os.Stdout, "\r\n", gol.LstdFlags), // io writer
 			logger.Config{

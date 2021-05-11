@@ -3,7 +3,7 @@ package pkg
 import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
-	"math"
+	"nchl/pkg/config"
 	"time"
 )
 
@@ -33,15 +33,14 @@ func CreateTrades(username, productId string) {
 
 		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			log(username, productId, "pattern recognized")
-			if math.Abs(math.Min(that.Low, that.Close)-math.Min(this.Low, this.Open)) > tweezer {
+			if config.IsTweezer(that.Low, that.Close, this.Low, this.Close) {
 				log(username, productId, "tweezer out of range")
 				continue
 			}
 			log(username, productId, "tweezer in range")
 			if id, err := CreateOrder(username, NewMarketBuyOrder(productId, size(this.Close))); err == nil {
 				size, price := GetOrderSizeAndPrice(username, productId, *id)
-				price += stopGain * price
-				_, _ = CreateOrder(username, NewStopEntryOrder(productId, size, price))
+				_, _ = CreateOrder(username, NewStopEntryOrder(productId, size, config.PricePlusStopGain(price)))
 			}
 		}
 
@@ -71,7 +70,7 @@ func climb(marketPrice float64, username, productId, size string) {
 	var stopPrice float64
 	for {
 		stopPrice = GetPrice(wsConn, productId)
-		if stopPrice >= marketPrice+(marketPrice*stopGain) {
+		if stopPrice >= config.PricePlusStopGain(marketPrice) {
 			log(username, productId, "default stop price found")
 			orderId, err := CreateOrder(username, NewStopLossOrder(productId, size, stopPrice))
 			if err != nil {
