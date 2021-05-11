@@ -1,4 +1,4 @@
-package pkg
+package chart
 
 import (
 	"fmt"
@@ -7,12 +7,13 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"io"
 	gol "log"
+	"nchl/pkg/simulation"
 	"net/http"
 	"os"
 	"sort"
 )
 
-func ServeCharts(simulation Simulation) {
+func ServeCharts(simulation simulation.Simulation) {
 
 	fmt.Println("serving charts")
 
@@ -24,9 +25,9 @@ func ServeCharts(simulation Simulation) {
 	fmt.Println("scenarios", len(simulation.Scenarios))
 	fmt.Println("      won", simulation.Won)
 	fmt.Println("     lost", simulation.Lost)
-	fmt.Println("   result", simulation.sum())
+	fmt.Println("   result", simulation.Sum())
 	fmt.Println("   volume", simulation.Vol)
-	fmt.Println("   return", simulation.result())
+	fmt.Println("   return", simulation.Result())
 	fmt.Println()
 
 	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {

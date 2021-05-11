@@ -1,10 +1,12 @@
-package pkg
+package user
 
 import (
 	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"math"
+	"nchl/pkg/coinbase"
 	"nchl/pkg/config"
+	"nchl/pkg/order"
 	"nchl/pkg/util"
 	"sort"
 	"time"
@@ -24,19 +26,19 @@ func CreateEntryOrders(username string) {
 
 	fmt.Println(username, "creating entry orders")
 
-	for _, account := range GetAccounts(username) {
+	for _, account := range coinbase.GetAccounts(username) {
 
 		if util.Float(account.Available) == 0 || util.Float(account.Balance) == 0 || account.Currency == "USD" {
 			continue
 		}
 
 		var events []Transaction
-		for _, entry := range GetLedgers(username, account.ID) {
+		for _, entry := range coinbase.GetLedgers(username, account.ID) {
 			if util.Float(entry.Amount) == 0 || util.Float(entry.Balance) == 0 {
 				break
 			}
 			fmt.Println(util.Pretty(entry))
-			for _, fill := range GetFills(username, entry.Details.OrderID) {
+			for _, fill := range coinbase.GetFills(username, entry.Details.OrderID) {
 				events = append(events, Transaction{entry, fill})
 			}
 		}
@@ -61,7 +63,7 @@ func CreateEntryOrders(username string) {
 
 		for _, event := range eventMap {
 			price := config.PricePlusStopGain(util.Float(event.Price))
-			_, _ = CreateOrder(username, NewStopEntryOrder(event.ProductID, event.Size, price))
+			_, _ = coinbase.CreateOrder(username, order.NewStopEntryOrder(event.ProductID, event.Size, price))
 		}
 	}
 	fmt.Println(username, "created entry orders")

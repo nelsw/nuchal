@@ -1,4 +1,4 @@
-package pkg
+package order
 
 import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"

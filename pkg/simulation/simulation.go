@@ -1,9 +1,11 @@
-package pkg
+package simulation
 
 import (
 	"fmt"
 	"math"
 	"nchl/pkg/config"
+	"nchl/pkg/history"
+	"nchl/pkg/product"
 	"nchl/pkg/util"
 	"time"
 )
@@ -15,40 +17,40 @@ type Simulation struct {
 	From, To       time.Time
 }
 
-func (s Simulation) sum() float64 {
+func (s Simulation) Sum() float64 {
 	return s.Won + s.Lost
 }
 
-func (s Simulation) result() float64 {
-	return s.sum() / s.Vol
+func (s Simulation) Result() float64 {
+	return s.Sum() / s.Vol
 }
 
 type Scenario struct {
 	Time                        time.Time
-	Rates                       []Rate
+	Rates                       []history.Rate
 	Market, Entry, Exit, Result float64
 }
 
 func NewRecentSimulation(name, productId string) Simulation {
 	fmt.Println("creating recent simulation")
-	s := newSimulation(GetRecentRates(name, productId), productId)
+	s := newSimulation(history.GetRecentRates(name, productId), productId)
 	fmt.Println("created recent simulation")
 	return s
 }
 
 func NewSimulation(name, productId string) Simulation {
 	fmt.Println("creating simulation")
-	s := newSimulation(GetRates(name, productId), productId)
+	s := newSimulation(history.GetRates(name, productId), productId)
 	fmt.Println("crated simulation")
 	return s
 }
 
-func newSimulation(rates []Rate, productId string) Simulation {
+func newSimulation(rates []history.Rate, productId string) Simulation {
 	var positionIndexes []int
-	var then, that Rate
+	var then, that history.Rate
 
 	for i, this := range rates {
-		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
+		if then != (history.Rate{}) && that != (history.Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
 			thatFloor := math.Min(that.Low, that.Close)
 			thisFloor := math.Min(this.Low, this.Open)
 			if math.Abs(thatFloor-thisFloor) <= 0.01 {
@@ -89,7 +91,7 @@ func newSimulation(rates []Rate, productId string) Simulation {
 				continue
 			}
 
-			result *= util.Float(size(market))
+			result *= util.Float(product.Size(market))
 			if result > 0 {
 				won += result
 			} else {

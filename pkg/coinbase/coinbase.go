@@ -1,9 +1,11 @@
-package pkg
+package coinbase
 
 import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"nchl/pkg/history"
+	"nchl/pkg/user"
 	"nchl/pkg/util"
 	"net/http"
 	"time"
@@ -146,13 +148,13 @@ func CancelOrder(username, productId, orderId string, attempt ...int) {
 	}
 }
 
-func CreateHistoricRates(username, productId string, from time.Time) []Rate {
+func CreateHistoricRates(username, productId string, from time.Time) []history.Rate {
 	util.Log(username, productId, "getting new rates")
 	to := from.Add(time.Hour * 4)
-	var rates []Rate
+	var rates []history.Rate
 	for {
 		for _, rate := range GetHistoricRates(username, productId, from, to) {
-			rates = append(rates, Rate{
+			rates = append(rates, history.Rate{
 				rate.Time.UnixNano(),
 				productId,
 				rate.Low,
@@ -206,7 +208,7 @@ func handleError(err error) {
 }
 
 func getClient(username string) *cb.Client {
-	key, pass, secret := GetUserConfig(username)
+	key, pass, secret := user.GetUserConfig(username)
 	return &cb.Client{
 		"https://api.pro.coinbase.com",
 		*secret,

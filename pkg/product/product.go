@@ -1,4 +1,4 @@
-package pkg
+package product
 
 import "strings"
 
@@ -79,7 +79,7 @@ func Currency(productId string) string {
 }
 
 // todo - load prices to product
-func size(price float64) string {
+func Size(price float64) string {
 	if price < 1 {
 		return "10"
 	} else if price < 2 {

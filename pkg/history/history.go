@@ -1,7 +1,8 @@
-package pkg
+package history
 
 import (
 	"fmt"
+	"nchl/pkg/coinbase"
 	"nchl/pkg/db"
 	"time"
 )
@@ -52,7 +53,7 @@ func GetRecentRates(name, productId string) []Rate {
 	db.Client.Where(query, productId).Order(desc).First(&rate)
 
 	from := time.Now().AddDate(0, 0, -1)
-	db.Client.Save(CreateHistoricRates(name, productId, from))
+	db.Client.Save(coinbase.CreateHistoricRates(name, productId, from))
 
 	var allRates []Rate
 
@@ -80,7 +81,7 @@ func GetRates(name, productId string) []Rate {
 		from, _ = time.Parse(time.RFC3339, timeVal)
 	}
 
-	db.Client.Save(CreateHistoricRates(name, productId, from))
+	db.Client.Save(coinbase.CreateHistoricRates(name, productId, from))
 
 	var allRates []Rate
 	db.Client.Where(query, productId).Order(asc).Find(&allRates)

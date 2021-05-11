@@ -2,7 +2,11 @@ package main
 
 import (
 	"flag"
-	. "nchl/pkg"
+	"nchl/pkg/chart"
+	"nchl/pkg/product"
+	"nchl/pkg/simulation"
+	"nchl/pkg/trade"
+	"nchl/pkg/user"
 	"os"
 	"regexp"
 	"strings"
@@ -29,7 +33,7 @@ func main() {
 	}
 
 	if *domain == "user" {
-		CreateUser(*username, *key, *pass, *secret)
+		user.CreateUser(*username, *key, *pass, *secret)
 		return
 	}
 
@@ -38,19 +42,19 @@ func main() {
 	}
 
 	if *domain == "sim" {
-		ServeCharts(NewSimulation(*username, ProductId(symbol)))
+		chart.ServeCharts(simulation.NewSimulation(*username, product.ProductId(symbol)))
 		return
 	}
 
 	if *domain == "now" {
-		ServeCharts(NewRecentSimulation(*username, ProductId(symbol)))
+		chart.ServeCharts(simulation.NewRecentSimulation(*username, product.ProductId(symbol)))
 		return
 	}
 
 	if *domain == "trades" {
 		exit := make(chan string)
 		for _, s := range strings.Split(*symbol, ",") {
-			go CreateTrades(*username, ProductId(&s))
+			go trade.CreateTrades(*username, product.ProductId(&s))
 		}
 		for {
 			select {
@@ -61,11 +65,11 @@ func main() {
 	}
 
 	if *domain == "trade" {
-		CreateTrades(*username, ProductId(symbol))
+		trade.CreateTrades(*username, product.ProductId(symbol))
 	}
 
 	if *domain == "tidy" {
-		CreateEntryOrders(*username)
+		user.CreateEntryOrders(*username)
 	}
 
 }
