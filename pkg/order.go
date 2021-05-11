@@ -27,8 +27,8 @@ const (
 	limit  orderType = "limit"
 	buy    orderSide = "buy"
 	sell   orderSide = "sell"
-	loss   orderStop = "buy"
-	entry  orderStop = "sell"
+	loss   orderStop = "loss"
+	entry  orderStop = "entry"
 )
 
 func NewMarketBuyOrder(productId, size string) *cb.Order {
