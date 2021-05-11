@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"nchl/pkg/config"
+	"nchl/pkg/util"
 	"time"
 )
 
@@ -88,7 +89,7 @@ func newSimulation(rates []Rate, productId string) Simulation {
 				continue
 			}
 
-			result *= float(size(market))
+			result *= util.Float(size(market))
 			if result > 0 {
 				won += result
 			} else {

@@ -2,6 +2,7 @@ package pkg
 
 import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"nchl/pkg/util"
 )
 
 type orderType string
@@ -42,24 +43,24 @@ func NewMarketBuyOrder(productId, size string) *cb.Order {
 
 func NewStopEntryOrder(productId, size string, price float64) *cb.Order {
 	return &cb.Order{
-		Price:     formatPrice(price),
+		Price:     util.Price(price),
 		ProductID: productId,
 		Side:      sell.String(),
 		Size:      size,
 		Type:      limit.String(),
-		StopPrice: formatPrice(price),
+		StopPrice: util.Price(price),
 		Stop:      entry.String(),
 	}
 }
 
 func NewStopLossOrder(productId, size string, price float64) *cb.Order {
 	return &cb.Order{
-		Price:     formatPrice(price),
+		Price:     util.Price(price),
 		ProductID: productId,
 		Side:      sell.String(),
 		Size:      size,
 		Type:      limit.String(),
-		StopPrice: formatPrice(price),
+		StopPrice: util.Price(price),
 		Stop:      loss.String(),
 	}
 }

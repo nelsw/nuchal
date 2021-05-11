@@ -5,6 +5,7 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"math"
 	"nchl/pkg/config"
+	"nchl/pkg/util"
 	"sort"
 	"time"
 )
@@ -25,16 +26,16 @@ func CreateEntryOrders(username string) {
 
 	for _, account := range GetAccounts(username) {
 
-		if float(account.Available) == 0 || float(account.Balance) == 0 || account.Currency == "USD" {
+		if util.Float(account.Available) == 0 || util.Float(account.Balance) == 0 || account.Currency == "USD" {
 			continue
 		}
 
 		var events []Transaction
 		for _, entry := range GetLedgers(username, account.ID) {
-			if float(entry.Amount) == 0 || float(entry.Balance) == 0 {
+			if util.Float(entry.Amount) == 0 || util.Float(entry.Balance) == 0 {
 				break
 			}
-			fmt.Println(pretty(entry))
+			fmt.Println(util.Pretty(entry))
 			for _, fill := range GetFills(username, entry.Details.OrderID) {
 				events = append(events, Transaction{entry, fill})
 			}
@@ -46,8 +47,8 @@ func CreateEntryOrders(username string) {
 
 		eventMap := map[float64]Transaction{}
 		for _, event := range events {
-			bal := float(event.Balance)
-			amt := float(event.Amount)
+			bal := util.Float(event.Balance)
+			amt := util.Float(event.Amount)
 			if amt > 0 {
 				eventMap[bal] = event
 				continue
@@ -59,7 +60,7 @@ func CreateEntryOrders(username string) {
 		}
 
 		for _, event := range eventMap {
-			price := config.PricePlusStopGain(float(event.Price))
+			price := config.PricePlusStopGain(util.Float(event.Price))
 			_, _ = CreateOrder(username, NewStopEntryOrder(event.ProductID, event.Size, price))
 		}
 	}

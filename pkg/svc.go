@@ -4,12 +4,13 @@ import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"nchl/pkg/util"
 	"net/http"
 	"time"
 )
 
 // GetPrice gets the latest ticker price for the given productId.
-// Note that we omit logging from this method to avoid blowing up the logs.
+// Note that we omit Logging from this method to avoid blowing up the Logs.
 func GetPrice(wsConn *ws.Conn, productId string) float64 {
 	if err := wsConn.WriteJSON(&cb.Message{
 		Type:     "subscribe",
@@ -29,24 +30,24 @@ func GetPrice(wsConn *ws.Conn, productId string) float64 {
 	if receivedMessage.Type != "ticker" {
 		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
-	return float(receivedMessage.Price)
+	return util.Float(receivedMessage.Price)
 }
 
 func GetOrderSizeAndPrice(username, productId, id string) (string, float64) {
 	order := GetOrder(username, productId, id)
 	size := order.Size
-	price := float(order.ExecutedValue) / float(size)
+	price := util.Float(order.ExecutedValue) / util.Float(size)
 	return size, price
 }
 
 func GetOrder(username, productId, id string, attempt ...int) cb.Order {
-	log(username, productId, "find settled order")
+	util.Log(username, productId, "find settled order")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
 	if order, err := getClient(username).GetOrder(id); err != nil {
-		log(username, productId, "error finding settled order", err)
+		util.Log(username, productId, "error finding settled order", err)
 		i++
 		if i > 10 {
 			panic(err)
@@ -54,15 +55,15 @@ func GetOrder(username, productId, id string, attempt ...int) cb.Order {
 		time.Sleep(time.Duration(i*3) * time.Second)
 		return GetOrder(username, productId, id, i)
 	} else if !order.Settled {
-		log(username, productId, "found unsettled order")
+		util.Log(username, productId, "found unsettled order")
 		time.Sleep(1 * time.Second)
 		return GetOrder(username, productId, id, 0)
 	} else if order.Status == "pending" {
-		log(username, productId, "found pending order")
+		util.Log(username, productId, "found pending order")
 		time.Sleep(1 * time.Second)
 		return GetOrder(username, productId, id, 0)
 	} else {
-		log(username, productId, "found settled order")
+		util.Log(username, productId, "found settled order")
 		return order
 	}
 }
@@ -107,13 +108,13 @@ func GetAccounts(username string) []cb.Account {
 }
 
 func CreateOrder(username string, order *cb.Order, attempt ...int) (*string, error) {
-	log(username, order.ProductID, "creating order", order)
+	util.Log(username, order.ProductID, "creating order", order)
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
 	if r, err := getClient(username).CreateOrder(order); err != nil {
-		log(username, order.ProductID, "error creating order", err)
+		util.Log(username, order.ProductID, "error creating order", err)
 		i++
 		if i > 10 {
 			return nil, err
@@ -121,19 +122,19 @@ func CreateOrder(username string, order *cb.Order, attempt ...int) (*string, err
 		time.Sleep(time.Duration(i*3) * time.Second)
 		return CreateOrder(username, order, i)
 	} else {
-		log(username, order.ProductID, "order created", r)
+		util.Log(username, order.ProductID, "order created", r)
 		return &r.ID, nil
 	}
 }
 
 func CancelOrder(username, productId, orderId string, attempt ...int) {
-	log(username, productId, "cancelling order")
+	util.Log(username, productId, "cancelling order")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
 	}
 	if err := getClient(username).CancelOrder(orderId); err != nil {
-		log(username, productId, "error canceling order", err)
+		util.Log(username, productId, "error canceling order", err)
 		i++
 		if i > 10 {
 			handleError(err)
@@ -141,12 +142,12 @@ func CancelOrder(username, productId, orderId string, attempt ...int) {
 		time.Sleep(time.Duration(i*3) * time.Second)
 		CancelOrder(username, productId, orderId, i)
 	} else {
-		log(username, productId, "cancelled order")
+		util.Log(username, productId, "cancelled order")
 	}
 }
 
 func CreateHistoricRates(username, productId string, from time.Time) []Rate {
-	log(username, productId, "getting new rates")
+	util.Log(username, productId, "getting new rates")
 	to := from.Add(time.Hour * 4)
 	var rates []Rate
 	for {
@@ -162,7 +163,7 @@ func CreateHistoricRates(username, productId string, from time.Time) []Rate {
 			})
 		}
 		if to.After(time.Now()) {
-			log(username, productId, "got new rates")
+			util.Log(username, productId, "got new rates")
 			return rates
 		}
 		from = to
@@ -171,7 +172,7 @@ func CreateHistoricRates(username, productId string, from time.Time) []Rate {
 }
 
 func GetHistoricRates(username, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
-	log(username, productId, "getting historic rates")
+	util.Log(username, productId, "getting historic rates")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
 		i = attempt[0]
@@ -188,7 +189,7 @@ func GetHistoricRates(username, productId string, from, to time.Time, attempt ..
 		time.Sleep(time.Duration(i*3) * time.Second)
 		return GetHistoricRates(username, productId, from, to, i)
 	} else {
-		log(username, productId, "got historic rates")
+		util.Log(username, productId, "got historic rates")
 		return rates
 	}
 }
