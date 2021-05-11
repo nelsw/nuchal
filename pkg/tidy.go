@@ -34,7 +34,7 @@ func CreateEntryOrders(username string) {
 				break
 			}
 			fmt.Println(pretty(entry))
-			for _, fill := range FindFillsByOrderId(username, entry.Details.OrderID) {
+			for _, fill := range GetFills(username, entry.Details.OrderID) {
 				events = append(events, Transaction{entry, fill})
 			}
 		}
@@ -59,7 +59,7 @@ func CreateEntryOrders(username string) {
 
 		for _, event := range eventMap {
 			price := float(event.Price) + (float(event.Price) * stopGain)
-			CreateEntryOrder(username, event.ProductID, event.Size, price)
+			_, _ = CreateOrder(username, NewStopEntryOrder(event.ProductID, event.Size, price))
 		}
 	}
 	fmt.Println(username, "created entry orders")

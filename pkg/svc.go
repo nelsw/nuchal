@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"net/http"
 	"time"
 )
 
@@ -29,6 +30,13 @@ func GetPrice(wsConn *ws.Conn, productId string) float64 {
 		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
 	return float(receivedMessage.Price)
+}
+
+func GetOrderSizeAndPrice(username, productId, id string) (string, float64) {
+	order := GetOrder(username, productId, id)
+	size := order.Size
+	price := float(order.ExecutedValue) / float(size)
+	return size, price
 }
 
 func GetOrder(username, productId, id string, attempt ...int) cb.Order {
@@ -59,7 +67,7 @@ func GetOrder(username, productId, id string, attempt ...int) cb.Order {
 	}
 }
 
-func FindFillsByOrderId(username, orderId string) []cb.Fill {
+func GetFills(username, orderId string) []cb.Fill {
 	cursor := getClient(username).ListFills(cb.ListFillsParams{
 		OrderID: orderId,
 	})
@@ -98,70 +106,7 @@ func GetAccounts(username string) []cb.Account {
 	}
 }
 
-func CreateMarketBuyOrder(username, productId, size string) (float64, string) {
-	log(username, productId, "creating market buy order")
-	if order, err := createOrder(username, &cb.Order{
-		ProductID: productId,
-		Side:      "buy",
-		Size:      size,
-		Type:      "market",
-	}); err != nil {
-		log(username, productId, "error creating market buy order", err)
-		handleError(err)
-		return CreateMarketBuyOrder(username, productId, size)
-	} else {
-		log(username, productId, "created market buy order", order)
-		settledOrder := GetOrder(username, productId, order.ID)
-		return float(settledOrder.ExecutedValue) / float(settledOrder.Size), settledOrder.Size
-	}
-}
-
-func CreateEntryOrder(username, productId, size string, price float64) {
-	fmt.Println("creating entry order")
-	_, err := createOrder(username, &cb.Order{
-		Price:     formatPrice(price),
-		ProductID: productId,
-		Side:      "sell",
-		Size:      size,
-		StopPrice: formatPrice(price),
-		Stop:      "entry",
-	})
-	if err != nil {
-		fmt.Println("error creating entry order")
-	} else {
-		fmt.Println("created entry order")
-	}
-}
-
-func CreateStopLossOrder(username, productId, size string, price float64, attempt ...int) string {
-	log(username, productId, "creating stop loss order")
-	var i int
-	if attempt != nil && len(attempt) > 0 {
-		i = attempt[0]
-	}
-	stopLossOrder, err := createOrder(username, &cb.Order{
-		Price:     formatPrice(price),
-		ProductID: productId,
-		Side:      "sell",
-		Size:      size,
-		StopPrice: formatPrice(price),
-		Stop:      "loss",
-	})
-	if err != nil {
-		log(username, productId, "error creating stop loss order", err)
-		i++
-		if i > 10 {
-			handleError(err)
-		}
-		time.Sleep(time.Duration(i*3) * time.Second)
-		return CreateStopLossOrder(username, productId, size, price, i)
-	} else {
-		log(username, productId, "created stop loss order", stopLossOrder)
-		return stopLossOrder.ID
-	}
-}
-
-func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, error) {
+func CreateOrder(username string, order *cb.Order, attempt ...int) (*string, error) {
 	log(username, order.ProductID, "creating order", order)
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -174,10 +119,10 @@ func createOrder(username string, order *cb.Order, attempt ...int) (*cb.Order, e
 			return nil, err
 		}
 		time.Sleep(time.Duration(i*3) * time.Second)
-		return createOrder(username, order, i)
+		return CreateOrder(username, order, i)
 	} else {
 		log(username, order.ProductID, "order created", r)
-		return &r, nil
+		return &r.ID, nil
 	}
 }
 
@@ -256,5 +201,19 @@ func handleError(err error) {
 		time.Sleep(time.Duration(1) * time.Minute)
 	default:
 		panic(err)
+	}
+}
+
+func getClient(username string) *cb.Client {
+	key, pass, secret := GetUserConfig(username)
+	return &cb.Client{
+		"https://api.pro.coinbase.com",
+		*secret,
+		*key,
+		*pass,
+		&http.Client{
+			Timeout: 15 * time.Second,
+		},
+		0,
 	}
 }

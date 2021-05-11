@@ -32,17 +32,16 @@ func CreateTrades(username, productId string) {
 		this := rate(wsConn, productId, end)
 
 		if then != (Rate{}) && that != (Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
-
 			log(username, productId, "pattern recognized")
-			thatFloor := math.Min(that.Low, that.Close)
-			thisFloor := math.Min(this.Low, this.Open)
-
-			if math.Abs(thatFloor-thisFloor) <= 0.01 {
-				log(username, productId, "tweezer in range")
-				price, size := CreateMarketBuyOrder(username, productId, size(this.Close))
-				go climb(price, username, productId, size)
-			} else {
+			if math.Abs(math.Min(that.Low, that.Close)-math.Min(this.Low, this.Open)) > tweezer {
 				log(username, productId, "tweezer out of range")
+				continue
+			}
+			log(username, productId, "tweezer in range")
+			if id, err := CreateOrder(username, NewMarketBuyOrder(productId, size(this.Close))); err == nil {
+				size, price := GetOrderSizeAndPrice(username, productId, *id)
+				price += stopGain * price
+				_, _ = CreateOrder(username, NewStopEntryOrder(productId, size, price))
 			}
 		}
 
@@ -53,6 +52,7 @@ func CreateTrades(username, productId string) {
 	}
 }
 
+// todo
 func climb(marketPrice float64, username, productId, size string) {
 
 	log(username, productId, "climb started")
@@ -69,61 +69,71 @@ func climb(marketPrice float64, username, productId, size string) {
 	}(wsConn)
 
 	var stopPrice float64
-	var orderId string
 	for {
 		stopPrice = GetPrice(wsConn, productId)
 		if stopPrice >= marketPrice+(marketPrice*stopGain) {
 			log(username, productId, "default stop price found")
-			orderId = CreateStopLossOrder(username, productId, size, stopPrice)
-			break
+			orderId, err := CreateOrder(username, NewStopLossOrder(productId, size, stopPrice))
+			if err != nil {
+				continue
+			}
+			for {
+
+				start := time.Now()
+				end := start.Add(time.Minute)
+
+				log(username, productId, "analyzing rakes")
+
+				rate := rate(wsConn, productId, end)
+				if rate.Low <= stopPrice {
+					log(username, productId, "stop loss executed")
+					break
+				}
+
+				if rate.Close > stopPrice {
+					log(username, productId, "better stop price found")
+					stopPrice = rate.Close
+					CancelOrder(username, productId, *orderId)
+					_, _ = CreateOrder(username, NewStopLossOrder(productId, size, stopPrice))
+				}
+
+				start = end
+				end = start.Add(time.Minute)
+			}
+
+			log(username, productId, "climb completed")
 		}
 	}
-
-	for {
-
-		start := time.Now()
-		end := start.Add(time.Minute)
-
-		log(username, productId, "analyzing rakes")
-
-		rate := rate(wsConn, productId, end)
-		if rate.Low <= stopPrice {
-			log(username, productId, "stop loss executed")
-			break
-		}
-
-		if rate.Close > stopPrice {
-			log(username, productId, "better stop price found")
-			stopPrice = rate.Close
-			CancelOrder(username, productId, orderId)
-			orderId = CreateStopLossOrder(username, productId, size, stopPrice)
-		}
-
-		start = end
-		end = start.Add(time.Minute)
-	}
-
-	log(username, productId, "climb completed")
 }
 
 func rate(wsConn *ws.Conn, productId string, end time.Time) Rate {
-	rate := Rate{}
+
+	var low, high, open, vol float64
 	for {
+
 		price := GetPrice(wsConn, productId)
-		if rate.Low == 0 {
-			rate.Low = price
-			rate.High = price
-			rate.Open = price
-		} else if rate.High < price {
-			rate.High = price
-		} else if rate.Low > price {
-			rate.Low = price
+		vol++
+
+		if low == 0 {
+			low = price
+			high = price
+			open = price
+		} else if high < price {
+			high = price
+		} else if low > price {
+			low = price
 		}
 
 		if time.Now().After(end) {
-			rate.Close = price
-			break
+			return Rate{
+				time.Now().UnixNano(),
+				productId,
+				low,
+				high,
+				open,
+				price,
+				vol,
+			}
 		}
 	}
-	return rate
 }
