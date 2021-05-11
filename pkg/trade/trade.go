@@ -7,11 +7,10 @@ import (
 	"nchl/pkg/model/order"
 	"nchl/pkg/model/product"
 	"nchl/pkg/model/rate"
-	"nchl/pkg/util"
 	"time"
 )
 
-func CreateTrades(username, productId string) {
+func CreateTrades(username, productId string) error {
 
 	fmt.Println("creating trades")
 
@@ -28,10 +27,10 @@ func CreateTrades(username, productId string) {
 
 	var then, that rate.Candlestick
 	for {
-
-		start := time.Now()
-		end := start.Add(time.Minute)
-		this := buildRate(wsConn, productId, end)
+		this, err := buildRate(wsConn, productId)
+		if err != nil {
+			return err
+		}
 
 		if rate.IsTweezer(this, then, that) {
 
@@ -48,68 +47,20 @@ func CreateTrades(username, productId string) {
 	}
 }
 
-// todo
-func climb(marketPrice float64, username, productId, size string) {
-
-	util.Log(username, productId, "climb started")
-
-	var wsDialer ws.Dialer
-	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
-	if err != nil {
-		panic(err)
-	}
-	defer func(wsConn *ws.Conn) {
-		if err := wsConn.Close(); err != nil {
-			fmt.Println(err)
-		}
-	}(wsConn)
-
-	var stopPrice float64
-	for {
-		stopPrice = coinbase.GetPrice(wsConn, productId)
-		if stopPrice >= product.PricePlusStopGain(productId, marketPrice) {
-			util.Log(username, productId, "default stop price found")
-			id := coinbase.CreateOrder(username, order.NewStopLossOrder(productId, size, stopPrice))
-			if id != nil {
-				continue
-			}
-			for {
-
-				start := time.Now()
-				end := start.Add(time.Minute)
-
-				util.Log(username, productId, "analyzing rakes")
-
-				r := buildRate(wsConn, productId, end)
-				if r.Low <= stopPrice {
-					util.Log(username, productId, "stop loss executed")
-					break
-				}
-
-				if r.Close > stopPrice {
-					util.Log(username, productId, "better stop price found")
-					stopPrice = r.Close
-					coinbase.CancelOrder(username, productId, *id)
-					_ = coinbase.CreateOrder(username, order.NewStopLossOrder(productId, size, stopPrice))
-				}
-
-				start = end
-				end = start.Add(time.Minute)
-			}
-
-			util.Log(username, productId, "climb completed")
-		}
-	}
-}
-
-func buildRate(wsConn *ws.Conn, productId string, end time.Time) rate.Candlestick {
+func buildRate(wsConn *ws.Conn, productId string) (rate.Candlestick, error) {
 
 	fmt.Println("building rate")
+
+	end := time.Now().Add(time.Minute)
 
 	var low, high, open, vol float64
 	for {
 
-		price := coinbase.GetPrice(wsConn, productId)
+		price, err := coinbase.GetPrice(wsConn, productId)
+		if err != nil {
+			return rate.Candlestick{}, err
+		}
+
 		vol++
 
 		if low == 0 {
@@ -132,7 +83,7 @@ func buildRate(wsConn *ws.Conn, productId string, end time.Time) rate.Candlestic
 				open,
 				price,
 				vol,
-			}
+			}, nil
 		}
 	}
 }

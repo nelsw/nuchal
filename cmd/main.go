@@ -27,7 +27,7 @@ func main() {
 	case "trades":
 		exit := make(chan string)
 		for _, productId := range product.IdsToTrade() {
-			go trade.CreateTrades(*username, productId)
+			go createTrades(*username, productId)
 		}
 		for {
 			select {
@@ -39,5 +39,11 @@ func main() {
 		user.CreateEntryOrders(*username)
 	default:
 		panic("domain not recognized yeah ignoramus")
+	}
+}
+
+func createTrades(username, productId string) {
+	if err := trade.CreateTrades(username, productId); err != nil {
+		createTrades(username, productId)
 	}
 }

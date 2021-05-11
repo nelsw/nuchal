@@ -2,6 +2,7 @@ package coinbase
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
@@ -32,7 +33,7 @@ func init() {
 
 // GetPrice gets the latest ticker price for the given productId.
 // Note that we omit Logging from this method to avoid blowing up the Logs.
-func GetPrice(wsConn *ws.Conn, productId string) float64 {
+func GetPrice(wsConn *ws.Conn, productId string) (float64, error) {
 	if err := wsConn.WriteJSON(&cb.Message{
 		Type:     "subscribe",
 		Channels: []cb.MessageChannel{{"ticker", []string{productId}}},
@@ -42,19 +43,17 @@ func GetPrice(wsConn *ws.Conn, productId string) float64 {
 	var receivedMessage cb.Message
 	for {
 		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
-			if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
-			}
-			panic(err)
+			log.Printf("error: %v", err)
+			return 0, err
 		}
 		if receivedMessage.Type != "subscriptions" {
 			break
 		}
 	}
 	if receivedMessage.Type != "ticker" {
-		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
+		return 0, errors.New(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
-	return util.Float64(receivedMessage.Price)
+	return util.Float64(receivedMessage.Price), nil
 }
 
 // GetTicker gets the latest ticker price for the given productId.
