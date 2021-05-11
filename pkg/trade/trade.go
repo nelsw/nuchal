@@ -4,10 +4,9 @@ import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	"nchl/pkg/coinbase"
-	"nchl/pkg/config"
-	"nchl/pkg/history"
-	"nchl/pkg/order"
-	"nchl/pkg/product"
+	"nchl/pkg/model/order"
+	"nchl/pkg/model/product"
+	"nchl/pkg/model/rate"
 	"nchl/pkg/util"
 	"time"
 )
@@ -27,32 +26,25 @@ func CreateTrades(username, productId string) {
 		}
 	}(wsConn)
 
-	var then, that history.Rate
+	var then, that rate.Candlestick
 	for {
-
-		util.Log(username, productId, "analyzing rates")
 
 		start := time.Now()
 		end := start.Add(time.Minute)
-		this := rate(wsConn, productId, end)
+		this := buildRate(wsConn, productId, end)
 
-		if then != (history.Rate{}) && that != (history.Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
-			util.Log(username, productId, "pattern recognized")
-			if config.IsTweezer(that.Low, that.Close, this.Low, this.Close) {
-				util.Log(username, productId, "tweezer out of range")
+		if rate.IsTweezer(this, then, that) {
+
+			id := coinbase.CreateOrder(username, order.NewMarketBuyOrder(productId, product.Size(this.Close)))
+			if id == nil { // error occurred and was logged, likely out of funds ... todo
 				continue
 			}
-			util.Log(username, productId, "tweezer in range")
-			if id, err := coinbase.CreateOrder(username, order.NewMarketBuyOrder(productId, product.Size(this.Close))); err == nil {
-				size, price := coinbase.GetOrderSizeAndPrice(username, productId, *id)
-				_, _ = coinbase.CreateOrder(username, order.NewStopEntryOrder(productId, size, config.PricePlusStopGain(price)))
-			}
+			size, price := coinbase.GetOrderSizeAndPrice(username, productId, *id)
+			_ = coinbase.CreateOrder(username, order.NewStopEntryOrder(productId, size, product.PricePlusStopGain(productId, price)))
 		}
 
 		then = that
 		that = this
-		start = end
-		end = start.Add(time.Minute)
 	}
 }
 
@@ -75,10 +67,10 @@ func climb(marketPrice float64, username, productId, size string) {
 	var stopPrice float64
 	for {
 		stopPrice = coinbase.GetPrice(wsConn, productId)
-		if stopPrice >= config.PricePlusStopGain(marketPrice) {
+		if stopPrice >= product.PricePlusStopGain(productId, marketPrice) {
 			util.Log(username, productId, "default stop price found")
-			orderId, err := coinbase.CreateOrder(username, order.NewStopLossOrder(productId, size, stopPrice))
-			if err != nil {
+			id := coinbase.CreateOrder(username, order.NewStopLossOrder(productId, size, stopPrice))
+			if id != nil {
 				continue
 			}
 			for {
@@ -88,17 +80,17 @@ func climb(marketPrice float64, username, productId, size string) {
 
 				util.Log(username, productId, "analyzing rakes")
 
-				rate := rate(wsConn, productId, end)
-				if rate.Low <= stopPrice {
+				r := buildRate(wsConn, productId, end)
+				if r.Low <= stopPrice {
 					util.Log(username, productId, "stop loss executed")
 					break
 				}
 
-				if rate.Close > stopPrice {
+				if r.Close > stopPrice {
 					util.Log(username, productId, "better stop price found")
-					stopPrice = rate.Close
-					coinbase.CancelOrder(username, productId, *orderId)
-					_, _ = coinbase.CreateOrder(username, order.NewStopLossOrder(productId, size, stopPrice))
+					stopPrice = r.Close
+					coinbase.CancelOrder(username, productId, *id)
+					_ = coinbase.CreateOrder(username, order.NewStopLossOrder(productId, size, stopPrice))
 				}
 
 				start = end
@@ -110,7 +102,9 @@ func climb(marketPrice float64, username, productId, size string) {
 	}
 }
 
-func rate(wsConn *ws.Conn, productId string, end time.Time) history.Rate {
+func buildRate(wsConn *ws.Conn, productId string, end time.Time) rate.Candlestick {
+
+	fmt.Println("building rate")
 
 	var low, high, open, vol float64
 	for {
@@ -129,7 +123,8 @@ func rate(wsConn *ws.Conn, productId string, end time.Time) history.Rate {
 		}
 
 		if time.Now().After(end) {
-			return history.Rate{
+			fmt.Println("built rate")
+			return rate.Candlestick{
 				time.Now().UnixNano(),
 				productId,
 				low,

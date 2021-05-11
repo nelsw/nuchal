@@ -7,34 +7,23 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"io"
 	gol "log"
-	"nchl/pkg/simulation"
+	"nchl/pkg/model/report"
 	"net/http"
 	"os"
 	"sort"
 )
 
-func ServeCharts(simulation simulation.Simulation) {
+func ServeCharts(simulation report.Result) {
 
 	fmt.Println("serving charts")
 
 	page := components.NewPage()
-	fmt.Println()
-	fmt.Println("productId", simulation.ProductId)
-	fmt.Println("     from", simulation.From)
-	fmt.Println("       to", simulation.To)
-	fmt.Println("scenarios", len(simulation.Scenarios))
-	fmt.Println("      won", simulation.Won)
-	fmt.Println("     lost", simulation.Lost)
-	fmt.Println("   result", simulation.Sum())
-	fmt.Println("   volume", simulation.Vol)
-	fmt.Println("   return", simulation.Result())
-	fmt.Println()
 
 	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
 		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
 	})
 
-	for _, s := range simulation.Scenarios[:10] {
+	for _, s := range simulation.Scenarios {
 		kline := charts.NewKLine()
 		t := fmt.Sprintf("RESULT: %f\tMARKET: %f\tENTRY: %f\tEXIT: %f\t", s.Result, s.Market, s.Entry, s.Exit)
 

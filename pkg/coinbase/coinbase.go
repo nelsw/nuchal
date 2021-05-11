@@ -1,15 +1,34 @@
 package coinbase
 
 import (
+	"encoding/json"
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nchl/pkg/history"
-	"nchl/pkg/user"
+	"log"
+	"nchl/pkg/model/rate"
 	"nchl/pkg/util"
 	"net/http"
+	"os"
 	"time"
 )
+
+type User struct {
+	Name       string `json:"name"`
+	Key        string `json:"key"`
+	Passphrase string `json:"passphrase"`
+	Secret     string `json:"secret"`
+}
+
+var config = map[string]User{}
+
+func init() {
+	if file, err := os.Open("./.app/user/config.json"); err != nil {
+		panic(err)
+	} else if err = json.NewDecoder(file).Decode(&config); err != nil {
+		panic(err)
+	}
+}
 
 // GetPrice gets the latest ticker price for the given productId.
 // Note that we omit Logging from this method to avoid blowing up the Logs.
@@ -23,6 +42,9 @@ func GetPrice(wsConn *ws.Conn, productId string) float64 {
 	var receivedMessage cb.Message
 	for {
 		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
+			if ws.IsUnexpectedCloseError(err, ws.CloseGoingAway, ws.CloseAbnormalClosure) {
+				log.Printf("error: %v", err)
+			}
 			panic(err)
 		}
 		if receivedMessage.Type != "subscriptions" {
@@ -32,13 +54,22 @@ func GetPrice(wsConn *ws.Conn, productId string) float64 {
 	if receivedMessage.Type != "ticker" {
 		panic(fmt.Sprintf("message type != ticker, %v", receivedMessage))
 	}
-	return util.Float(receivedMessage.Price)
+	return util.Float64(receivedMessage.Price)
+}
+
+// GetTicker gets the latest ticker price for the given productId.
+func GetTicker(username, productId string) string {
+	t, err := getClient(username).GetTicker(productId)
+	if err != nil {
+		panic(err)
+	}
+	return t.Price
 }
 
 func GetOrderSizeAndPrice(username, productId, id string) (string, float64) {
 	order := GetOrder(username, productId, id)
 	size := order.Size
-	price := util.Float(order.ExecutedValue) / util.Float(size)
+	price := util.Float64(order.ExecutedValue) / util.Float64(size)
 	return size, price
 }
 
@@ -109,7 +140,7 @@ func GetAccounts(username string) []cb.Account {
 	}
 }
 
-func CreateOrder(username string, order *cb.Order, attempt ...int) (*string, error) {
+func CreateOrder(username string, order *cb.Order, attempt ...int) *string {
 	util.Log(username, order.ProductID, "creating order", order)
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -119,13 +150,13 @@ func CreateOrder(username string, order *cb.Order, attempt ...int) (*string, err
 		util.Log(username, order.ProductID, "error creating order", err)
 		i++
 		if i > 10 {
-			return nil, err
+			return nil
 		}
 		time.Sleep(time.Duration(i*3) * time.Second)
 		return CreateOrder(username, order, i)
 	} else {
 		util.Log(username, order.ProductID, "order created", r)
-		return &r.ID, nil
+		return &r.ID
 	}
 }
 
@@ -148,20 +179,20 @@ func CancelOrder(username, productId, orderId string, attempt ...int) {
 	}
 }
 
-func CreateHistoricRates(username, productId string, from time.Time) []history.Rate {
+func CreateHistoricRates(username, productId string, from time.Time) []rate.Candlestick {
 	util.Log(username, productId, "getting new rates")
 	to := from.Add(time.Hour * 4)
-	var rates []history.Rate
+	var rates []rate.Candlestick
 	for {
-		for _, rate := range GetHistoricRates(username, productId, from, to) {
-			rates = append(rates, history.Rate{
-				rate.Time.UnixNano(),
+		for _, r := range GetHistoricRates(username, productId, from, to) {
+			rates = append(rates, rate.Candlestick{
+				r.Time.UnixNano(),
 				productId,
-				rate.Low,
-				rate.High,
-				rate.Open,
-				rate.Close,
-				rate.Volume,
+				r.Low,
+				r.High,
+				r.Open,
+				r.Close,
+				r.Volume,
 			})
 		}
 		if to.After(time.Now()) {
@@ -208,12 +239,12 @@ func handleError(err error) {
 }
 
 func getClient(username string) *cb.Client {
-	key, pass, secret := user.GetUserConfig(username)
+	user := config[username]
 	return &cb.Client{
 		"https://api.pro.coinbase.com",
-		*secret,
-		*key,
-		*pass,
+		user.Secret,
+		user.Key,
+		user.Passphrase,
 		&http.Client{
 			Timeout: 15 * time.Second,
 		},

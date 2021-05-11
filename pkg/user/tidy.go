@@ -5,8 +5,8 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"math"
 	"nchl/pkg/coinbase"
-	"nchl/pkg/config"
-	"nchl/pkg/order"
+	order2 "nchl/pkg/model/order"
+	"nchl/pkg/model/product"
 	"nchl/pkg/util"
 	"sort"
 	"time"
@@ -28,13 +28,13 @@ func CreateEntryOrders(username string) {
 
 	for _, account := range coinbase.GetAccounts(username) {
 
-		if util.Float(account.Available) == 0 || util.Float(account.Balance) == 0 || account.Currency == "USD" {
+		if util.Float64(account.Available) == 0 || util.Float64(account.Balance) == 0 || account.Currency == "USD" {
 			continue
 		}
 
 		var events []Transaction
 		for _, entry := range coinbase.GetLedgers(username, account.ID) {
-			if util.Float(entry.Amount) == 0 || util.Float(entry.Balance) == 0 {
+			if util.Float64(entry.Amount) == 0 || util.Float64(entry.Balance) == 0 {
 				break
 			}
 			fmt.Println(util.Pretty(entry))
@@ -49,8 +49,8 @@ func CreateEntryOrders(username string) {
 
 		eventMap := map[float64]Transaction{}
 		for _, event := range events {
-			bal := util.Float(event.Balance)
-			amt := util.Float(event.Amount)
+			bal := util.Float64(event.Balance)
+			amt := util.Float64(event.Amount)
 			if amt > 0 {
 				eventMap[bal] = event
 				continue
@@ -62,8 +62,8 @@ func CreateEntryOrders(username string) {
 		}
 
 		for _, event := range eventMap {
-			price := config.PricePlusStopGain(util.Float(event.Price))
-			_, _ = coinbase.CreateOrder(username, order.NewStopEntryOrder(event.ProductID, event.Size, price))
+			price := product.PricePlusStopGain(event.ProductID, util.Float64(event.Price))
+			_ = coinbase.CreateOrder(username, order2.NewStopEntryOrder(event.ProductID, event.Size, price))
 		}
 	}
 	fmt.Println(username, "created entry orders")

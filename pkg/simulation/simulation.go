@@ -2,67 +2,99 @@ package simulation
 
 import (
 	"fmt"
-	"math"
-	"nchl/pkg/config"
-	"nchl/pkg/history"
-	"nchl/pkg/product"
+	"nchl/pkg/coinbase"
+	"nchl/pkg/db"
+	"nchl/pkg/model/fee"
+	"nchl/pkg/model/product"
+	"nchl/pkg/model/rate"
+	"nchl/pkg/model/report"
 	"nchl/pkg/util"
 	"time"
 )
 
-type Simulation struct {
-	Won, Lost, Vol float64
-	Scenarios      []Scenario
-	ProductId      string
-	From, To       time.Time
+const (
+	asc     = "unix asc"
+	desc    = "unix desc"
+	query   = "product_id = ?"
+	timeVal = "2021-04-01T00:00:00+00:00"
+)
+
+func GetRecentRates(name, productId string) []rate.Candlestick {
+	fmt.Println("finding recent rates")
+
+	var r rate.Candlestick
+	db.Client.Where(query, productId).Order(desc).First(&r)
+
+	from := time.Now().AddDate(0, 0, -1)
+	db.Client.Save(coinbase.CreateHistoricRates(name, productId, from))
+
+	var allRates []rate.Candlestick
+
+	db.Client.Where("product_id = ?", productId).
+		Where("unix > ?", from.UnixNano()).
+		Order(asc).
+		Find(&allRates)
+
+	fmt.Println("found recent rates", len(allRates))
+
+	return allRates
 }
 
-func (s Simulation) Sum() float64 {
-	return s.Won + s.Lost
+func GetRates(name, productId string) []rate.Candlestick {
+
+	fmt.Println("finding rates")
+
+	var r rate.Candlestick
+	db.Client.Where(query, productId).Order(desc).First(&r)
+
+	var from time.Time
+	if r != (rate.Candlestick{}) {
+		from = r.Time()
+	} else {
+		from, _ = time.Parse(time.RFC3339, timeVal)
+	}
+
+	chunks := coinbase.CreateHistoricRates(name, productId, from)
+	fmt.Println(util.Pretty(chunks))
+	db.Client.Save(chunks)
+
+	var allRates []rate.Candlestick
+	db.Client.Where(query, productId).Order(asc).Find(&allRates)
+
+	fmt.Println("found rates", len(allRates))
+
+	return allRates
 }
 
-func (s Simulation) Result() float64 {
-	return s.Sum() / s.Vol
-}
-
-type Scenario struct {
-	Time                        time.Time
-	Rates                       []history.Rate
-	Market, Entry, Exit, Result float64
-}
-
-func NewRecentSimulation(name, productId string) Simulation {
+func NewRecentSimulation(name, productId string) report.Result {
 	fmt.Println("creating recent simulation")
-	s := newSimulation(history.GetRecentRates(name, productId), productId)
+	s := newSimulation(GetRecentRates(name, productId), productId)
 	fmt.Println("created recent simulation")
 	return s
 }
 
-func NewSimulation(name, productId string) Simulation {
+func NewSimulation(name, productId string) report.Result {
 	fmt.Println("creating simulation")
-	s := newSimulation(history.GetRates(name, productId), productId)
+	s := newSimulation(GetRates(name, productId), productId)
 	fmt.Println("crated simulation")
 	return s
 }
 
-func newSimulation(rates []history.Rate, productId string) Simulation {
+func newSimulation(rates []rate.Candlestick, productId string) report.Result {
+
 	var positionIndexes []int
-	var then, that history.Rate
+	var then, that rate.Candlestick
 
 	for i, this := range rates {
-		if then != (history.Rate{}) && that != (history.Rate{}) && then.IsDown() && that.IsDown() && this.IsUp() {
-			thatFloor := math.Min(that.Low, that.Close)
-			thisFloor := math.Min(this.Low, this.Open)
-			if math.Abs(thatFloor-thisFloor) <= 0.01 {
-				positionIndexes = append(positionIndexes, i)
-			}
+		if rate.IsTweezer(then, that, this) {
+			positionIndexes = append(positionIndexes, i)
 		}
 		then = that
 		that = this
 	}
 
 	var won, lost, vol float64
-	var scenarios []Scenario
+	var scenarios []report.Scenario
 
 	for _, i := range positionIndexes {
 
@@ -71,27 +103,27 @@ func newSimulation(rates []history.Rate, productId string) Simulation {
 		var entry, exit, result float64
 		market := rates[i].Open
 
-		gain := config.PricePlusStopGain(market)
-		loss := config.PriceMinusStopLoss(market)
+		gain := product.PricePlusStopGain(productId, market)
+		loss := product.PriceMinusStopLoss(productId, market)
 
-		for j, rate := range rates[i:] {
+		for j, r := range rates[i:] {
 
-			if rate.High >= gain {
+			if r.High >= gain {
 				entry = gain
-				if rate.Low <= entry {
+				if r.Low <= entry {
 					exit = entry
-				} else if rate.Close >= exit {
-					exit = rate.Close
+				} else if r.Close >= exit {
+					exit = r.Close
 					continue
 				}
-				result = exit - market - (market * config.Fee()) - (exit * config.Fee())
-			} else if rate.Low <= loss {
-				result = loss - market - (market * config.Fee()) - (loss * config.Fee())
+				result = exit - market - (market * fee.Base) - (exit * fee.Base)
+			} else if r.Low <= loss {
+				result = loss - market - (market * fee.Base) - (loss * fee.Base)
 			} else {
 				continue
 			}
 
-			result *= util.Float(product.Size(market))
+			result *= util.Float64(product.Size(market))
 			if result > 0 {
 				won += result
 			} else {
@@ -100,8 +132,8 @@ func newSimulation(rates []history.Rate, productId string) Simulation {
 
 			vol += entry
 
-			scenarios = append(scenarios, Scenario{
-				rate.Time(),
+			scenarios = append(scenarios, report.Scenario{
+				r.Time(),
 				rates[alpha : i+j+2],
 				market,
 				entry,
@@ -112,9 +144,7 @@ func newSimulation(rates []history.Rate, productId string) Simulation {
 		}
 	}
 
-	fmt.Println("created simulation")
-
-	return Simulation{
+	simulation := report.Result{
 		won,
 		lost,
 		vol,
@@ -123,4 +153,18 @@ func newSimulation(rates []history.Rate, productId string) Simulation {
 		rates[0].Time(),
 		that.Time(),
 	}
+
+	fmt.Println()
+	fmt.Println("productId", simulation.ProductId)
+	fmt.Println("     from", simulation.From)
+	fmt.Println("       to", simulation.To)
+	fmt.Println("scenarios", len(simulation.Scenarios))
+	fmt.Println("      won", simulation.Won)
+	fmt.Println("     lost", simulation.Lost)
+	fmt.Println("   report", simulation.Sum())
+	fmt.Println("   volume", simulation.Vol)
+	fmt.Println("   return", simulation.Result())
+	fmt.Println()
+
+	return simulation
 }
