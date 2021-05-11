@@ -1,13 +1,17 @@
-package conf
+package pkg
 
 import (
 	"encoding/json"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"nchl/pkg/util"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+	gol "log"
 	"os"
 	"strings"
+	"time"
 )
 
 // Config for the environment
@@ -16,6 +20,7 @@ type Config struct {
 	SimulationProductId string    `json:"simulation_product_id"`
 	TradeProductIds     []string  `json:"trade_product_ids,omitempty"`
 	Users               []User    `json:"users,omitempty"`
+	DatabaseUrl         string    `json:"database_url"`
 }
 
 type Product struct {
@@ -38,14 +43,29 @@ type User struct {
 	Secret     string `json:"secret"`
 }
 
+var db *gorm.DB
+
 // NewDefaultConfig reads configuration from environment variables and validates it
 func NewDefaultConfig() *Config {
 	cfg := new(Config)
+
 	if err := envconfig.Process("", cfg); err != nil {
 		panic(err)
 	} else if file, err := os.Open(".conf/config.json"); err != nil {
 		panic(err)
 	} else if err = json.NewDecoder(file).Decode(&cfg); err != nil {
+		panic(err)
+	} else if db, err = gorm.Open(postgres.Open(cfg.DatabaseUrl), &gorm.Config{
+		Logger: logger.New(
+			gol.New(os.Stdout, "\r\n", gol.LstdFlags), // io writer
+			logger.Config{
+				SlowThreshold:             time.Second,   // Slow SQL threshold
+				LogLevel:                  logger.Silent, // Log level
+				IgnoreRecordNotFoundError: true,          // Ignore ErrRecordNotFound error for logger
+				Colorful:                  false,         // Disable color
+			},
+		),
+	}); err != nil {
 		panic(err)
 	}
 	if cfg.Users == nil || len(cfg.Users) < 1 {
@@ -72,11 +92,11 @@ func NewDefaultConfig() *Config {
 }
 
 func (p Product) stopLoss() float64 {
-	return util.Float64(p.StopLoss)
+	return Float64(p.StopLoss)
 }
 
 func (p Product) stopGain() float64 {
-	return util.Float64(p.StopGain)
+	return Float64(p.StopGain)
 }
 
 func (p Product) EntryPrice(price float64) float64 {
@@ -101,6 +121,7 @@ func (c Config) FindUserByFirstName(name string) User {
 func (c Config) SimulationProduct() Product {
 	for _, product := range c.AllCoinbaseProducts {
 		if product.Id == c.SimulationProductId {
+
 			return product
 		}
 	}

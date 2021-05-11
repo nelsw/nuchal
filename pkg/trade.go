@@ -1,12 +1,9 @@
-package trade
+package pkg
 
 import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nchl/pkg/coinbase"
-	"nchl/pkg/conf"
-	"nchl/pkg/rate"
 	"time"
 )
 
@@ -58,23 +55,11 @@ func NewStopEntryOrder(productId, size string, price float64) *cb.Order {
 	}
 }
 
-func NewStopLossOrder(productId, size string, price float64) *cb.Order {
-	return &cb.Order{
-		Price:     Price(price),
-		ProductID: productId,
-		Side:      sell.String(),
-		Size:      size,
-		Type:      limit.String(),
-		StopPrice: Price(price),
-		Stop:      loss.String(),
-	}
-}
-
 func Price(f float64) string {
 	return fmt.Sprintf("%.3f", f) // todo - get increment units dynamically from cb api
 }
 
-func CreateTrades(user conf.User, product conf.Product) error {
+func CreateTrades(user User, product Product) error {
 
 	fmt.Println("creating trades")
 
@@ -89,21 +74,21 @@ func CreateTrades(user conf.User, product conf.Product) error {
 		}
 	}(wsConn)
 
-	var then, that rate.Candlestick
+	var then, that Candlestick
 	for {
 		this, err := buildRate(wsConn, product.Id)
 		if err != nil {
 			return err
 		}
 
-		if rate.IsTweezer(this, then, that) {
+		if IsTweezer(this, then, that) {
 
-			id := coinbase.CreateOrder(user, NewMarketBuyOrder(product.Id, conf.Size(this.Close)))
+			id := CreateOrder(user, NewMarketBuyOrder(product.Id, Size(this.Close)))
 			if id == nil { // error occurred and was logged, likely out of funds ... todo
 				continue
 			}
-			size, price := coinbase.GetOrderSizeAndPrice(user, product.Id, *id)
-			_ = coinbase.CreateOrder(user, NewStopEntryOrder(product.Id, size, product.EntryPrice(price)))
+			size, price := GetOrderSizeAndPrice(user, product.Id, *id)
+			_ = CreateOrder(user, NewStopEntryOrder(product.Id, size, product.EntryPrice(price)))
 		}
 
 		then = that
@@ -111,7 +96,7 @@ func CreateTrades(user conf.User, product conf.Product) error {
 	}
 }
 
-func buildRate(wsConn *ws.Conn, productId string) (rate.Candlestick, error) {
+func buildRate(wsConn *ws.Conn, productId string) (Candlestick, error) {
 
 	fmt.Println("building rate")
 
@@ -120,9 +105,9 @@ func buildRate(wsConn *ws.Conn, productId string) (rate.Candlestick, error) {
 	var low, high, open, vol float64
 	for {
 
-		price, err := coinbase.GetPrice(wsConn, productId)
+		price, err := GetPrice(wsConn, productId)
 		if err != nil {
-			return rate.Candlestick{}, err
+			return Candlestick{}, err
 		}
 
 		vol++
@@ -139,7 +124,7 @@ func buildRate(wsConn *ws.Conn, productId string) (rate.Candlestick, error) {
 
 		if time.Now().After(end) {
 			fmt.Println("built rate")
-			return rate.Candlestick{
+			return Candlestick{
 				time.Now().UnixNano(),
 				productId,
 				low,

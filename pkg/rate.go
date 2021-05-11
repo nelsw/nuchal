@@ -1,4 +1,4 @@
-package rate
+package pkg
 
 import (
 	"fmt"

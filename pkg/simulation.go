@@ -1,4 +1,4 @@
-package simulater
+package pkg
 
 import (
 	"fmt"
@@ -7,11 +7,6 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"io"
 	"log"
-	"nchl/pkg/coinbase"
-	"nchl/pkg/conf"
-	"nchl/pkg/db"
-	"nchl/pkg/rate"
-	"nchl/pkg/util"
 	"net/http"
 	"os"
 	"sort"
@@ -35,7 +30,7 @@ type Result struct {
 
 type Scenario struct {
 	Time                        time.Time
-	Rates                       []rate.Candlestick
+	Rates                       []Candlestick
 	Market, Entry, Exit, Result float64
 }
 
@@ -47,7 +42,7 @@ func (s Result) Result() float64 {
 	return s.Sum() / s.Vol
 }
 
-func GetRates(user conf.User, productId string, start *time.Time) []rate.Candlestick {
+func GetRates(user User, productId string, start *time.Time) []Candlestick {
 
 	fmt.Println("finding rates")
 
@@ -55,34 +50,34 @@ func GetRates(user conf.User, productId string, start *time.Time) []rate.Candles
 	if start == nil {
 		from, _ = time.Parse(time.RFC3339, timeVal)
 	} else {
-		var r rate.Candlestick
-		db.Client.Where(query, productId).Order(desc).First(&r)
-		if r != (rate.Candlestick{}) {
+		var r Candlestick
+		db.Where(query, productId).Order(desc).First(&r)
+		if r != (Candlestick{}) {
 			from = r.Time()
 		} else {
 			from, _ = time.Parse(time.RFC3339, timeVal)
 		}
 	}
 
-	db.Client.Save(coinbase.CreateHistoricRates(user, productId, from))
+	db.Save(CreateHistoricRates(user, productId, from))
 
-	var allRates []rate.Candlestick
-	db.Client.Where(query, productId).Order(asc).Find(&allRates)
+	var allRates []Candlestick
+	db.Where(query, productId).Order(asc).Find(&allRates)
 
 	fmt.Println("found rates", len(allRates))
 
 	return allRates
 }
 
-func NewSimulation(user conf.User, from *time.Time, product conf.Product) {
+func NewSimulation(user User, from *time.Time, product Product) {
 
 	var positionIndexes []int
-	var then, that rate.Candlestick
+	var then, that Candlestick
 
 	rates := GetRates(user, product.Id, from)
 
 	for i, this := range rates {
-		if rate.IsTweezer(then, that, this) {
+		if IsTweezer(then, that, this) {
 			positionIndexes = append(positionIndexes, i)
 		}
 		then = that
@@ -119,7 +114,7 @@ func NewSimulation(user conf.User, from *time.Time, product conf.Product) {
 				continue
 			}
 
-			result *= util.Float64(conf.Size(market))
+			result *= Float64(Size(market))
 			if result > 0 {
 				won += result
 			} else {
@@ -213,7 +208,18 @@ func NewSimulation(user conf.User, from *time.Time, product conf.Product) {
 		page.AddCharts(kline)
 	}
 
-	fileName := fmt.Sprintf("./html/%s.html", simulation.ProductId)
+	path := "html"
+
+	if ff, err := os.Stat(path); os.IsNotExist(err) {
+		err := os.Mkdir(path, 0755)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Println(ff.Name())
+	}
+
+	fileName := fmt.Sprintf("./%s/%s.html", path, simulation.ProductId)
 
 	if f, err := os.Create(fileName); err != nil {
 		panic(err)
@@ -221,7 +227,7 @@ func NewSimulation(user conf.User, from *time.Time, product conf.Product) {
 		panic(err)
 	}
 
-	fs := http.FileServer(http.Dir("html"))
+	fs := http.FileServer(http.Dir(path))
 	fmt.Println("served charts at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(fs)))
 }

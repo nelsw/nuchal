@@ -2,10 +2,7 @@ package main
 
 import (
 	"flag"
-	"nchl/pkg/conf"
-	"nchl/pkg/simulater"
-	"nchl/pkg/trade"
-	"nchl/pkg/user"
+	"nchl/pkg"
 	"os"
 	"time"
 )
@@ -18,12 +15,12 @@ func main() {
 
 	flag.Parse()
 
-	cfg := conf.NewDefaultConfig()
+	cfg := pkg.NewDefaultConfig()
 
 	u := cfg.FindUserByFirstName(*username)
 
 	if *domain == "user" {
-		user.DisplayAccountInfo(u)
+		pkg.DisplayAccountInfo(u)
 		return
 	}
 
@@ -36,7 +33,7 @@ func main() {
 
 	if *domain == "sim" {
 		from := time.Now().Add(-dur)
-		simulater.NewSimulation(u, &from, p)
+		pkg.NewSimulation(u, &from, p)
 	}
 
 	if *domain == "trade" {
@@ -55,8 +52,8 @@ func main() {
 	panic("domain not recognized")
 }
 
-func createTrades(u conf.User, p conf.Product) {
-	if err := trade.CreateTrades(u, p); err != nil {
+func createTrades(u pkg.User, p pkg.Product) {
+	if err := pkg.CreateTrades(u, p); err != nil {
 		createTrades(u, p)
 	}
 }

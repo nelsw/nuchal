@@ -1,11 +1,8 @@
-package user
+package pkg
 
 import (
 	"encoding/json"
 	"fmt"
-	"nchl/pkg/coinbase"
-	"nchl/pkg/conf"
-	"nchl/pkg/util"
 )
 
 type Portfolio struct {
@@ -41,18 +38,18 @@ func (m USD) String() string {
 	return fmt.Sprintf("$%.2f", x)
 }
 
-func DisplayAccountInfo(user conf.User) {
+func DisplayAccountInfo(user User) {
 
 	var positions []Position
 	var total float64
-	for _, account := range coinbase.GetAccounts(user) {
+	for _, account := range GetAccounts(user) {
 
-		if util.Float64(account.Balance) == 0.0 && util.Float64(account.Hold) == 0.0 {
+		if Float64(account.Balance) == 0.0 && Float64(account.Hold) == 0.0 {
 			continue
 		}
 
 		productId := account.Currency + "-USD"
-		balance := util.Float64(account.Balance)
+		balance := Float64(account.Balance)
 
 		if account.Currency == "USD" {
 			total += balance
@@ -64,7 +61,7 @@ func DisplayAccountInfo(user conf.User) {
 			continue
 		}
 
-		price := util.Float64(coinbase.GetTicker(user, productId))
+		price := Float64(GetTicker(user, productId))
 		value := price * balance
 		total += value
 		positions = append(positions, Position{
