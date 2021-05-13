@@ -1,0 +1,6 @@
+version: '3'
+services:
+  user:
+    build:
+      context: ../../
+      dockerfile: docker/user/Dockerfile

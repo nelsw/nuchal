@@ -1,2 +1,4 @@
 /.conf/
 /html/
+/config/users.json
+*.env

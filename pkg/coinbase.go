@@ -7,6 +7,7 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"log"
+	"nchl/config"
 	"net/http"
 	"time"
 )
@@ -37,7 +38,7 @@ func GetPrice(wsConn *ws.Conn, productId string) (float64, error) {
 }
 
 // GetTicker gets the latest ticker price for the given productId.
-func GetTicker(user User, productId string) string {
+func GetTicker(user config.User, productId string) string {
 	t, err := getClient(user).GetTicker(productId)
 	if err != nil {
 		panic(err)
@@ -45,14 +46,14 @@ func GetTicker(user User, productId string) string {
 	return t.Price
 }
 
-func GetOrderSizeAndPrice(user User, productId, id string) (string, float64) {
+func GetOrderSizeAndPrice(user config.User, productId, id string) (string, float64) {
 	order := GetOrder(user, productId, id)
 	size := order.Size
 	price := Float64(order.ExecutedValue) / Float64(size)
 	return size, price
 }
 
-func GetOrder(user User, productId, id string, attempt ...int) cb.Order {
+func GetOrder(user config.User, productId, id string, attempt ...int) cb.Order {
 	Log(user.Name, productId, "find settled order")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -80,7 +81,7 @@ func GetOrder(user User, productId, id string, attempt ...int) cb.Order {
 	}
 }
 
-func GetAccounts(user User) []cb.Account {
+func GetAccounts(user config.User) []cb.Account {
 	if accounts, err := getClient(user).GetAccounts(); err != nil {
 		handleError(err)
 		return GetAccounts(user)
@@ -89,7 +90,7 @@ func GetAccounts(user User) []cb.Account {
 	}
 }
 
-func CreateOrder(user User, order *cb.Order, attempt ...int) *string {
+func CreateOrder(user config.User, order *cb.Order, attempt ...int) *string {
 	Log(user.Name, order.ProductID, "creating order", order)
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -109,7 +110,7 @@ func CreateOrder(user User, order *cb.Order, attempt ...int) *string {
 	}
 }
 
-func CreateHistoricRates(user User, productId string, from time.Time) []Candlestick {
+func CreateHistoricRates(user config.User, productId string, from time.Time) []Candlestick {
 	Log(user.Name, productId, "getting new rates")
 	to := from.Add(time.Hour * 4)
 	var rates []Candlestick
@@ -134,7 +135,7 @@ func CreateHistoricRates(user User, productId string, from time.Time) []Candlest
 	}
 }
 
-func GetHistoricRates(user User, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
+func GetHistoricRates(user config.User, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
 	Log(user.Name, productId, "getting historic rates")
 	var i int
 	if attempt != nil && len(attempt) > 0 {
@@ -168,7 +169,7 @@ func handleError(err error) {
 	}
 }
 
-func getClient(user User) *cb.Client {
+func getClient(user config.User) *cb.Client {
 	return &cb.Client{
 		"https://api.pro.coinbase.com",
 		user.Secret,

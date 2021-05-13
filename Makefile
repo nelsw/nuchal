@@ -1,19 +1,10 @@
 .SILENT: sim bld tidy now
 
-bld:
-	cd cmd && go build main.go
+trades:
+	cmd/main -domain=trade -name="${u}"
 
-trades: bld
-	cmd/main -domain=trades -username="${u}"
+sim:
+	cd docker/sim && docker-compose up --build
 
-sim: bld
-	cmd/main -domain=sim -username="${u}"
-
-now: bld
-	cmd/main -domain=now -username="${u}"
-
-tidy: bld
-	cmd/main -domain=tidy -username="${u}"
-
-user: bld
-	cmd/main -domain=user -username="${u}"
+user:
+	cd docker/user && docker-compose up --build

@@ -64,13 +64,6 @@ func isTweezerValue(u, v Candlestick) bool {
 	return b
 }
 
-func isTweezerPattern(t, u, v Candlestick) bool { //@f0
-	isTweezerPattern :=
-		t.IsInit() &&
-			u.IsInit() &&
-			t.IsDown() &&
-			u.IsDown() &&
-			v.IsUp()
-	fmt.Println("... is tweezer pattern?", isTweezerPattern)
-	return isTweezerPattern
-} //@f1
+func isTweezerPattern(t, u, v Candlestick) bool {
+	return t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
+}

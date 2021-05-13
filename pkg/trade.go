@@ -4,6 +4,7 @@ import (
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"nchl/pkg/db"
 	"time"
 )
 
@@ -59,7 +60,7 @@ func Price(f float64) string {
 	return fmt.Sprintf("%.3f", f) // todo - get increment units dynamically from cb api
 }
 
-func CreateTrades(user User, product Product) error {
+func CreateTrades(user db.config.User, posture db.config.Posture) error {
 
 	fmt.Println("creating trades")
 
@@ -76,19 +77,20 @@ func CreateTrades(user User, product Product) error {
 
 	var then, that Candlestick
 	for {
-		this, err := buildRate(wsConn, product.Id)
+		this, err := buildRate(wsConn, posture.ProductId())
 		if err != nil {
 			return err
 		}
 
 		if IsTweezer(this, then, that) {
 
-			id := CreateOrder(user, NewMarketBuyOrder(product.Id, Size(this.Close)))
+			id := CreateOrder(user, NewMarketBuyOrder(posture.ProductId(), posture.Size))
 			if id == nil { // error occurred and was logged, likely out of funds ... todo
 				continue
 			}
-			size, price := GetOrderSizeAndPrice(user, product.Id, *id)
-			_ = CreateOrder(user, NewStopEntryOrder(product.Id, size, product.EntryPrice(price)))
+			size, price := GetOrderSizeAndPrice(user, posture.ProductId(), *id)
+			price += price * Float64(posture.Gain)
+			_ = CreateOrder(user, NewStopEntryOrder(posture.ProductId(), size, price))
 		}
 
 		then = that

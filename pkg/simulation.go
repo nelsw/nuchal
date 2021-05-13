@@ -5,8 +5,10 @@ import (
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
+	"github.com/rs/zerolog/log"
 	"io"
-	"log"
+	"nchl/config"
+	"nchl/pkg/db"
 	"net/http"
 	"os"
 	"sort"
@@ -14,6 +16,7 @@ import (
 )
 
 const (
+	path    = "html"
 	fee     = 0.005
 	asc     = "unix asc"
 	desc    = "unix desc"
@@ -42,39 +45,67 @@ func (s Result) Result() float64 {
 	return s.Sum() / s.Vol
 }
 
-func GetRates(user User, productId string, start *time.Time) []Candlestick {
+func init() {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.Mkdir(path, 0755); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func GetRates(c *config.Config, productId string, start *time.Time) []Candlestick {
 
 	fmt.Println("finding rates")
 
+	pg := db.NewDB()
+
 	var from time.Time
-	if start == nil {
-		from, _ = time.Parse(time.RFC3339, timeVal)
+	if start != nil {
+		from = *start
 	} else {
 		var r Candlestick
-		db.Where(query, productId).Order(desc).First(&r)
+		pg.Where(query, productId).Order(desc).First(&r)
 		if r != (Candlestick{}) {
 			from = r.Time()
 		} else {
 			from, _ = time.Parse(time.RFC3339, timeVal)
 		}
 	}
-
-	db.Save(CreateHistoricRates(user, productId, from))
+	pg.Save(CreateHistoricRates(c.User(), productId, from))
 
 	var allRates []Candlestick
-	db.Where(query, productId).Order(asc).Find(&allRates)
+	pg.Where(query, productId).
+		Where("unix > ?", from.UnixNano()).
+		Order(asc).
+		Find(&allRates)
 
 	fmt.Println("found rates", len(allRates))
 
 	return allRates
 }
 
-func NewSimulation(user User, from *time.Time, product Product) {
+func NewSim(c *config.Config) {
+
+	dur, err := time.ParseDuration(c.Duration)
+	if err != nil {
+		panic(err)
+	}
+	from := time.Now().Add(-dur)
+
+	var results []Result
+	for _, posture := range c.Postures {
+		results = append(results, NewSimulation(c, &from, posture))
+	}
+
+	render()
+}
+
+func NewSimulation(c *config.Config, from *time.Time, posture config.Posture) Result {
 
 	var positionIndexes []int
 	var then, that Candlestick
 
-	rates := GetRates(user, product.Id, from)
+	rates := GetRates(c, posture.ProductId(), from)
 
 	for i, this := range rates {
 		if IsTweezer(then, that, this) {
@@ -94,8 +125,8 @@ func NewSimulation(user User, from *time.Time, product Product) {
 		var entry, exit, result float64
 		market := rates[i].Open
 
-		gain := product.EntryPrice(market)
-		loss := product.LossPrice(market)
+		gain := market + (market * Float64(posture.Gain))
+		loss := market - (market * Float64(posture.Loss))
 
 		for j, r := range rates[i:] {
 
@@ -114,7 +145,7 @@ func NewSimulation(user User, from *time.Time, product Product) {
 				continue
 			}
 
-			result *= Float64(Size(market))
+			result *= Float64(posture.Size)
 			if result > 0 {
 				won += result
 			} else {
@@ -140,7 +171,7 @@ func NewSimulation(user User, from *time.Time, product Product) {
 		lost,
 		vol,
 		scenarios,
-		product.Id,
+		posture.ProductId(),
 		rates[0].Time(),
 		that.Time(),
 	}
@@ -208,28 +239,22 @@ func NewSimulation(user User, from *time.Time, product Product) {
 		page.AddCharts(kline)
 	}
 
-	path := "html"
-
-	if ff, err := os.Stat(path); os.IsNotExist(err) {
-		err := os.Mkdir(path, 0755)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		fmt.Println(ff.Name())
-	}
-
 	fileName := fmt.Sprintf("./%s/%s.html", path, simulation.ProductId)
 
 	if f, err := os.Create(fileName); err != nil {
+		log.Error().Err(err).Msg(fmt.Sprintf("error creating filename [%s]", fileName))
 		panic(err)
 	} else if err := page.Render(io.MultiWriter(f)); err != nil {
 		panic(err)
 	}
 
+	return simulation
+}
+
+func render() {
 	fs := http.FileServer(http.Dir(path))
 	fmt.Println("served charts at http://localhost:8089")
-	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(fs)))
+	log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
 }
 
 func logRequest(handler http.Handler) http.Handler {
