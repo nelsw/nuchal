@@ -1,7 +1,6 @@
-package pkg
+package rate
 
 import (
-	"fmt"
 	"math"
 	"time"
 )
@@ -56,11 +55,11 @@ func isTweezerValue(u, v Candlestick) bool {
 	t := tweezer(v)
 	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
 	b := f <= t
-	s := ">"
-	if b {
-		s = "<="
-	}
-	fmt.Printf("... tweezer value? [%f] %s [%f] [%v]\n:", f, s, t, b)
+	//s := ">"
+	//if b {
+	//	s = "<="
+	//}
+	//log.Info().Msgf("tweezer? [%f] %s [%f] [%v]:", f, s, t, b)
 	return b
 }
 

@@ -2,14 +2,12 @@ package main
 
 import (
 	"github.com/rs/zerolog/log"
-	"nchl/config"
-	"nchl/pkg"
+	"nchl/pkg/status"
 )
 
 func main() {
-	if cfg, err := config.NewConfig(); err != nil {
+	if err := status.New(); err != nil {
 		log.Error().Err(err)
-	} else {
-		pkg.DisplayAccountInfo(cfg)
+		panic(err)
 	}
 }

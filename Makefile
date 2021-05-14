@@ -1,4 +1,7 @@
-.SILENT: sim bld tidy now
+.SILENT: it
+
+it:
+	cd docker && docker-compose up --build
 
 trades:
 	cmd/main -domain=trade -name="${u}"

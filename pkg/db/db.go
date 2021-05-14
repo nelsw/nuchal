@@ -2,46 +2,75 @@ package db
 
 import (
 	"fmt"
+	zog "github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gol "gorm.io/gorm/logger"
 	"log"
-	"nchl/pkg"
+	"nchl/pkg/util"
 	"os"
 	"time"
 )
 
 type Config struct {
-	User, Pass, Name string
-	Port             int
+	Host, User, Pass, Name string
+	Port                   int
 }
 
 func (c Config) DSN() string {
-	return fmt.Sprintf("host=localhost user=%s password=%s dbname=%s port=%d", c.User, c.Pass, c.Name, c.Port)
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d", c.Host, c.User, c.Pass, c.Name, c.Port)
 }
 
-var config Config
+var config *Config
 
 func init() {
-	config = Config{
+	zog.Info().Msg("initializing db")
+	host := os.Getenv("POSTGRES_HOST")
+	if host == "" {
+		host = "host.docker.internal"
+	}
+	config = &Config{
+		host,
 		os.Getenv("POSTGRES_USER"),
-		os.Getenv("POSTGRES_PASS"),
-		os.Getenv("POSTGRES_NAME"),
-		pkg.Int(os.Getenv("POSTGRES_PORT")),
+		os.Getenv("POSTGRES_PASSWORD"),
+		os.Getenv("POSTGRES_DB"),
+		util.Int(os.Getenv("POSTGRES_PORT")),
+	}
+	if db, err := openDB(); err != nil {
+		zog.Error().Err(err)
+		panic(err)
+	} else if sql, err := db.DB(); err != nil {
+		zog.Error().Err(err)
+		panic(err)
+	} else if err := sql.Ping(); err != nil {
+		zog.Error().Err(err)
+		panic(err)
+	} else if err := sql.Close(); err != nil {
+		zog.Error().Err(err)
+		panic(err)
+	} else {
+		zog.Info().Msg("initialized db")
 	}
 }
 
 func NewDB() *gorm.DB {
-	db, _ := gorm.Open(postgres.Open(config.DSN()), &gorm.Config{
-		Logger: logger.New(
+	db, err := openDB()
+	if err != nil {
+		zog.Error().Err(err).Msg("error opening DB!")
+	}
+	return db
+}
+
+func openDB() (*gorm.DB, error) {
+	return gorm.Open(postgres.Open(config.DSN()), &gorm.Config{
+		Logger: gol.New(
 			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-			logger.Config{
-				SlowThreshold:             time.Second,   // Slow SQL threshold
-				LogLevel:                  logger.Silent, // Log level
-				IgnoreRecordNotFoundError: true,          // Ignore ErrRecordNotFound error for logger
-				Colorful:                  false,         // Disable color
+			gol.Config{
+				SlowThreshold:             time.Second, // Slow SQL threshold
+				LogLevel:                  gol.Silent,  // Log level
+				IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
+				Colorful:                  false,       // Disable color
 			},
 		),
 	})
-	return db
 }

@@ -1,14 +1,18 @@
-package pkg
+package sim
 
 import (
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
+	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"io"
-	"nchl/config"
 	"nchl/pkg/db"
+	"nchl/pkg/nuchal"
+	"nchl/pkg/product"
+	"nchl/pkg/rate"
+	"nchl/pkg/util"
 	"net/http"
 	"os"
 	"sort"
@@ -33,7 +37,7 @@ type Result struct {
 
 type Scenario struct {
 	Time                        time.Time
-	Rates                       []Candlestick
+	Rates                       []rate.Candlestick
 	Market, Entry, Exit, Result float64
 }
 
@@ -53,62 +57,80 @@ func init() {
 	}
 }
 
-func GetRates(c *config.Config, productId string, start *time.Time) []Candlestick {
+func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
 
-	fmt.Println("finding rates")
+	log.Info().Msg("get rates for " + productId)
 
 	pg := db.NewDB()
 
 	var from time.Time
-	if start != nil {
-		from = *start
+	var r rate.Candlestick
+	pg.Where(query, productId).Order(desc).First(&r)
+	if r != (rate.Candlestick{}) {
+		log.Info().Msg("found previous rate found for " + productId)
+		from = r.Time()
 	} else {
-		var r Candlestick
-		pg.Where(query, productId).Order(desc).First(&r)
-		if r != (Candlestick{}) {
-			from = r.Time()
-		} else {
-			from, _ = time.Parse(time.RFC3339, timeVal)
-		}
+		log.Info().Msg("no previous rate found for " + productId)
+		from, _ = time.Parse(time.RFC3339, timeVal)
 	}
-	pg.Save(CreateHistoricRates(c.User(), productId, from))
 
-	var allRates []Candlestick
+	to := from.Add(time.Hour * 4)
+	for {
+		for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
+			pg.Save(&rate.Candlestick{
+				r.Time.UnixNano(),
+				productId,
+				r.Low,
+				r.High,
+				r.Open,
+				r.Close,
+				r.Volume,
+			})
+		}
+		if to.After(time.Now()) {
+			break
+		}
+		from = to
+		to = to.Add(time.Hour * 4)
+	}
+
+	var savedRates []rate.Candlestick
 	pg.Where(query, productId).
-		Where("unix > ?", from.UnixNano()).
 		Order(asc).
-		Find(&allRates)
+		Find(&savedRates)
+	log.Info().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
 
-	fmt.Println("found rates", len(allRates))
-
-	return allRates
+	return savedRates
 }
 
-func NewSim(c *config.Config) {
+func New() error {
 
-	dur, err := time.ParseDuration(c.Duration)
+	c, err := nuchal.NewConfig()
 	if err != nil {
-		panic(err)
+		log.Error().Err(err)
+		return err
 	}
-	from := time.Now().Add(-dur)
-
-	var results []Result
 	for _, posture := range c.Postures {
-		results = append(results, NewSimulation(c, &from, posture))
+		NewSimulation(c, posture)
 	}
+
+	//if c.TestMode {
+	//	return nil
+	//}
 
 	render()
+	return nil
 }
 
-func NewSimulation(c *config.Config, from *time.Time, posture config.Posture) Result {
+func NewSimulation(c *nuchal.Config, posture product.Posture) {
 
 	var positionIndexes []int
-	var then, that Candlestick
+	var then, that rate.Candlestick
 
-	rates := GetRates(c, posture.ProductId(), from)
+	rates := GetRates(c, posture.ProductId())
 
 	for i, this := range rates {
-		if IsTweezer(then, that, this) {
+		if rate.IsTweezer(then, that, this) {
 			positionIndexes = append(positionIndexes, i)
 		}
 		then = that
@@ -125,8 +147,8 @@ func NewSimulation(c *config.Config, from *time.Time, posture config.Posture) Re
 		var entry, exit, result float64
 		market := rates[i].Open
 
-		gain := market + (market * Float64(posture.Gain))
-		loss := market - (market * Float64(posture.Loss))
+		gain := market + (market * util.Float64(posture.Gain))
+		loss := market - (market * util.Float64(posture.Loss))
 
 		for j, r := range rates[i:] {
 
@@ -145,7 +167,7 @@ func NewSimulation(c *config.Config, from *time.Time, posture config.Posture) Re
 				continue
 			}
 
-			result *= Float64(posture.Size)
+			result *= util.Float64(posture.Size)
 			if result > 0 {
 				won += result
 			} else {
@@ -247,8 +269,6 @@ func NewSimulation(c *config.Config, from *time.Time, posture config.Posture) Re
 	} else if err := page.Render(io.MultiWriter(f)); err != nil {
 		panic(err)
 	}
-
-	return simulation
 }
 
 func render() {
@@ -262,4 +282,26 @@ func logRequest(handler http.Handler) http.Handler {
 		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
 		handler.ServeHTTP(w, r)
 	})
+}
+
+func getHistoricRates(client *cb.Client, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
+	var i int
+	if attempt != nil && len(attempt) > 0 {
+		i = attempt[0]
+	}
+	if rates, err := client.GetHistoricRates(productId, cb.GetHistoricRatesParams{
+		from,
+		to,
+		60,
+	}); err != nil {
+		log.Error().Err(err)
+		i++
+		if i > 10 {
+			panic(err)
+		}
+		time.Sleep(time.Duration(i*3) * time.Second)
+		return getHistoricRates(client, productId, from, to, i)
+	} else {
+		return rates
+	}
 }

@@ -1,12 +1,12 @@
-package main
+package sim
 
 import (
 	"github.com/rs/zerolog/log"
-	"nchl/pkg/trade"
+	"testing"
 )
 
-func main() {
-	if err := trade.New(); err != nil {
+func TestNew(t *testing.T) {
+	if err := New(); err != nil {
 		log.Error().Err(err)
 		panic(err)
 	}
