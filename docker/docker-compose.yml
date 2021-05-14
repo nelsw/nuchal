@@ -1,4 +1,4 @@
-version: '3'
+version: '3.9'
 
 services:
   user:
@@ -11,8 +11,7 @@ services:
     build:
       context: ../
       dockerfile: docker/user/Dockerfile
-    networks:
-      - local
+    network_mode: bridge
   sim:
     container_name: sim
     image: nuchal-sim:v1.0.0
@@ -24,12 +23,11 @@ services:
       context: ../
       dockerfile: docker/sim/Dockerfile
     ports:
-      - 127.0.0.1:8089:8089
-    networks:
-      - local
+      - 8089:8089
+    network_mode: bridge
   trade:
     container_name: trade
-    image: trade-sim:v1.0.0
+    image: nuchal-trade:v1.0.0
     env_file:
       - .env
     depends_on:
@@ -37,8 +35,7 @@ services:
     build:
       context: ../
       dockerfile: docker/trade/Dockerfile
-    networks:
-      - local
+    network_mode: bridge
   db:
     container_name: db
     image: postgres:latest
@@ -53,13 +50,7 @@ services:
       - ${POSTGRES_PORT}:5432
     volumes:
       - pgdata:/var/lib/postgresql/data
-    networks:
-      - local
+    network_mode: bridge
 
 volumes:
   pgdata:
-
-networks:
-  local:
-    external: false
-    name: local

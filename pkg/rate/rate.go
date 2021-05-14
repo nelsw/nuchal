@@ -37,30 +37,20 @@ func (v *Candlestick) Data() [4]float64 {
 }
 
 func IsTweezer(t, u, v Candlestick, d float64) bool {
-	b := isTweezerPattern(t, u, v) && isTweezerValue(t, u, d)
-	log.Info().
-		Str("productId", v.ProductId).
-		Msgf("tweezer found? [%v]", b)
-	return b
+	return isTweezerPattern(t, u, v) && isTweezerValue(t, u, d)
 }
 
 func isTweezerValue(u, v Candlestick, d float64) bool {
 	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
 	b := f <= d
-	s := ">"
 	if b {
-		s = "<="
+		log.Info().
+			Str("productId", v.ProductId).
+			Float64("tweezer", d-f)
 	}
-	log.Info().
-		Str("productId", v.ProductId).
-		Msgf("tweezer delta? [%v] [%f] %s [%f]", b, f, s, d)
 	return b
 }
 
 func isTweezerPattern(t, u, v Candlestick) bool {
-	b := t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
-	log.Info().
-		Str("productId", v.ProductId).
-		Msgf("tweezer trend? [%v]", b)
-	return b
+	return t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
 }
