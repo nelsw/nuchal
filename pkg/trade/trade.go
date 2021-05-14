@@ -54,37 +54,37 @@ func New() error {
 		return err
 	} else {
 
-		var wsDialer ws.Dialer
-		if w, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil); err != nil {
-			log.Error().Err(err)
-			return err
-		} else {
+		exit := make(chan string)
 
-			defer func(wsConn *ws.Conn) {
-				if err := wsConn.Close(); err != nil {
-					log.Error().Err(err)
-				}
-			}(w)
-
-			exit := make(chan string)
-
-			for _, p := range c.Postures {
-				for _, u := range c.Users {
-					go createUserTrades(w, u, p)
-				}
+		for _, p := range c.Postures {
+			for _, u := range c.Users {
+				go createUserTrades(u, p)
 			}
+		}
 
-			for {
-				select {
-				case <-exit:
-					return nil
-				}
+		for {
+			select {
+			case <-exit:
+				return nil
 			}
 		}
 	}
 }
 
-func createUserTrades(wsConn *ws.Conn, u account.User, p product.Posture) {
+func createUserTrades(u account.User, p product.Posture) {
+
+	var wsDialer ws.Dialer
+	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
+	if err != nil {
+		log.Error().Err(err)
+		createUserTrades(u, p)
+	}
+
+	defer func(wsConn *ws.Conn) {
+		if err := wsConn.Close(); err != nil {
+			log.Error().Err(err)
+		}
+	}(wsConn)
 
 	fmt.Println("creating trades")
 

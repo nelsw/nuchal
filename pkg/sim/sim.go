@@ -25,7 +25,7 @@ const (
 	asc     = "unix asc"
 	desc    = "unix desc"
 	query   = "product_id = ?"
-	timeVal = "2021-04-01T00:00:00+00:00"
+	timeVal = "2021-05-10T00:00:00+00:00"
 )
 
 type Result struct {
@@ -77,7 +77,7 @@ func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
 	to := from.Add(time.Hour * 4)
 	for {
 		for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
-			pg.Save(&rate.Candlestick{
+			rc := &rate.Candlestick{
 				r.Time.UnixNano(),
 				productId,
 				r.Low,
@@ -85,7 +85,8 @@ func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
 				r.Open,
 				r.Close,
 				r.Volume,
-			})
+			}
+			pg.Save(&rc)
 		}
 		if to.After(time.Now()) {
 			break
@@ -114,12 +115,20 @@ func New() error {
 		NewSimulation(c, posture)
 	}
 
-	//if c.TestMode {
-	//	return nil
-	//}
+	if c.TestMode {
+		return nil
+	}
 
-	render()
-	return nil
+	exit := make(chan string)
+
+	go render()
+
+	for {
+		select {
+		case <-exit:
+			return nil
+		}
+	}
 }
 
 func NewSimulation(c *nuchal.Config, posture product.Posture) {
@@ -294,7 +303,7 @@ func getHistoricRates(client *cb.Client, productId string, from, to time.Time, a
 		to,
 		60,
 	}); err != nil {
-		log.Error().Err(err)
+		log.Error().Err(err).Msg("error getting historic rate")
 		i++
 		if i > 10 {
 			panic(err)
