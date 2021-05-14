@@ -1,6 +1,7 @@
 package rate
 
 import (
+	"github.com/rs/zerolog/log"
 	"math"
 	"time"
 )
@@ -35,34 +36,31 @@ func (v *Candlestick) Data() [4]float64 {
 	return [4]float64{v.Open, v.Close, v.Low, v.High}
 }
 
-func IsTweezer(t, u, v Candlestick) bool {
-	return isTweezerPattern(t, u, v) && isTweezerValue(t, u)
+func IsTweezer(t, u, v Candlestick, d float64) bool {
+	b := isTweezerPattern(t, u, v) && isTweezerValue(t, u, d)
+	log.Info().
+		Str("productId", v.ProductId).
+		Msgf("tweezer found? [%v]", b)
+	return b
 }
 
-func tweezer(v Candlestick) float64 {
-	if v.Close < 1 {
-		return .001
-	} else if v.Close < 10 {
-		return .01
-	} else if v.Close < 100 {
-		return .1
-	} else {
-		return 1
-	}
-}
-
-func isTweezerValue(u, v Candlestick) bool {
-	t := tweezer(v)
+func isTweezerValue(u, v Candlestick, d float64) bool {
 	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
-	b := f <= t
-	//s := ">"
-	//if b {
-	//	s = "<="
-	//}
-	//log.Info().Msgf("tweezer? [%f] %s [%f] [%v]:", f, s, t, b)
+	b := f <= d
+	s := ">"
+	if b {
+		s = "<="
+	}
+	log.Info().
+		Str("productId", v.ProductId).
+		Msgf("tweezer delta? [%v] [%f] %s [%f]", b, f, s, d)
 	return b
 }
 
 func isTweezerPattern(t, u, v Candlestick) bool {
-	return t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
+	b := t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
+	log.Info().
+		Str("productId", v.ProductId).
+		Msgf("tweezer trend? [%v]", b)
+	return b
 }

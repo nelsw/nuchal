@@ -26,3 +26,25 @@ func Usd(f float64) string {
 	x = x / 100
 	return fmt.Sprintf("$%.2f", x)
 }
+
+func FirstIntOrZero(arr []int) int {
+	if arr != nil && len(arr) > 0 {
+		return arr[0]
+	}
+	return 0
+}
+
+func IsInsufficientFunds(err error) bool {
+	return err != nil && err.Error() == "Insufficient funds"
+}
+
+func DoIndefinitely(fun func()) error {
+	exit := make(chan string)
+	go fun()
+	for {
+		select {
+		case <-exit:
+			return nil
+		}
+	}
+}

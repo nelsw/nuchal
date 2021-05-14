@@ -2,8 +2,13 @@ package product
 
 import (
 	"encoding/json"
+	"fmt"
+	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
+	"nchl/pkg/util"
 	"os"
+	"sort"
+	"strings"
 )
 
 type Strategy struct {
@@ -15,8 +20,41 @@ type Posture struct {
 	Position
 }
 
-func (p Posture) ProductId() string {
+func (p *Posture) ProductId() string {
 	return p.Product.Id
+}
+
+func (p *Posture) MarketEntryOrder() *cb.Order {
+	return &cb.Order{
+		ProductID: p.ProductId(),
+		Side:      "buy",
+		Size:      p.Size,
+		Type:      "market",
+	}
+}
+
+func (p *Posture) StopEntryOrder(price float64, size string) *cb.Order {
+	return &cb.Order{
+		Price:     Price(price),
+		ProductID: p.ProductId(),
+		Side:      "sell",
+		Size:      size,
+		Type:      "limit",
+		StopPrice: Price(price),
+		Stop:      "entry",
+	}
+}
+
+func (p *Posture) StopLossOrder(price float64, size string) *cb.Order {
+	return &cb.Order{
+		Price:     Price(price),
+		ProductID: p.ProductId(),
+		Side:      "sell",
+		Size:      size,
+		Type:      "limit",
+		StopPrice: Price(price),
+		Stop:      "loss",
+	}
 }
 
 type Position struct {
@@ -26,6 +64,22 @@ type Position struct {
 	Delta  string `json:"delta"`
 	Size   string `json:"size"`
 	Enable bool   `json:"enable,omitempty"`
+}
+
+func (p *Position) DeltaFloat() float64 {
+	return util.Float64(p.Delta)
+}
+
+func (p *Position) GainFloat() float64 {
+	return util.Float64(p.Gain)
+}
+
+func (p *Position) LossFloat() float64 {
+	return util.Float64(p.Loss)
+}
+
+func (p *Position) SizeFloat() float64 {
+	return util.Float64(p.Size)
 }
 
 type Product struct {
@@ -77,7 +131,15 @@ func NewStrategy() (*Strategy, error) {
 		}
 	}
 
-	log.Info().Msg("created product strategy")
+	sort.SliceStable(c.Postures, func(i, j int) bool {
+		return strings.Compare(c.Postures[i].ProductId(), c.Postures[j].ProductId()) < 1
+	})
+
+	log.Info().Msgf("created product strategy [%v]", c)
 
 	return c, nil
+}
+
+func Price(f float64) string {
+	return fmt.Sprintf("%.3f", f) // todo - get increment units dynamically from cb api
 }

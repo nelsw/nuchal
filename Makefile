@@ -1,4 +1,7 @@
-.SILENT: it
+.SILENT: up down
 
-it:
-	cd docker && docker compose up --build
+up:
+	docker compose -f docker/docker-compose.yml up --build --force-recreate -d
+
+down:
+	docker compose -f docker/docker-compose.yml down

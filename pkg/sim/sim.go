@@ -104,31 +104,22 @@ func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
 	return savedRates
 }
 
-func New() error {
+func New() {
 
 	c, err := nuchal.NewConfig()
 	if err != nil {
 		log.Error().Err(err)
-		return err
+		return
 	}
 	for _, posture := range c.Postures {
 		NewSimulation(c, posture)
 	}
 
 	if c.TestMode {
-		return nil
+		//return
 	}
 
-	exit := make(chan string)
-
-	go render()
-
-	for {
-		select {
-		case <-exit:
-			return nil
-		}
-	}
+	render()
 }
 
 func NewSimulation(c *nuchal.Config, posture product.Posture) {
@@ -139,11 +130,14 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 	rates := GetRates(c, posture.ProductId())
 
 	for i, this := range rates {
-		if rate.IsTweezer(then, that, this) {
+		if rate.IsTweezer(then, that, this, posture.DeltaFloat()) {
 			positionIndexes = append(positionIndexes, i)
+			then = rate.Candlestick{}
+			that = rate.Candlestick{}
+		} else {
+			then = that
+			that = this
 		}
-		then = that
-		that = this
 	}
 
 	var won, lost, vol float64
@@ -161,16 +155,24 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 
 		for j, r := range rates[i:] {
 
-			if r.High >= gain {
-				entry = gain
-				if r.Low <= entry {
-					exit = entry
-				} else if r.Close >= exit {
-					exit = r.Close
+			if r.High >= gain { // if this candle reaches a high ge our gain goal,
+
+				if entry == 0 {
+					entry = gain // then nuchal will place a stop loss order for the goal,
+					exit = gain  // and worst case scenario, we exit with the goal.
+				}
+
+				if r.Open > exit {
+					exit = r.Open
+				}
+
+				if r.Low <= exit {
+					result = exit - market - (market * fee) - (exit * fee)
+				} else {
 					continue
 				}
-				result = exit - market - (market * fee) - (exit * fee)
 			} else if r.Low <= loss {
+				// we bought at the open of this candle, and it tanked
 				result = loss - market - (market * fee) - (loss * fee)
 			} else {
 				continue
@@ -187,7 +189,7 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 
 			scenarios = append(scenarios, Scenario{
 				r.Time(),
-				rates[alpha : i+j+2],
+				rates[alpha : i+j+3],
 				market,
 				entry,
 				exit,
@@ -204,7 +206,7 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 		scenarios,
 		posture.ProductId(),
 		rates[0].Time(),
-		that.Time(),
+		rates[len(rates)-1].Time(),
 	}
 
 	fmt.Println()
@@ -223,15 +225,14 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 
 	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
 		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
+		//return simulation.Scenarios[i].Time.After(simulation.Scenarios[j].Time)
 	})
 
 	for _, s := range simulation.Scenarios {
 		kline := charts.NewKLine()
-		t := fmt.Sprintf("RESULT: %f\tMARKET: %f\tENTRY: %f\tEXIT: %f\t", s.Result, s.Market, s.Entry, s.Exit)
-
 		kline.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
-				Title: t,
+				Title: fmt.Sprintf("RESULT: %f\tBOUGHT: %f\tSOLD: %f\tGOAL: %f", s.Result, s.Market, s.Exit, s.Entry),
 			}),
 			charts.WithXAxisOpts(opts.XAxis{
 				SplitNumber: 20,

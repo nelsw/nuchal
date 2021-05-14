@@ -27,11 +27,16 @@ func (c *Group) validate() error {
 	if c.Users == nil && len(c.Users) < 1 {
 		return errors.New("no users found in configuration")
 	} else {
+		var enabledUsers []User
 		for _, user := range c.Users {
 			if err := user.validate(); err != nil {
 				return err
 			}
+			if user.Enable {
+				enabledUsers = append(enabledUsers, user)
+			}
 		}
+		c.Users = enabledUsers
 		return nil
 	}
 }
@@ -85,39 +90,68 @@ func NewGroup() (*Group, error) {
 
 	log.Info().Msg("creating account group")
 
-	c := new(Group)
+	g := new(Group)
 
-	if file, err := os.Open("assets/users.json"); err == nil {
-		log.Info().Msg("found a users config file")
-		if err := json.NewDecoder(file).Decode(&c); err != nil {
-			log.Warn().Err(err).Msg("unable to decode users.json")
-		} else if err := c.validate(); err != nil {
-			log.Warn().Err(err)
-		} else {
-			return c, nil
+	var err error
+	if err = loadFromJson(g); err != nil {
+		log.Warn().Err(err).Msg("user load from json failed")
+		if err = loadFromDatabase(g); err != nil {
+			log.Warn().Err(err).Msg("user load from database failed")
+			if err = loadFromEnvironment(g); err != nil {
+				log.Warn().Err(err).Msg("user load from environment failed")
+			} else {
+				log.Info().Msg("created account group")
+			}
 		}
 	}
 
-	db.NewDB().Find(&c.Users)
-	if err := c.validate(); err != nil {
-		log.Warn().Err(err)
+	if err == nil {
+		log.Info().Msgf("created account group [%v]", g)
 	} else {
-		return c, nil
+		log.Error().Err(err).Msg("error creating account group")
 	}
 
-	c.Users = append(c.Users, User{
+	return g, err
+}
+
+func loadFromJson(g *Group) error {
+	if file, err := os.Open("assets/users.json"); err != nil {
+		// no user json file, not worth the log space
+		return err
+	} else if err := json.NewDecoder(file).Decode(&g); err != nil {
+		log.Warn().Err(err).Msg("unable to decode users.json")
+		return err
+	} else if err := g.validate(); err != nil {
+		log.Warn().Err(err).Msg("user json was invalid")
+		return err
+	} else {
+		log.Info().Msg("created account group from user json")
+		return nil
+	}
+}
+
+func loadFromDatabase(g *Group) error {
+	db.NewDB().Find(&g.Users)
+	if err := g.validate(); err != nil {
+		log.Warn().Err(err)
+		return err
+	}
+	log.Info().Msg("created account group from database")
+	return nil
+}
+
+func loadFromEnvironment(g *Group) error {
+	g.Users = append(g.Users, User{
 		os.Getenv("name"),
 		os.Getenv("key"),
 		os.Getenv("pass"),
 		os.Getenv("secret"),
 		true,
 	})
-	if err := c.validate(); err != nil {
-		log.Error().Err(err)
-		return nil, err
+	if err := g.validate(); err != nil {
+		log.Error().Err(err).Msg("user environment variables were invalid")
+		return err
 	}
-
-	log.Info().Msg("created account group")
-
-	return c, nil
+	log.Info().Msg("created account group from environment variables")
+	return nil
 }

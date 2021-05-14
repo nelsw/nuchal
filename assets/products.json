@@ -9,6 +9,14 @@
       "quote_increment": "0.000001"
     },
     {
+      "id": "RLC-USD",
+      "base_currency": "RLC",
+      "quote_currency": "USD",
+      "base_min_size": "0.01",
+      "base_max_size": "1700",
+      "quote_increment": "0.000001"
+    },
+    {
       "id": "ZEC-USDC",
       "base_currency": "ZEC",
       "quote_currency": "USDC",

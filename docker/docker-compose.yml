@@ -1,6 +1,9 @@
 version: '3'
+
 services:
   user:
+    container_name: user
+    image: nuchal-user:v1.0.0
     env_file:
       - .env
     depends_on:
@@ -10,8 +13,9 @@ services:
       dockerfile: docker/user/Dockerfile
     networks:
       - local
-
   sim:
+    container_name: sim
+    image: nuchal-sim:v1.0.0
     env_file:
       - .env
     depends_on:
@@ -20,11 +24,12 @@ services:
       context: ../
       dockerfile: docker/sim/Dockerfile
     ports:
-      - 8089:8089
+      - 127.0.0.1:8089:8089
     networks:
       - local
-
   trade:
+    container_name: trade
+    image: trade-sim:v1.0.0
     env_file:
       - .env
     depends_on:
@@ -34,9 +39,9 @@ services:
       dockerfile: docker/trade/Dockerfile
     networks:
       - local
-
   db:
-    image: postgres
+    container_name: db
+    image: postgres:latest
     env_file:
       - .env
     environment:
@@ -56,4 +61,5 @@ volumes:
 
 networks:
   local:
-    external: true
+    external: false
+    name: local

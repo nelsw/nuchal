@@ -31,7 +31,7 @@
       "gain": "0.0192",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": true,
+      "enable": false,
       "size": "5"
     },
     {
@@ -130,7 +130,7 @@
       "id": "EOS-USD",
       "gain": "0.0192",
       "loss": "0.495",
-      "delta": "0.0001",
+      "delta": "0.001",
       "enable": true,
       "size": "5"
     },
@@ -181,7 +181,7 @@
       "gain": "0.0192",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {
@@ -189,7 +189,7 @@
       "gain": "0.0192",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {
@@ -247,6 +247,14 @@
       "delta": "0.0001"
     },
     {
+      "id": "RLC-USD",
+      "gain": "0.0192",
+      "loss": "0.495",
+      "delta": "0.001",
+      "enable": true,
+      "size": "5"
+    },
+    {
       "id": "SKL-USD",
       "gain": "0.0192",
       "loss": "0.495",
@@ -299,7 +307,7 @@
       "gain": "0.0192",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {
@@ -313,7 +321,7 @@
       "gain": "0.0192",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     }
   ]
