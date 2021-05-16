@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+  user:
+    container_name: user
+    image: nuchal-user:v1.0.0
+    env_file:
+      - .env
+    depends_on:
+      - db
+    build:
+      context: ../
+      dockerfile: docker/user/Dockerfile
+    network_mode: bridge
+  trade:
+    container_name: trade
+    image: nuchal-trade:v1.0.0
+    env_file:
+      - .env
+    depends_on:
+      - db
+    build:
+      context: ../
+      dockerfile: docker/trade/Dockerfile
+    network_mode: bridge
+  db:
+    container_name: db
+    image: postgres:latest
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    ports:
+      - ${POSTGRES_PORT}:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    network_mode: bridge
+
+volumes:
+  pgdata:
