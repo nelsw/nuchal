@@ -49,7 +49,7 @@ func trade(g *account.Group, p product.Posture) {
 			that = *this
 		} else {
 			for _, u := range g.Users {
-				go buy(&u, p)
+				go buy(u, p)
 			}
 			then = rate.Candlestick{}
 			that = rate.Candlestick{}
@@ -57,7 +57,7 @@ func trade(g *account.Group, p product.Posture) {
 	}
 }
 
-func buy(u *account.User, p product.Posture) {
+func buy(u account.User, p product.Posture) {
 
 	log.Info().
 		Str("user", u.Name).
@@ -96,7 +96,7 @@ func buy(u *account.User, p product.Posture) {
 	}
 }
 
-func sell(u *account.User, exitPrice float64, size string, p product.Posture) {
+func sell(u account.User, exitPrice float64, size string, p product.Posture) {
 
 	log.Info().
 		Str("user", u.Name).
@@ -307,7 +307,7 @@ func getPrice(wsConn *ws.Conn, productId string) (*float64, error) {
 // createOrder creates an order on Coinbase and returns the order once it is no longer pending and has settled.
 // Given that there are many different types of orders that can be created in many different scenarios, it is the
 // responsibility of the method calling this function to perform logging.
-func createOrder(u *account.User, order *cb.Order, attempt ...int) (*cb.Order, error) {
+func createOrder(u account.User, order *cb.Order, attempt ...int) (*cb.Order, error) {
 
 	r, err := u.GetClient().CreateOrder(order)
 	if err == nil {
@@ -326,7 +326,7 @@ func createOrder(u *account.User, order *cb.Order, attempt ...int) (*cb.Order, e
 
 // getOrder is a recursive function that returns an order equal to the given id once it is settled and not pending.
 // This function also performs extensive logging given its variable and seriously critical nature.
-func getOrder(u *account.User, id string, attempt ...int) (*cb.Order, error) {
+func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 
 	log.Info().Str("user", u.Name).Str("orderId", id).Msg("get order")
 
@@ -377,7 +377,7 @@ func getOrder(u *account.User, id string, attempt ...int) (*cb.Order, error) {
 }
 
 // cancelOrder is a recursive function that cancels an order equal to the given id.
-func cancelOrder(u *account.User, id string, attempt ...int) error {
+func cancelOrder(u account.User, id string, attempt ...int) error {
 
 	log.Info().
 		Str("user", u.Name).

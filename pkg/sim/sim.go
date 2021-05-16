@@ -45,9 +45,9 @@ type Result struct {
 }
 
 type Scenario struct {
-	Time                        time.Time
-	Rates                       []rate.Candlestick
-	Market, Entry, Exit, Result float64
+	Time                                time.Time
+	Rates                               []rate.Candlestick
+	Market, Entry, Exit, Result, Volume float64
 }
 
 func (s Result) Sum() float64 {
@@ -55,7 +55,7 @@ func (s Result) Sum() float64 {
 }
 
 func (s Result) Result() float64 {
-	return s.Sum() / s.Vol
+	return s.Sum()
 }
 
 func init() {
@@ -72,40 +72,41 @@ func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
 
 	pg := db.NewDB()
 
-	var from time.Time
-	var r rate.Candlestick
-	pg.Where(query, productId).Order(desc).First(&r)
-	if r != (rate.Candlestick{}) {
-		log.Info().Msg("found previous rate found for " + productId)
-		from = r.Time()
-	} else {
-		log.Info().Msg("no previous rate found for " + productId)
-		from, _ = time.Parse(time.RFC3339, timeVal)
-	}
-
-	to := from.Add(time.Hour * 4)
-	for {
-		for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
-			rc := &rate.Candlestick{
-				r.Time.UnixNano(),
-				productId,
-				r.Low,
-				r.High,
-				r.Open,
-				r.Close,
-				r.Volume,
-			}
-			pg.Save(&rc)
-		}
-		if to.After(time.Now()) {
-			break
-		}
-		from = to
-		to = to.Add(time.Hour * 4)
-	}
+	//var from time.Time
+	//var r rate.Candlestick
+	//pg.Where(query, productId).Order(desc).First(&r)
+	//if r != (rate.Candlestick{}) {
+	//	log.Info().Msg("found previous rate found for " + productId)
+	//	from = r.Time()
+	//} else {
+	//	log.Info().Msg("no previous rate found for " + productId)
+	//	from, _ = time.Parse(time.RFC3339, timeVal)
+	//}
+	//
+	//to := from.Add(time.Hour * 4)
+	//for {
+	//	for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
+	//		rc := &rate.Candlestick{
+	//			r.Time.UnixNano(),
+	//			productId,
+	//			r.Low,
+	//			r.High,
+	//			r.Open,
+	//			r.Close,
+	//			r.Volume,
+	//		}
+	//		pg.Save(&rc)
+	//	}
+	//	if time.Now().After(to) {
+	//		break
+	//	}
+	//	from = to
+	//	to = to.Add(time.Hour * 4)
+	//}
 
 	var savedRates []rate.Candlestick
 	pg.Where(query, productId).
+		Where("unix > ?", c.StartTime().UnixNano()).
 		Order(asc).
 		Find(&savedRates)
 	log.Info().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
@@ -120,9 +121,28 @@ func New() {
 		log.Error().Err(err)
 		return
 	}
+
+	var dur time.Duration
+	var won, lost, sum, vol float64
 	for _, posture := range c.Postures {
-		NewSimulation(c, posture)
+		result := NewSimulation(c, posture)
+		won += result.Won
+		lost += result.Lost
+		sum += result.Result()
+		vol += result.Vol
+		dur = result.To.Sub(result.From)
 	}
+
+	fmt.Println()
+	fmt.Println()
+	fmt.Println()
+	fmt.Println(" won ", won)
+	fmt.Println("lost ", lost)
+	fmt.Println(" sum ", sum)
+	fmt.Println(" vol ", vol)
+	fmt.Println(" dur ", dur)
+	fmt.Println()
+	fmt.Println()
 
 	if c.TestMode {
 		//return
@@ -133,7 +153,7 @@ func New() {
 	})
 }
 
-func NewSimulation(c *nuchal.Config, posture product.Posture) {
+func NewSimulation(c *nuchal.Config, posture product.Posture) Result {
 
 	var positionIndexes []int
 	var then, that rate.Candlestick
@@ -173,7 +193,8 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 					exit = gain  // and worst case scenario, we exit with the goal.
 				}
 
-				if r.Open > exit {
+				if r.Open >= exit {
+					fmt.Println("yes")
 					exit = r.Open
 				}
 
@@ -189,14 +210,16 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 				continue
 			}
 
-			result *= util.Float64(posture.Size)
+			size := util.Float64(posture.Size)
+
+			result *= size
 			if result > 0 {
 				won += result
 			} else {
 				lost += result
 			}
 
-			vol += entry
+			vol += market * size
 
 			scenarios = append(scenarios, Scenario{
 				r.Time(),
@@ -205,6 +228,7 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 				entry,
 				exit,
 				result,
+				market * size,
 			})
 			break
 		}
@@ -243,7 +267,8 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 		kline := charts.NewKLine()
 		kline.SetGlobalOptions(
 			charts.WithTitleOpts(opts.Title{
-				Title: fmt.Sprintf("RESULT: %f\tBOUGHT: %f\tSOLD: %f\tGOAL: %f", s.Result, s.Market, s.Exit, s.Entry),
+				Title: fmt.Sprintf("RESULT: %f\tBOUGHT: %f\tSOLD: %f\tGOAL: %f\tVOL: %f",
+					s.Result, s.Market, s.Exit, s.Entry, s.Volume),
 			}),
 			charts.WithXAxisOpts(opts.XAxis{
 				SplitNumber: 20,
@@ -258,6 +283,7 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 				XAxisIndex: []int{0},
 			}),
 		)
+
 		x := make([]string, 0)
 		y := make([]opts.KlineData, 0)
 		for i := 0; i < len(s.Rates); i++ {
@@ -290,6 +316,8 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) {
 	} else if err := page.Render(io.MultiWriter(f)); err != nil {
 		panic(err)
 	}
+
+	return simulation
 }
 
 func render() {

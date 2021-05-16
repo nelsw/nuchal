@@ -12,19 +12,6 @@ services:
       context: ../
       dockerfile: docker/user/Dockerfile
     network_mode: bridge
-  sim:
-    container_name: sim
-    image: nuchal-sim:v1.0.0
-    env_file:
-      - .env
-    depends_on:
-      - db
-    build:
-      context: ../
-      dockerfile: docker/sim/Dockerfile
-    ports:
-      - 8089:8089
-    network_mode: bridge
   trade:
     container_name: trade
     image: nuchal-trade:v1.0.0
