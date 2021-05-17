@@ -8,10 +8,10 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"io"
+	config2 "nchl/config"
 	"nchl/pkg/db"
-	"nchl/pkg/nuchal"
-	"nchl/pkg/product"
-	"nchl/pkg/rate"
+	"nchl/pkg/model/crypto"
+	"nchl/pkg/model/statistic"
 	"nchl/pkg/util"
 	"net/http"
 	"os"
@@ -31,7 +31,7 @@ const (
 var host string
 
 func init() {
-	host = "host.docker.internal"
+	host = "host.build.internal"
 	if os.Getenv("MODE") == "test" {
 		host = "localhost"
 	}
@@ -46,7 +46,7 @@ type Result struct {
 
 type Scenario struct {
 	Time                                time.Time
-	Rates                               []rate.Candlestick
+	Rates                               []statistic.Candlestick
 	Market, Entry, Exit, Result, Volume float64
 }
 
@@ -66,47 +66,47 @@ func init() {
 	}
 }
 
-func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
+func GetRates(c *config2.Config, productId string) []statistic.Candlestick {
 
 	log.Info().Msg("get rates for " + productId)
 
 	pg := db.NewDB()
 
-	//var from time.Time
-	//var r rate.Candlestick
-	//pg.Where(query, productId).Order(desc).First(&r)
-	//if r != (rate.Candlestick{}) {
-	//	log.Info().Msg("found previous rate found for " + productId)
-	//	from = r.Time()
-	//} else {
-	//	log.Info().Msg("no previous rate found for " + productId)
-	//	from, _ = time.Parse(time.RFC3339, timeVal)
-	//}
-	//
-	//to := from.Add(time.Hour * 4)
-	//for {
-	//	for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
-	//		rc := &rate.Candlestick{
-	//			r.Time.UnixNano(),
-	//			productId,
-	//			r.Low,
-	//			r.High,
-	//			r.Open,
-	//			r.Close,
-	//			r.Volume,
-	//		}
-	//		pg.Save(&rc)
-	//	}
-	//	if time.Now().After(to) {
-	//		break
-	//	}
-	//	from = to
-	//	to = to.Add(time.Hour * 4)
-	//}
+	var from time.Time
+	var r statistic.Candlestick
+	pg.Where(query, productId).Order(desc).First(&r)
+	if r != (statistic.Candlestick{}) {
+		log.Info().Msg("found previous rate found for " + productId)
+		from = r.Time()
+	} else {
+		log.Info().Msg("no previous rate found for " + productId)
+		from, _ = time.Parse(time.RFC3339, timeVal)
+	}
 
-	var savedRates []rate.Candlestick
-	pg.Where(query, productId).
-		Where("unix > ?", c.StartTime().UnixNano()).
+	to := from.Add(time.Hour * 4)
+	for {
+		for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
+			rc := &statistic.Candlestick{
+				r.Time.UnixNano(),
+				productId,
+				r.Low,
+				r.High,
+				r.Open,
+				r.Close,
+				r.Volume,
+			}
+			pg.Save(&rc)
+		}
+		if from.After(time.Now()) {
+			break
+		}
+		from = to
+		to = to.Add(time.Hour * 4)
+	}
+
+	var savedRates []statistic.Candlestick
+	pg.Where("product_id = ?", productId).
+		Where("unix >= ?", c.StartTime().UnixNano()).
 		Order(asc).
 		Find(&savedRates)
 	log.Info().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
@@ -116,7 +116,7 @@ func GetRates(c *nuchal.Config, productId string) []rate.Candlestick {
 
 func New() {
 
-	c, err := nuchal.NewConfig()
+	c, err := config2.NewConfig()
 	if err != nil {
 		log.Error().Err(err)
 		return
@@ -144,27 +144,23 @@ func New() {
 	fmt.Println()
 	fmt.Println()
 
-	if c.TestMode {
-		//return
-	}
-
 	_ = util.DoIndefinitely(func() {
 		render()
 	})
 }
 
-func NewSimulation(c *nuchal.Config, posture product.Posture) Result {
+func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
 
 	var positionIndexes []int
-	var then, that rate.Candlestick
+	var then, that statistic.Candlestick
 
 	rates := GetRates(c, posture.ProductId())
 
 	for i, this := range rates {
-		if rate.IsTweezer(then, that, this, posture.DeltaFloat()) {
+		if statistic.IsTweezer(then, that, this, posture.DeltaFloat()) {
 			positionIndexes = append(positionIndexes, i)
-			then = rate.Candlestick{}
-			that = rate.Candlestick{}
+			then = statistic.Candlestick{}
+			that = statistic.Candlestick{}
 		} else {
 			then = that
 			that = this
@@ -194,7 +190,6 @@ func NewSimulation(c *nuchal.Config, posture product.Posture) Result {
 				}
 
 				if r.Open >= exit {
-					fmt.Println("yes")
 					exit = r.Open
 				}
 
@@ -351,6 +346,7 @@ func getHistoricRates(client *cb.Client, productId string, from, to time.Time, a
 		time.Sleep(time.Duration(i*3) * time.Second)
 		return getHistoricRates(client, productId, from, to, i)
 	} else {
+		log.Debug().Int("qty", len(rates)).Msg("get historic rates")
 		return rates
 	}
 }

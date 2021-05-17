@@ -1,4 +1,3 @@
-/.conf/
 /html/
-/assets/users.json
+/config/users.json
 *.env

@@ -6,9 +6,8 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"nchl/pkg/db"
-	"net/http"
 	"os"
-	"time"
+	"strings"
 )
 
 type Group struct {
@@ -41,51 +40,6 @@ func (c *Group) validate() error {
 	}
 }
 
-type User struct {
-	Name       string `json:"name"`
-	Key        string `json:"key"`
-	Passphrase string `json:"passphrase"`
-	Secret     string `json:"secret"`
-	Enable     bool   `json:"enable"`
-}
-
-func (u *User) validate() error {
-	if u == (&User{}) {
-		return errors.New("account is blank")
-	} else if u.Key == "" {
-		return errors.New("missing Coinbase Pro API key")
-	} else if u.Secret == "" {
-		return errors.New("missing Coinbase Pro API secret")
-	} else if u.Passphrase == "" {
-		return errors.New("missing Coinbase Pro API passphrase")
-	} else {
-		return nil
-	}
-}
-
-func (u *User) GetClient() *cb.Client {
-	return &cb.Client{
-		"https://api.pro.coinbase.com",
-		u.Secret,
-		u.Key,
-		u.Passphrase,
-		&http.Client{
-			Timeout: 15 * time.Second,
-		},
-		0,
-	}
-}
-
-type Portfolio struct {
-	Username, Value string
-	Positions       []Status
-}
-
-type Status struct {
-	ProductId, Value string
-	Balance          float64
-}
-
 func NewGroup() (*Group, error) {
 
 	log.Info().Msg("creating account group")
@@ -105,17 +59,23 @@ func NewGroup() (*Group, error) {
 		}
 	}
 
-	if err == nil {
-		log.Info().Msgf("created account group [%v]", g)
-	} else {
+	if err != nil {
 		log.Error().Err(err).Msg("error creating account group")
+		return nil, err
 	}
 
-	return g, err
+	var names []string
+	for _, user := range g.Users {
+		names = append(names, user.Name)
+	}
+	csv := strings.Join(names, ", ")
+	log.Info().Msgf("created account group [%v]", csv)
+
+	return g, nil
 }
 
 func loadFromJson(g *Group) error {
-	if file, err := os.Open("assets/users.json"); err != nil {
+	if file, err := os.Open("config/users.json"); err != nil {
 		// no user json file, not worth the log space
 		return err
 	} else if err := json.NewDecoder(file).Decode(&g); err != nil {
@@ -131,11 +91,18 @@ func loadFromJson(g *Group) error {
 }
 
 func loadFromDatabase(g *Group) error {
-	db.NewDB().Find(&g.Users)
+
+	pg, err := db.OpenDB()
+	if err != nil {
+		return err
+	}
+
+	pg.Find(&g.Users)
 	if err := g.validate(); err != nil {
 		log.Warn().Err(err)
 		return err
 	}
+
 	log.Info().Msg("created account group from database")
 	return nil
 }

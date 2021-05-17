@@ -6,10 +6,10 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	"nchl/pkg/account"
-	"nchl/pkg/nuchal"
-	"nchl/pkg/product"
-	"nchl/pkg/rate"
+	config2 "nchl/config"
+	"nchl/pkg/model/account"
+	"nchl/pkg/model/crypto"
+	"nchl/pkg/model/statistic"
 	"nchl/pkg/util"
 	"time"
 )
@@ -18,7 +18,7 @@ func New() error {
 
 	log.Info().Msg("creating new trades")
 
-	c, err := nuchal.NewConfig()
+	c, err := config2.NewConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("error creating nuchal config")
 		return err
@@ -32,32 +32,32 @@ func New() error {
 	})
 }
 
-func trade(g *account.Group, p product.Posture) {
+func trade(g *account.Group, p crypto.Posture) {
 
 	log.Info().
 		Str("productId", p.ProductId()).
 		Msg("creating trades")
 
-	var then, that rate.Candlestick
+	var then, that statistic.Candlestick
 	for {
 		if this, err := getRate(p.ProductId()); err != nil {
-			then = rate.Candlestick{}
-			that = rate.Candlestick{}
+			then = statistic.Candlestick{}
+			that = statistic.Candlestick{}
 			// logging in getRate
-		} else if !rate.IsTweezer(then, that, *this, p.DeltaFloat()) { // logging in IsTweezer
+		} else if !statistic.IsTweezer(then, that, *this, p.DeltaFloat()) { // logging in IsTweezer
 			then = that
 			that = *this
 		} else {
 			for _, u := range g.Users {
 				go buy(u, p)
 			}
-			then = rate.Candlestick{}
-			that = rate.Candlestick{}
+			then = statistic.Candlestick{}
+			that = statistic.Candlestick{}
 		}
 	}
 }
 
-func buy(u account.User, p product.Posture) {
+func buy(u account.User, p crypto.Posture) {
 
 	log.Info().
 		Str("user", u.Name).
@@ -96,7 +96,7 @@ func buy(u account.User, p product.Posture) {
 	}
 }
 
-func sell(u account.User, exitPrice float64, size string, p product.Posture) {
+func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 
 	log.Info().
 		Str("user", u.Name).
@@ -196,7 +196,7 @@ func sell(u account.User, exitPrice float64, size string, p product.Posture) {
 	}
 }
 
-func getRate(productId string) (*rate.Candlestick, error) {
+func getRate(productId string) (*statistic.Candlestick, error) {
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -249,7 +249,7 @@ func getRate(productId string) (*rate.Candlestick, error) {
 				Str("productId", productId).
 				Msg("...built rate")
 
-			return &rate.Candlestick{
+			return &statistic.Candlestick{
 				time.Now().UnixNano(),
 				productId,
 				low,
