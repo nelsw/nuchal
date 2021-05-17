@@ -6,8 +6,8 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
+	config2 "nchl/config"
 	"nchl/pkg/model/account"
-	"nchl/pkg/model/config"
 	"nchl/pkg/model/crypto"
 	"nchl/pkg/model/statistic"
 	"nchl/pkg/util"
@@ -18,7 +18,7 @@ func New() error {
 
 	log.Info().Msg("creating new trades")
 
-	c, err := config.NewConfig()
+	c, err := config2.NewConfig()
 	if err != nil {
 		log.Error().Err(err).Msg("error creating nuchal config")
 		return err

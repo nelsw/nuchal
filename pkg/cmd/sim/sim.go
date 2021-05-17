@@ -8,8 +8,8 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"io"
+	config2 "nchl/config"
 	"nchl/pkg/db"
-	"nchl/pkg/model/config"
 	"nchl/pkg/model/crypto"
 	"nchl/pkg/model/statistic"
 	"nchl/pkg/util"
@@ -66,7 +66,7 @@ func init() {
 	}
 }
 
-func GetRates(c *config.Config, productId string) []statistic.Candlestick {
+func GetRates(c *config2.Config, productId string) []statistic.Candlestick {
 
 	log.Info().Msg("get rates for " + productId)
 
@@ -116,7 +116,7 @@ func GetRates(c *config.Config, productId string) []statistic.Candlestick {
 
 func New() {
 
-	c, err := config.NewConfig()
+	c, err := config2.NewConfig()
 	if err != nil {
 		log.Error().Err(err)
 		return
@@ -149,7 +149,7 @@ func New() {
 	})
 }
 
-func NewSimulation(c *config.Config, posture crypto.Posture) Result {
+func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
 
 	var positionIndexes []int
 	var then, that statistic.Candlestick

@@ -3,8 +3,8 @@ package status
 import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
+	config2 "nchl/config"
 	"nchl/pkg/model/account"
-	"nchl/pkg/model/config"
 	"nchl/pkg/util"
 	"sort"
 	"time"
@@ -14,7 +14,7 @@ func New() error {
 
 	log.Info().Msg("get status")
 
-	cfg, err := config.NewConfig()
+	cfg, err := config2.NewConfig()
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return err
