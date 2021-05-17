@@ -1,4 +1,4 @@
-package rate
+package statistic
 
 import (
 	"github.com/rs/zerolog/log"
@@ -8,7 +8,7 @@ import (
 
 type Candlestick struct {
 	Unix      int64   `json:"unix" gorm:"primaryKey"`
-	ProductId string  `json:"product" gorm:"primaryKey"`
+	ProductId string  `json:"product_id" gorm:"primaryKey"`
 	Low       float64 `json:"low"`
 	High      float64 `json:"high"`
 	Open      float64 `json:"open"`

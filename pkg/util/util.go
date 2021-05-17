@@ -2,12 +2,13 @@ package util
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 )
 
 func Int(s string) int {
 	if i, err := strconv.Atoi(s); err != nil {
-		panic(err)
+		return -1
 	} else {
 		return i
 	}
@@ -18,6 +19,14 @@ func Float64(s string) float64 {
 		panic(err)
 	} else {
 		return f
+	}
+}
+
+func MinInt(a, z int) int {
+	if a < z {
+		return a
+	} else {
+		return z
 	}
 }
 
@@ -47,4 +56,12 @@ func DoIndefinitely(fun func()) error {
 			return nil
 		}
 	}
+}
+
+func IsTestMode() bool {
+	return os.Getenv("MODE") == "test"
+}
+
+func IsZero(s string) bool {
+	return Float64(s) == 0.0
 }

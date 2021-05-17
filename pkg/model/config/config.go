@@ -1,11 +1,12 @@
-package nuchal
+package config
 
 import (
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"nchl/pkg/account"
-	"nchl/pkg/product"
+	"nchl/pkg/model/account"
+	"nchl/pkg/model/crypto"
+	"nchl/pkg/util"
 	"os"
 	"strings"
 	"time"
@@ -15,8 +16,7 @@ import (
 type Config struct {
 	*account.Group
 	*time.Duration
-	*product.Strategy
-	TestMode bool
+	*crypto.Strategy
 }
 
 func (c Config) StartTime() *time.Time {
@@ -39,7 +39,7 @@ func (c Config) IsTimeToExit() bool {
 
 func init() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	if isTestMode() {
+	if util.IsTestMode() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -65,7 +65,6 @@ func NewConfig() (*Config, error) {
 	log.Info().Msg("creating configuration")
 
 	c := new(Config)
-	c.TestMode = isTestMode()
 
 	// get a new account group
 	if group, err := account.NewGroup(); err != nil {
@@ -76,7 +75,7 @@ func NewConfig() (*Config, error) {
 	}
 
 	// get a new product strategy
-	if strategy, err := product.NewStrategy(); err != nil {
+	if strategy, err := crypto.NewStrategy(); err != nil {
 		log.Error().Err(err)
 		return nil, err
 	} else {
@@ -97,8 +96,4 @@ func NewConfig() (*Config, error) {
 
 	log.Info().Msgf("created configuration [%v]", c)
 	return c, nil
-}
-
-func isTestMode() bool {
-	return os.Getenv("MODE") == "test"
 }

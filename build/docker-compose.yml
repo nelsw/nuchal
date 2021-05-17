@@ -10,18 +10,7 @@ services:
       - db
     build:
       context: ../
-      dockerfile: docker/user/Dockerfile
-    network_mode: bridge
-  trade:
-    container_name: trade
-    image: nuchal-trade:v1.0.0
-    env_file:
-      - .env
-    depends_on:
-      - db
-    build:
-      context: ../
-      dockerfile: docker/trade/Dockerfile
+      dockerfile: ""
     network_mode: bridge
   db:
     container_name: db

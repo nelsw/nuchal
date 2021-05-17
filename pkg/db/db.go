@@ -24,11 +24,12 @@ func (c Config) DSN() string {
 var config *Config
 
 func init() {
-	zog.Info().Msg("initializing db")
+
 	host := os.Getenv("POSTGRES_HOST")
 	if host == "" {
 		host = "host.docker.internal"
 	}
+
 	config = &Config{
 		host,
 		os.Getenv("POSTGRES_USER"),
@@ -36,32 +37,27 @@ func init() {
 		os.Getenv("POSTGRES_DB"),
 		util.Int(os.Getenv("POSTGRES_PORT")),
 	}
-	if db, err := openDB(); err != nil {
+
+	if db, err := OpenDB(); err != nil {
 		zog.Error().Err(err)
-		panic(err)
 	} else if sql, err := db.DB(); err != nil {
 		zog.Error().Err(err)
-		panic(err)
 	} else if err := sql.Ping(); err != nil {
 		zog.Error().Err(err)
-		panic(err)
 	} else if err := sql.Close(); err != nil {
 		zog.Error().Err(err)
-		panic(err)
-	} else {
-		zog.Info().Msg("initialized db")
 	}
 }
 
 func NewDB() *gorm.DB {
-	db, err := openDB()
+	db, err := OpenDB()
 	if err != nil {
 		zog.Error().Err(err).Msg("error opening DB!")
 	}
 	return db
 }
 
-func openDB() (*gorm.DB, error) {
+func OpenDB() (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(config.DSN()), &gorm.Config{
 		Logger: gol.New(
 			log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
