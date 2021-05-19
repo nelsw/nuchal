@@ -5,7 +5,7 @@ import (
 	"errors"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	"nchl/pkg/db"
+	"nuchal/pkg/db"
 	"os"
 	"strings"
 )
@@ -48,11 +48,11 @@ func NewGroup() (*Group, error) {
 
 	var err error
 	if err = loadFromJson(g); err != nil {
-		log.Warn().Err(err).Msg("user load from json failed")
+		log.Warn().Err(err).Msg("account load from json failed")
 		if err = loadFromDatabase(g); err != nil {
-			log.Warn().Err(err).Msg("user load from database failed")
+			log.Warn().Err(err).Msg("account load from database failed")
 			if err = loadFromEnvironment(g); err != nil {
-				log.Warn().Err(err).Msg("user load from environment failed")
+				log.Warn().Err(err).Msg("account load from environment failed")
 			} else {
 				log.Info().Msg("created account group")
 			}
@@ -75,17 +75,17 @@ func NewGroup() (*Group, error) {
 }
 
 func loadFromJson(g *Group) error {
-	if file, err := os.Open("config/users.json"); err != nil {
-		// no user json file, not worth the log space
+	if file, err := os.Open("pkg/config/users.json"); err != nil {
+		// no account json file, not worth the log space
 		return err
 	} else if err := json.NewDecoder(file).Decode(&g); err != nil {
 		log.Warn().Err(err).Msg("unable to decode users.json")
 		return err
 	} else if err := g.validate(); err != nil {
-		log.Warn().Err(err).Msg("user json was invalid")
+		log.Warn().Err(err).Msg("account json was invalid")
 		return err
 	} else {
-		log.Info().Msg("created account group from user json")
+		log.Info().Msg("created account group from account json")
 		return nil
 	}
 }
@@ -116,7 +116,7 @@ func loadFromEnvironment(g *Group) error {
 		true,
 	})
 	if err := g.validate(); err != nil {
-		log.Error().Err(err).Msg("user environment variables were invalid")
+		log.Error().Err(err).Msg("account environment variables were invalid")
 		return err
 	}
 	log.Info().Msg("created account group from environment variables")

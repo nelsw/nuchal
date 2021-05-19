@@ -3,7 +3,7 @@ package cmd
 import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"nchl/pkg/cmd/trade"
+	"nuchal/pkg/cmd/trade"
 )
 
 func init() {

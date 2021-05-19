@@ -1,11 +1,10 @@
-module nchl
+module nuchal
 
 go 1.16
 
 require (
 	github.com/go-echarts/go-echarts/v2 v2.2.4
 	github.com/gorilla/websocket v1.4.2
-	github.com/lib/pq v1.10.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/preichenberger/go-coinbasepro/v2 v2.0.5
 	github.com/rs/zerolog v1.15.0

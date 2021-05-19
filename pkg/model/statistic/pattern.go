@@ -1,6 +1,6 @@
 package statistic
 
-import "nchl/pkg/util"
+import "nuchal/pkg/util"
 
 type Pattern struct {
 	Id     string `json:"id"`

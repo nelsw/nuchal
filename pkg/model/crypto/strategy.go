@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	"nchl/pkg/model/statistic"
+	"nuchal/pkg/model/statistic"
 	"os"
 	"sort"
 	"strings"
@@ -12,6 +12,7 @@ import (
 
 type Strategy struct {
 	Postures []Posture
+	Products []cb.Product `json:"products"`
 }
 
 func NewStrategy() (*Strategy, error) {
@@ -20,13 +21,10 @@ func NewStrategy() (*Strategy, error) {
 
 	c := new(Strategy)
 
-	var products struct {
-		All []cb.Product `json:"products"`
-	}
-	if file, err := os.Open("config/products.json"); err != nil {
+	if file, err := os.Open("pkg/config/products.json"); err != nil {
 		log.Warn().Err(err).Msg("unable to open products.json")
 		return nil, err
-	} else if err := json.NewDecoder(file).Decode(&products); err != nil {
+	} else if err := json.NewDecoder(file).Decode(&c); err != nil {
 		log.Warn().Err(err).Msg("unable to decode products.json")
 		return nil, err
 	}
@@ -35,7 +33,7 @@ func NewStrategy() (*Strategy, error) {
 		Tweezer []statistic.Pattern `json:"tweezer"`
 	}
 
-	if file, err := os.Open("config/patterns.json"); err != nil {
+	if file, err := os.Open("pkg/config/patterns.json"); err != nil {
 		log.Warn().Err(err).Msg("unable to open patterns.json")
 		return nil, err
 	} else if err := json.NewDecoder(file).Decode(&patterns); err != nil {
@@ -44,7 +42,7 @@ func NewStrategy() (*Strategy, error) {
 	}
 
 	productMap := map[string]cb.Product{}
-	for _, product := range products.All {
+	for _, product := range c.Products {
 		productMap[product.ID] = product
 	}
 
@@ -67,6 +65,15 @@ func NewStrategy() (*Strategy, error) {
 	log.Info().Msgf("created product strategy [%v]", csv)
 
 	return c, nil
+}
+
+func (s Strategy) GetProduct(productId string) cb.Product {
+	for _, p := range s.Products {
+		if p.ID == productId {
+			return p
+		}
+	}
+	panic("no product found for " + productId)
 }
 
 func (s Strategy) GetPosture(productId string) Posture {

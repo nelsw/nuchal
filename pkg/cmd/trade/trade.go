@@ -6,11 +6,11 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	config2 "nchl/config"
-	"nchl/pkg/model/account"
-	"nchl/pkg/model/crypto"
-	"nchl/pkg/model/statistic"
-	"nchl/pkg/util"
+	config2 "nuchal/pkg/config"
+	"nuchal/pkg/model/account"
+	"nuchal/pkg/model/crypto"
+	"nuchal/pkg/model/statistic"
+	"nuchal/pkg/util"
 	"time"
 )
 
@@ -60,14 +60,14 @@ func trade(g *account.Group, p crypto.Posture) {
 func buy(u account.User, p crypto.Posture) {
 
 	log.Info().
-		Str("user", u.Name).
+		Str("account", u.Name).
 		Str("productId", p.ProductId()).
 		Msg("... buying")
 
 	if order, err := createOrder(u, p.MarketEntryOrder()); err == nil {
 
 		log.Info().
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("productId", p.ProductId()).
 			Str("orderId", order.ID).
 			Msg("created order")
@@ -81,7 +81,7 @@ func buy(u account.User, p crypto.Posture) {
 
 		log.Warn().
 			Err(err).
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("productId", p.ProductId()).
 			Msg("Insufficient funds ... sleeping ...")
 
@@ -90,7 +90,7 @@ func buy(u account.User, p crypto.Posture) {
 	} else {
 		log.Error().
 			Err(err).
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("productId", p.ProductId()).
 			Msg("error buying")
 	}
@@ -99,7 +99,7 @@ func buy(u account.User, p crypto.Posture) {
 func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 
 	log.Info().
-		Str("user", u.Name).
+		Str("account", u.Name).
 		Str("productId", p.ProductId()).
 		Float64("exitPrice", exitPrice).
 		Str("size", size).
@@ -111,14 +111,14 @@ func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 
 		log.Error().
 			Err(err).
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("productId", p.ProductId()).
 			Msg("error opening websocket connection")
 
 		if _, err := createOrder(u, p.StopEntryOrder(exitPrice, size)); err != nil {
 			log.Error().
 				Err(err).
-				Str("user", u.Name).
+				Str("account", u.Name).
 				Str("productId", p.ProductId()).
 				Msg("error while creating entry order")
 		}
@@ -130,7 +130,7 @@ func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 		if err := wsConn.Close(); err != nil {
 			log.Error().
 				Err(err).
-				Str("user", u.Name).
+				Str("account", u.Name).
 				Str("productId", p.ProductId()).
 				Msg("error while close websocket connection")
 		}
@@ -328,7 +328,7 @@ func createOrder(u account.User, order *cb.Order, attempt ...int) (*cb.Order, er
 // This function also performs extensive logging given its variable and seriously critical nature.
 func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 
-	log.Info().Str("user", u.Name).Str("orderId", id).Msg("get order")
+	log.Info().Str("account", u.Name).Str("orderId", id).Msg("get order")
 
 	order, err := u.GetClient().GetOrder(id)
 
@@ -338,7 +338,7 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 
 		log.Error().
 			Err(err).
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("orderId", id).
 			Int("attempt", i).
 			Msg("error getting order")
@@ -355,7 +355,7 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 	if !order.Settled || order.Status == "pending" {
 
 		log.Warn().
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("product", order.ProductID).
 			Str("orderId", id).
 			Str("side", order.Side).
@@ -367,7 +367,7 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 	}
 
 	log.Info().
-		Str("user", u.Name).
+		Str("account", u.Name).
 		Str("product", order.ProductID).
 		Str("orderId", id).
 		Str("side", order.Side).
@@ -380,15 +380,15 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 func cancelOrder(u account.User, id string, attempt ...int) error {
 
 	log.Info().
-		Str("user", u.Name).
-		Str("user", u.Name).
+		Str("account", u.Name).
+		Str("account", u.Name).
 		Str("orderId", id).
 		Msg("canceling order")
 
 	err := u.GetClient().CancelOrder(id)
 	if err == nil {
 		log.Info().
-			Str("user", u.Name).
+			Str("account", u.Name).
 			Str("orderId", id).
 			Msg("canceled order")
 		return nil
@@ -398,7 +398,7 @@ func cancelOrder(u account.User, id string, attempt ...int) error {
 
 	log.Error().
 		Err(err).
-		Str("user", u.Name).
+		Str("account", u.Name).
 		Str("orderId", id).
 		Int("attempt", i).
 		Msg("error canceling order")

@@ -8,12 +8,12 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"io"
-	config2 "nchl/config"
-	"nchl/pkg/db"
-	"nchl/pkg/model/crypto"
-	"nchl/pkg/model/statistic"
-	"nchl/pkg/util"
 	"net/http"
+	config2 "nuchal/pkg/config"
+	"nuchal/pkg/db"
+	"nuchal/pkg/model/crypto"
+	"nuchal/pkg/model/statistic"
+	"nuchal/pkg/util"
 	"os"
 	"sort"
 	"time"
@@ -31,7 +31,7 @@ const (
 var host string
 
 func init() {
-	host = "host.build.internal"
+	host = "host.docker.internal"
 	if os.Getenv("MODE") == "test" {
 		host = "localhost"
 	}
@@ -255,7 +255,6 @@ func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
 
 	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
 		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
-		//return simulation.Scenarios[i].Time.After(simulation.Scenarios[j].Time)
 	})
 
 	for _, s := range simulation.Scenarios {

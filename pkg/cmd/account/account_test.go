@@ -1,4 +1,4 @@
-package status
+package account
 
 import "testing"
 

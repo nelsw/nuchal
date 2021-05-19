@@ -1,17 +1,7 @@
 version: '3.9'
 
 services:
-  user:
-    container_name: user
-    image: nuchal-user:v1.0.0
-    env_file:
-      - .env
-    depends_on:
-      - db
-    build:
-      context: ../
-      dockerfile: ""
-    network_mode: bridge
+
   db:
     container_name: db
     image: postgres:latest
@@ -22,6 +12,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_HOST=${POSTGRES_HOST}
     ports:
       - ${POSTGRES_PORT}:5432
     volumes:

@@ -3,7 +3,8 @@ package crypto
 import (
 	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nchl/pkg/model/statistic"
+	"nuchal/pkg/model/statistic"
+	"nuchal/pkg/util"
 )
 
 type Posture struct {
@@ -34,6 +35,12 @@ func (p *Posture) StopEntryOrder(price float64, size string) *cb.Order {
 		StopPrice: Price(price),
 		Stop:      "entry",
 	}
+}
+
+func (p *Posture) StopGainOrder(fill cb.Fill) *cb.Order {
+	exit := util.Float64(fill.Price)
+	gain := exit + (exit * p.GainFloat())
+	return p.StopEntryOrder(gain, fill.Size)
 }
 
 func (p *Posture) StopLossOrder(price float64, size string) *cb.Order {
