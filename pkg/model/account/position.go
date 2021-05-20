@@ -89,14 +89,15 @@ func (p *Position) OrphanBuyFills() []cb.Fill {
 	return fills
 }
 
-func (p *Position) Log(product cb.Product) {
+func (p *Position) Log() {
 
+	//log.Info().Msg(p.Url())
 	log.Info().
 		Str("#", fmt.Sprintf(`%s`, p.Symbol())).
-		Str("avg", util.Usd(p.Value/p.Balance)).
-		Str("hold", fmt.Sprintf(`%.3f`, p.Hold)).
-		Str("qty", fmt.Sprintf(`%.3f`, p.Balance)).
-		Str("value", util.Usd(p.Value)).
+		Str("$", util.Round2Places(p.Value/p.Balance)).
+		Str("bal", fmt.Sprintf(`%.3f`, p.Balance)).
+		Str("hld", fmt.Sprintf(`%.3f`, p.Hold)).
+		Str("val", util.Usd(p.Value)).
 		Send()
 
 	o := p.OrphanBuyFillsLen()

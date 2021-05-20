@@ -28,15 +28,6 @@ const (
 	timeVal = "2021-05-10T00:00:00+00:00"
 )
 
-var host string
-
-func init() {
-	host = "host.docker.internal"
-	if os.Getenv("MODE") == "test" {
-		host = "localhost"
-	}
-}
-
 type Result struct {
 	Won, Lost, Vol float64
 	Scenarios      []Scenario
@@ -144,9 +135,9 @@ func New() {
 	fmt.Println()
 	fmt.Println()
 
-	_ = util.DoIndefinitely(func() {
-		render()
-	})
+	render()
+
+	return
 }
 
 func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
@@ -317,7 +308,7 @@ func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
 func render() {
 	fs := http.FileServer(http.Dir(path))
 	fmt.Println("served charts at http://localhost:8089")
-	log.Print(http.ListenAndServe(fmt.Sprintf("%s:8089", host), logRequest(fs)))
+	log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
 }
 
 func logRequest(handler http.Handler) http.Handler {

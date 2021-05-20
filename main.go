@@ -16,7 +16,9 @@ limitations under the License.
 */
 package main
 
-import "nuchal/cmd"
+import (
+	"nuchal/cmd"
+)
 
 func main() {
 	cmd.Execute()

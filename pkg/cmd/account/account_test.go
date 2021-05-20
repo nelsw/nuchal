@@ -4,7 +4,7 @@ import "testing"
 
 func TestNew(t *testing.T) {
 
-	if err := New(); err != nil {
+	if err := New(false, false); err != nil {
 		t.Error(err)
 	}
 

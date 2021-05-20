@@ -9,11 +9,7 @@ import (
 	"time"
 )
 
-func New() error {
-	return NewWithForceHolds(false)
-}
-
-func NewWithForceHolds(forceHolds bool) error {
+func New(forceHolds, recurring bool) error {
 
 	cfg, err := config.NewConfig()
 	if err != nil {
@@ -21,11 +17,11 @@ func NewWithForceHolds(forceHolds bool) error {
 		return err
 	}
 
+	util.PrintNewLine()
+
 	for {
 
 		for _, user := range cfg.Users {
-
-			log.Info().Msg("---------")
 
 			portfolio, err := getPortfolio(user)
 			if err != nil {
@@ -36,12 +32,11 @@ func NewWithForceHolds(forceHolds bool) error {
 
 			for _, position := range portfolio.CoinPositions() {
 
-				product := cfg.GetProduct(position.ProductId)
-				position.Log(product)
+				position.Log()
 
 				if position.HasOrphanBuyFills() && forceHolds {
 
-					posture := cfg.GetPosture(product.ID)
+					posture := cfg.GetPosture(position.ProductId)
 
 					for _, fill := range position.OrphanBuyFills() {
 
@@ -53,13 +48,17 @@ func NewWithForceHolds(forceHolds bool) error {
 					}
 				}
 			}
+			util.PrintNewLine()
 		}
 
-		if util.IsTestMode() || cfg.IsTimeToExit() {
+		util.LogBanner()
+		util.PrintCursor()
+
+		if !recurring || cfg.IsTimeToExit() {
 			return nil
 		}
 
-		util.Sleep(time.Minute * 3)
+		util.Sleep(time.Minute * 1)
 	}
 }
 

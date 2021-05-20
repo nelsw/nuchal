@@ -2,11 +2,23 @@ package util
 
 import (
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	banner = `
+____________________________________________/\\\_________________________/\\\\\\____        
+ ___________________________________________\/\\\________________________\////\\\____       
+  ___________________________________________\/\\\___________________________\/\\\____      
+   __/\\/\\\\\\____/\\\____/\\\_____/\\\\\\\\_\/\\\__________/\\\\\\\\\_______\/\\\____     
+    _\/\\\////\\\__\/\\\___\/\\\___/\\\//////__\/\\\\\\\\\\__\////////\\\______\/\\\____    
+     _\/\\\__\//\\\_\/\\\___\/\\\__/\\\_________\/\\\/////\\\___/\\\\\\\\\\_____\/\\\____   
+      _\/\\\___\/\\\_\/\\\___\/\\\_\//\\\________\/\\\___\/\\\__/\\\/////\\\_____\/\\\____  
+       _\/\\\___\/\\\_\//\\\\\\\\\___\///\\\\\\\\_\/\\\___\/\\\_\//\\\\\\\\/\\__/\\\\\\\\\_ 
+        _\///____\///___\/////////______\////////__\///____\///___\////////\//__\/////////__`
 )
 
 func Int(s string) int {
@@ -33,11 +45,15 @@ func MinInt(a, z int) int {
 	}
 }
 
-func Usd(f float64) string {
+func Round2Places(f float64) string {
 	x := (f * 100) + 0.5
 	x = x / 100
-	rounded := fmt.Sprintf("%.2f", x)
+	return fmt.Sprintf("%.2f", x)
+}
 
+func Usd(f float64) string {
+
+	rounded := Round2Places(f)
 	chunks := strings.Split(rounded, `.`)
 	dollars := chunks[0]
 	cents := chunks[1]
@@ -93,7 +109,7 @@ func IsZero(s string) bool {
 func Sleep(d time.Duration) {
 	exit := time.Now().Add(d)
 	for {
-		log.Info().Msg("...")
+		fmt.Println()
 		time.Sleep(d)
 		if time.Now().After(exit) {
 			break
@@ -102,6 +118,14 @@ func Sleep(d time.Duration) {
 	}
 }
 
-func sleep(n int64) {
-	time.Sleep(time.Nanosecond * time.Duration(n))
+func LogBanner() {
+	fmt.Println(banner)
+}
+
+func PrintCursor() {
+	fmt.Print("> ")
+}
+
+func PrintNewLine() {
+	fmt.Print("\n")
 }
