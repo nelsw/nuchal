@@ -1,22 +1,19 @@
-.SILENT: up down it sim trade acc
+.SILENT: up down build sim trade acc
 
-it:
-	GOOS=linux GOARCH=amd64 && go build -o nuchal main.go
+build:
+	GOOS=linux GOARCH=amd64 && go build -o build/nuchal main.go
 
-sim: it up
-	./nuchal sim && open http://localhost:8089
+sim: build up
+	build/nuchal sim && open http://localhost:${SIM_PORT}
 
-account: it
-	./nuchal account
+account: build
+	build/nuchal account
 
-holds: it
-	./nuchal account --force-holds
-
-trade: it
-	./nuchal trade
+trade: build
+	build/nuchal trade
 
 up:
-	docker compose up -d
+	docker compose -p nuchal -f build/docker-compose.yml up -d
 
 down:
-	docker compose down
+	docker compose -f build/docker-compose.yml down

@@ -103,11 +103,15 @@ func loadFromDatabase(g *Group) error {
 }
 
 func loadFromEnvironment(g *Group) error {
+	name := os.Getenv("name")
+	if name == "" {
+		name = "Guest"
+	}
 	g.Users = append(g.Users, User{
-		os.Getenv("name"),
-		os.Getenv("key"),
-		os.Getenv("pass"),
-		os.Getenv("secret"),
+		name,
+		os.Getenv("COINBASE_PRO_KEY"),
+		os.Getenv("COINBASE_PRO_PASSPHRASE"),
+		os.Getenv("COINBASE_PRO_SECRET"),
 		true,
 	})
 	if err := g.validate(); err != nil {

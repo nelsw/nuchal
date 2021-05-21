@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
-	config2 "nuchal/pkg/config"
+	"nuchal/pkg/config"
 	"nuchal/pkg/db"
 	"nuchal/pkg/model/crypto"
 	"nuchal/pkg/model/statistic"
@@ -29,16 +29,26 @@ const (
 )
 
 type Result struct {
-	Won, Lost, Vol float64
-	Scenarios      []Scenario
-	ProductId      string
-	From, To       time.Time
+	ProductId string
+
+	Scenarios []Scenario
+
+	Won,
+	Lost,
+	Vol float64
+
+	From,
+	To time.Time
 }
 
 type Scenario struct {
-	Time                                time.Time
-	Rates                               []statistic.Candlestick
-	Market, Entry, Exit, Result, Volume float64
+	Time  time.Time
+	Rates []statistic.Candlestick
+	Market,
+	Entry,
+	Exit,
+	Result,
+	Volume float64
 }
 
 func (s Result) Sum() float64 {
@@ -57,7 +67,7 @@ func init() {
 	}
 }
 
-func GetRates(c *config2.Config, productId string) []statistic.Candlestick {
+func GetRates(c *config.Config, productId string) []statistic.Candlestick {
 
 	log.Info().Msg("get rates for " + productId)
 
@@ -107,7 +117,7 @@ func GetRates(c *config2.Config, productId string) []statistic.Candlestick {
 
 func New() {
 
-	c, err := config2.NewConfig()
+	c, err := config.NewConfig()
 	if err != nil {
 		log.Error().Err(err)
 		return
@@ -135,12 +145,14 @@ func New() {
 	fmt.Println()
 	fmt.Println()
 
-	render()
+	fs := http.FileServer(http.Dir(path))
+	fmt.Println("served charts at http://localhost:8089")
+	log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
 
 	return
 }
 
-func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
+func NewSimulation(c *config.Config, posture crypto.Posture) Result {
 
 	var positionIndexes []int
 	var then, that statistic.Candlestick
@@ -221,11 +233,11 @@ func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
 	}
 
 	simulation := Result{
+		posture.ProductId(),
+		scenarios,
 		won,
 		lost,
 		vol,
-		scenarios,
-		posture.ProductId(),
 		rates[0].Time(),
 		rates[len(rates)-1].Time(),
 	}
@@ -303,12 +315,6 @@ func NewSimulation(c *config2.Config, posture crypto.Posture) Result {
 	}
 
 	return simulation
-}
-
-func render() {
-	fs := http.FileServer(http.Dir(path))
-	fmt.Println("served charts at http://localhost:8089")
-	log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
 }
 
 func logRequest(handler http.Handler) http.Handler {

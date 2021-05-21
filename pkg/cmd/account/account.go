@@ -54,7 +54,7 @@ func New(forceHolds, recurring bool) error {
 		util.LogBanner()
 		util.PrintCursor()
 
-		if !recurring || cfg.IsTimeToExit() {
+		if !recurring {
 			return nil
 		}
 

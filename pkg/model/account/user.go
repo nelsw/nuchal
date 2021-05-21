@@ -16,17 +16,12 @@ type User struct {
 }
 
 func (u *User) validate() error {
-	if u == (&User{}) {
-		return errors.New("user is blank")
-	} else if u.Key == "" {
+	if u.Key == "" {
 		return errors.New("missing Coinbase Pro API key")
 	} else if u.Secret == "" {
 		return errors.New("missing Coinbase Pro API secret")
 	} else if u.Passphrase == "" {
 		return errors.New("missing Coinbase Pro API passphrase")
-	} else if u.Name == "" {
-		// let's give this human a name ...
-		u.Name = "Dr. Bojangles"
 	}
 	return nil
 }

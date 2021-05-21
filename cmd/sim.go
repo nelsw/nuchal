@@ -6,6 +6,7 @@ import (
 )
 
 func init() {
+
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "sim",
 		Short: "strategy simulation",
@@ -13,4 +14,5 @@ func init() {
 		Run: func(cmd *cobra.Command, args []string) {
 			sim.New()
 		}})
+
 }
