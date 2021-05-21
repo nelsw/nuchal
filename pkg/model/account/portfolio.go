@@ -7,8 +7,12 @@ import (
 )
 
 type Portfolio struct {
-	Username, Cash, Crypto, Value string
-	Positions                     []Position
+	Username,
+	Cash,
+	Crypto,
+	Value string
+
+	Positions []Position
 }
 
 func NewPortfolio(name string, positions []Position) *Portfolio {
@@ -16,11 +20,11 @@ func NewPortfolio(name string, positions []Position) *Portfolio {
 	cash := 0.0
 	crypto := 0.0
 	for _, position := range positions {
-		if position.ProductId == "USD" {
-			cash += position.Value
+		if position.Currency == "USD" {
+			cash += position.Balance()
 			continue
 		}
-		crypto += position.Value
+		crypto += position.Value()
 	}
 
 	return &Portfolio{
@@ -44,13 +48,13 @@ func (p *Portfolio) Info() {
 func (p *Portfolio) CoinPositions() []Position {
 	var positions []Position
 	for _, position := range p.Positions {
-		if position.ProductId == "USD" || (position.Balance == 0 && position.Hold == 0) {
+		if position.Currency == "USD" || (position.Balance() == 0 && position.Hold() == 0) {
 			continue
 		}
 		positions = append(positions, position)
 	}
 	sort.SliceStable(positions, func(i, j int) bool {
-		return positions[i].Value > positions[j].Value
+		return positions[i].Value() > positions[j].Value()
 	})
 	return positions
 }

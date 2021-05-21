@@ -31,14 +31,7 @@ func init() {
 			forceHolds := cmd.Flag("force-holds").Value.String() == "true"
 			recurring := cmd.Flag("recurring").Value.String() == "true"
 
-			go func() {
-				if err := util.DoIndefinitely(func() {
-					run(forceHolds, recurring)
-				}); err != nil {
-					log.Error().Err(err).Send()
-					return
-				}
-			}()
+			run(forceHolds, recurring)
 
 			scanner := bufio.NewScanner(os.Stdin)
 			for scanner.Scan() {

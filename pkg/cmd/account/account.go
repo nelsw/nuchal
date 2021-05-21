@@ -36,7 +36,7 @@ func New(forceHolds, recurring bool) error {
 
 				if position.HasOrphanBuyFills() && forceHolds {
 
-					posture := cfg.GetPosture(position.ProductId)
+					posture := cfg.GetPosture(position.ProductId())
 
 					for _, fill := range position.OrphanBuyFills() {
 
@@ -65,7 +65,7 @@ func New(forceHolds, recurring bool) error {
 func getPortfolio(u account.User) (*account.Portfolio, error) {
 
 	accounts, err := u.GetClient().GetAccounts()
-	if err != nil { // logged in account
+	if err != nil {
 		return nil, err
 	}
 
@@ -91,7 +91,7 @@ func getPortfolio(u account.User) (*account.Portfolio, error) {
 func getPosition(u account.User, a cb.Account) (*account.Position, error) {
 
 	if a.Currency == "USD" {
-		return account.NewUsdPosition(a.Balance), nil
+		return account.NewPosition(a, cb.Ticker{}, nil), nil
 	}
 
 	productId := a.Currency + "-USD"
@@ -109,14 +109,10 @@ func getPosition(u account.User, a cb.Account) (*account.Position, error) {
 		}
 	}
 
-	balance := util.Float64(a.Balance)
-
-	var value float64
-	if ticker, err := u.GetClient().GetTicker(productId); err != nil {
+	ticker, err := u.GetClient().GetTicker(productId)
+	if err != nil {
 		return nil, err
-	} else {
-		value = util.Float64(ticker.Price) * balance
 	}
 
-	return account.NewPosition(productId, a.Hold, value, balance, allFills), nil
+	return account.NewPosition(a, ticker, allFills), nil
 }

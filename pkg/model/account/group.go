@@ -48,20 +48,15 @@ func NewGroup() (*Group, error) {
 
 	var err error
 	if err = loadFromJson(g); err != nil {
-		log.Warn().Err(err).Msg("account load from json failed")
+		log.Warn().Err(err).Msg("group load from json failed")
 		if err = loadFromDatabase(g); err != nil {
-			log.Warn().Err(err).Msg("account load from database failed")
+			log.Warn().Err(err).Msg("group load from database failed")
 			if err = loadFromEnvironment(g); err != nil {
-				log.Warn().Err(err).Msg("account load from environment failed")
+				log.Warn().Err(err).Msg("group load from environment failed")
 			} else {
-				log.Info().Msg("created account group")
+				log.Info().Msg("created group")
 			}
 		}
-	}
-
-	if err != nil {
-		log.Error().Err(err).Msg("error creating account group")
-		return nil, err
 	}
 
 	var names []string

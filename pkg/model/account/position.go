@@ -7,40 +7,48 @@ import (
 	"github.com/rs/zerolog/log"
 	"nuchal/pkg/util"
 	"sort"
-	"strings"
 )
 
 type Position struct {
-	ProductId            string
-	Value, Balance, Hold float64
-	fills, Buys, Sells   []cb.Fill
+	cb.Account
+	cb.Ticker
+	fills,
+	buys,
+	sells []cb.Fill
 }
 
-func NewUsdPosition(balance string) *Position {
-	b := util.Float64(balance)
-	return &Position{
-		ProductId: "USD",
-		Balance:   b,
-		Hold:      0.0,
-		Value:     b,
-	}
+func (p Position) Url() string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId())
 }
 
-func NewPosition(productId, hold string, value, balance float64, fills []cb.Fill) *Position {
+func (p Position) ProductId() string {
+	return p.Currency + "-USD"
+}
+
+func (p Position) Balance() float64 {
+	return util.Float64(p.Account.Balance)
+}
+
+func (p Position) Hold() float64 {
+	return util.Float64(p.Account.Hold)
+}
+
+func (p Position) Value() float64 {
+	return util.Float64(p.Price) * p.Balance()
+}
+
+func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Position {
 
 	p := new(Position)
-
-	p.ProductId = productId
-	p.Value = value
-	p.Balance = balance
-	p.Hold = util.Float64(hold)
+	p.Account = account
+	p.Ticker = ticker
 	p.fills = fills
 
 	for _, fill := range fills {
 		if fill.Side == "buy" {
-			p.Buys = append(p.Buys, fill)
+			p.buys = append(p.buys, fill)
 		} else {
-			p.Sells = append(p.Sells, fill)
+			p.sells = append(p.sells, fill)
 		}
 	}
 
@@ -51,17 +59,9 @@ func (p Position) HasOrphanBuyFills() bool {
 	return p.OrphanBuyFillsLen() > 0
 }
 
-func (p Position) Url() string {
-	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId)
-}
-
-func (p Position) Symbol() string {
-	return strings.Split(p.ProductId, "-")[0]
-}
-
 func (p *Position) LonelyBuyFills() []cb.Fill {
-	qty := util.MinInt(len(p.Buys), len(p.Sells))
-	result := p.Buys[qty:]
+	qty := util.MinInt(len(p.buys), len(p.sells))
+	result := p.buys[qty:]
 	sort.SliceStable(result, func(i, j int) bool {
 		return result[i].CreatedAt.Time().After(result[j].CreatedAt.Time())
 	})
@@ -78,9 +78,9 @@ func (p *Position) LonelyBuyFillsLen() int {
 
 func (p *Position) OrphanBuyFills() []cb.Fill {
 	var fills []cb.Fill
-	var hold = p.Hold
+	var hold = p.Hold()
 	for _, fill := range p.fills {
-		if p.Balance == hold {
+		if p.Balance() == hold {
 			break
 		}
 		fills = append(fills, fill)
@@ -91,13 +91,13 @@ func (p *Position) OrphanBuyFills() []cb.Fill {
 
 func (p *Position) Log() {
 
-	//log.Info().Msg(p.Url())
+	log.Info().Msg(p.Url())
 	log.Info().
-		Str("#", fmt.Sprintf(`%s`, p.Symbol())).
-		Str("$", util.Round2Places(p.Value/p.Balance)).
-		Str("bal", fmt.Sprintf(`%.3f`, p.Balance)).
-		Str("hld", fmt.Sprintf(`%.3f`, p.Hold)).
-		Str("val", util.Usd(p.Value)).
+		Str("#", p.Currency).
+		Str("$", p.Price).
+		Str("bal", fmt.Sprintf(`%.3f`, p.Balance())).
+		Str("hld", fmt.Sprintf(`%.3f`, p.Hold())).
+		Str("val", util.Usd(p.Value())).
 		Send()
 
 	o := p.OrphanBuyFillsLen()
@@ -111,7 +111,7 @@ func (p *Position) Log() {
 		}
 
 		log.WithLevel(lvl).
-			Str("#", fmt.Sprintf(`%s`, p.Symbol())).
+			Str("#", fmt.Sprintf(`%s`, p.Currency)).
 			Float64("$", util.Float64(f.Price)).
 			Send()
 	}

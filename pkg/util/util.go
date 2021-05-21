@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
@@ -31,7 +32,8 @@ func Int(s string) int {
 
 func Float64(s string) float64 {
 	if f, err := strconv.ParseFloat(s, 64); err != nil {
-		panic(err)
+		log.Error().Err(err).Send()
+		return 0.0
 	} else {
 		return f
 	}
