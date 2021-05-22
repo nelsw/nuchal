@@ -5,6 +5,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/opts"
+	"github.com/go-echarts/go-echarts/v2/render"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"io"
@@ -19,46 +20,137 @@ import (
 )
 
 const (
-	path    = "html"
-	fee     = 0.005
-	asc     = "unix asc"
-	desc    = "unix desc"
-	query   = "product_id = ?"
-	timeVal = "2021-05-20T00:00:00+00:00"
+	path = "html"
+	fee  = 0.005
 )
 
-type Result struct {
-	ProductId string
+type Simulation struct {
+	Situations []Situation
+	Ether,
+	Wins,
+	Loss,
+	Won,
+	Lost,
+	Sum,
+	Volume float64
+	Duration time.Duration
+}
 
-	Scenarios []Scenario
+func (s Simulation) Log() {
+	fmt.Println()
+	fmt.Println()
+	fmt.Println(" won ", s.Won)
+	fmt.Println("lost ", s.Lost)
+	fmt.Println(" sum ", s.Sum)
+	fmt.Println(" vol ", s.Volume)
+	fmt.Println(" dur ", s.Duration)
+	fmt.Println()
+	fmt.Println()
+}
+
+type Situation struct {
+	model.Posture
+
+	Charts []Chart
 
 	PatternLen int
 
 	Ether,
 	Won,
 	Lost,
+	Winners,
+	Losers,
 	Vol float64
 
 	From,
 	To time.Time
 }
 
-type Scenario struct {
-	Time  time.Time
-	Rates []model.Candlestick
-	Market,
+type Chart struct {
+	Rates    []model.Candlestick
+	Duration time.Duration
 	Entry,
+	Goal,
 	Exit,
 	Result,
-	Volume float64
+	Size float64
+	FoundExit bool
 }
 
-func (s Result) Sum() float64 {
+func (c Chart) Volume() float64 {
+	return c.Entry * c.Size
+}
+
+func (c Chart) Kline() *charts.Kline {
+
+	kline := charts.NewKLine()
+
+	title := fmt.Sprintf("RESULT: %f\tBOUGHT: %f\tGOAL: %f\tSOLD: %f\tVOL: %f",
+		c.Result, c.Entry, c.Goal, c.Exit, c.Volume())
+	subtitle := fmt.Sprintf("Duration: %s\t Exited: %v\t", c.Duration.String(), c.FoundExit)
+
+	kline.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title:    title,
+			Subtitle: subtitle,
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			SplitNumber: 20,
+		}),
+		charts.WithYAxisOpts(opts.YAxis{
+			SplitNumber: 10,
+			Scale:       true,
+		}),
+		charts.WithDataZoomOpts(opts.DataZoom{
+			Start:      0,
+			End:        100,
+			XAxisIndex: []int{0},
+		}),
+	)
+
+	x := make([]string, 0)
+	y := make([]opts.KlineData, 0)
+	for i := 0; i < len(c.Rates); i++ {
+		x = append(x, c.Rates[i].Time().String())
+		y = append(y, opts.KlineData{Value: c.Rates[i].Data()})
+	}
+
+	kline.SetXAxis(x).AddSeries("kline", y).
+		SetSeriesOptions(
+			charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
+				Label: &opts.Label{
+					Show: true,
+				},
+			}),
+			charts.WithItemStyleOpts(opts.ItemStyle{
+				Color0:       "#ec0000",
+				Color:        "#00da3c",
+				BorderColor0: "#8A0000",
+				BorderColor:  "#008F28",
+			}),
+		)
+	return kline
+}
+
+func (s Situation) Result() float64 {
 	return s.Won + s.Lost
 }
 
-func (s Result) Result() float64 {
-	return s.Sum()
+func (s Situation) Log() {
+	fmt.Println()
+	fmt.Println("productId", s.ProductId())
+	fmt.Println("     from", s.From)
+	fmt.Println("       to", s.To)
+	fmt.Println("  entries", s.PatternLen)
+	fmt.Println("    exits", len(s.Charts))
+	fmt.Println("    ether", s.Ether)
+	fmt.Println("      won", s.Won)
+	fmt.Println("     lost", s.Lost)
+	fmt.Println("  winners", s.Winners)
+	fmt.Println("   losers", s.Losers)
+	fmt.Println("   volume", s.Vol)
+	fmt.Println("   result", s.Result())
+	fmt.Println()
 }
 
 func init() {
@@ -69,30 +161,268 @@ func init() {
 	}
 }
 
+// New creates a new simulation, and boy is that an understatement.
+// Per usual, we start by getting program configurations.
+func New() error {
+
+	c, err := config.NewConfig()
+	if err != nil {
+		return err
+	}
+
+	var won, lost, sum, vol float64
+	for _, posture := range c.Postures {
+
+		rates := GetRates(c, posture.ProductId())
+		indexes := NewPositionIndexes(rates, posture)
+		situation, err := NewSituation(rates, indexes, posture)
+		if err != nil {
+			return err
+		}
+
+		won += situation.Won
+		lost += situation.Lost
+		sum += situation.Result()
+		vol += situation.Vol
+
+		situation.Log()
+	}
+
+	simulation := new(Simulation)
+	simulation.Won = won
+	simulation.Lost = lost
+	simulation.Sum = sum
+	simulation.Volume = vol
+	simulation.Duration = *c.Duration
+
+	simulation.Log()
+
+	if c.IsTestMode() {
+		return nil
+	}
+
+	return util.DoIndefinitely(func() {
+		fs := http.FileServer(http.Dir(path))
+		fmt.Println("served charts at http://localhost:8089")
+		log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
+	})
+
+}
+
+func NewPositionIndexes(rates []model.Candlestick, posture model.Posture) []int {
+
+	var positionIndexes []int
+	var then, that model.Candlestick
+
+	for i, this := range rates {
+		if model.IsTweezer(then, that, this, posture.DeltaFloat()) {
+			positionIndexes = append(positionIndexes, i)
+			then = model.Candlestick{}
+			that = model.Candlestick{}
+		} else {
+			then = that
+			that = this
+		}
+	}
+
+	return positionIndexes
+}
+
+func NewSituation(rates []model.Candlestick, positionIndexes []int, posture model.Posture) (*Situation, error) {
+
+	var won, winners, lost, losers, vol, ether float64
+	var chartArray []Chart
+
+	// i == this (green, tweezer)
+	// i - 1 == that (red, tweezer)
+	// i - 2 == then (red)
+	for _, i := range positionIndexes {
+
+		var foundExit, foundGoal bool
+		var exit, result float64
+
+		positionRates := rates[i:]
+		positionRatesLen := len(positionRates)
+
+		firstRate := positionRates[0]
+		firstRateTime := firstRate.Time()
+		entry := firstRate.Open
+
+		gain := posture.GainPrice(entry)
+		loss := posture.LossPrice(entry)
+
+		var lastRate model.Candlestick
+		for j, r := range positionRates {
+
+			// first up, did we take a bath?
+			if r.Low <= loss {
+				exit = loss
+				foundExit = true
+			}
+
+			// have we established an exit and now below said exit?
+			if r.Low <= exit {
+				foundExit = true
+			}
+
+			// k, cool, but did we meet our goal?
+			if r.High >= gain {
+
+				foundGoal = true
+
+				// if this is the first candle
+				if exit == 0 {
+					exit = gain // and worst case scenario, we exit with the goal.
+					foundExit = true
+				}
+
+				// if we're climbing
+				if r.Close >= exit {
+					exit = r.Close
+					foundExit = true
+				}
+
+			}
+
+			// tweezer tops?
+			if foundGoal &&
+				r.IsDown() &&
+				lastRate.IsUp() &&
+				model.IsTweezerTop(lastRate, r, posture.DeltaFloat()*5) {
+				foundExit = true
+			}
+
+			if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*15 && r.High >= gain-(gain*.001) {
+				exit = gain - (gain * .001)
+				foundExit = true
+			}
+
+			if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*60 && r.High >= entry+(entry*fee) {
+				exit = entry
+				foundExit = true
+			}
+
+			if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*90 && r.High >= entry {
+				exit = entry
+				foundExit = true
+			}
+
+			lastRate = r
+
+			if !foundExit {
+				if positionRatesLen-1 == j {
+					fmt.Println("found you")
+				}
+				continue
+			}
+
+			result = (exit - (exit * fee)) - (entry + (entry * fee))
+			size := util.Float64(posture.Size)
+
+			result *= size
+			if result > 0 {
+				won += result
+				winners++
+			} else {
+				lost += result
+				losers++
+			}
+
+			vol += entry * size
+
+			chartArray = append(chartArray, Chart{
+				rates[i-2 : i+j+3],
+				lastRate.Time().Sub(firstRateTime),
+				entry,
+				gain,
+				exit,
+				result,
+				size,
+				foundExit,
+			})
+			break
+		}
+
+		if !foundExit {
+			ether++
+			chartArray = append(chartArray, Chart{
+				rates[i-2:],
+				lastRate.Time().Sub(firstRateTime),
+				entry,
+				gain,
+				exit,
+				result,
+				util.Float64(posture.Size),
+				foundExit,
+			})
+		}
+
+	}
+
+	simulation := new(Situation)
+	simulation.Posture = posture
+	simulation.Charts = chartArray
+	simulation.PatternLen = len(positionIndexes)
+	simulation.Ether = ether
+	simulation.Won = won
+	simulation.Lost = lost
+	simulation.Winners = winners
+	simulation.Losers = losers
+	simulation.Vol = vol
+	simulation.From = rates[0].Time()
+	simulation.To = rates[len(rates)-1].Time()
+
+	page := &components.Page{}
+	page.Assets.InitAssets()
+	page.Renderer = render.NewPageRender(page, page.Validate)
+	page.Layout = components.PageFlexLayout
+
+	sort.SliceStable(simulation.Charts, func(i, j int) bool {
+		return simulation.Charts[i].Result > simulation.Charts[j].Result
+	})
+
+	for _, s := range simulation.Charts {
+		page.AddCharts(s.Kline())
+	}
+
+	fileName := fmt.Sprintf("./%s/%s.html", path, simulation.ProductId())
+
+	if f, err := os.Create(fileName); err != nil {
+		return nil, err
+	} else if err := page.Render(io.MultiWriter(f)); err != nil {
+		return nil, err
+	}
+
+	return simulation, nil
+}
+
 func GetRates(c *config.Config, productId string) []model.Candlestick {
 
 	log.Info().Msg("get rates for " + productId)
 
 	pg := db.NewDB()
 
-	err := pg.AutoMigrate(model.Candlestick{})
-	if err != nil {
+	var r model.Candlestick
+	if err := pg.AutoMigrate(r); err != nil {
 		panic(err)
 	}
 
+	pg.Where("product_id = ?", productId).
+		Order("unix desc").
+		First(&r)
+
 	var from time.Time
-	var r model.Candlestick
-	pg.Where(query, productId).Order(desc).First(&r)
 	if r != (model.Candlestick{}) {
 		log.Info().Msg("found previous rate found for " + productId)
 		from = r.Time()
 	} else {
 		log.Info().Msg("no previous rate found for " + productId)
-		from, _ = time.Parse(time.RFC3339, timeVal)
+		from, _ = time.Parse(time.RFC3339, "2021-05-20T00:00:00+00:00")
 	}
 
 	to := from.Add(time.Hour * 4)
 	for {
+
 		oldRates := getHistoricRates(c.RandomClient(), productId, from, to)
 
 		for _, r := range oldRates {
@@ -107,277 +437,25 @@ func GetRates(c *config.Config, productId string) []model.Candlestick {
 			}
 			pg.Create(&rc)
 		}
-		if from.After(time.Now()) {
+
+		if to.After(time.Now()) {
 			break
 		}
+
 		from = to
 		to = to.Add(time.Hour * 4)
-		log.Info().Int("... building simulating data", len(oldRates)).Send()
+		log.Info().Int("... building simulation data", len(oldRates)).Send()
 	}
 
 	var savedRates []model.Candlestick
 	pg.Where("product_id = ?", productId).
 		Where("unix >= ?", c.StartTime().UnixNano()).
-		Order(asc).
+		Order("unix asc").
 		Find(&savedRates)
+
 	log.Info().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
 
 	return savedRates
-}
-
-func New() {
-
-	c, err := config.NewConfig()
-	if err != nil {
-		log.Error().Err(err)
-		return
-	}
-
-	var dur time.Duration
-	var won, lost, sum, vol float64
-	for _, posture := range c.Postures {
-		result := NewSimulation(c, posture)
-		won += result.Won
-		lost += result.Lost
-		sum += result.Result()
-		vol += result.Vol
-		dur = result.To.Sub(result.From)
-	}
-
-	fmt.Println()
-	fmt.Println()
-	fmt.Println()
-	fmt.Println(" won ", won)
-	fmt.Println("lost ", lost)
-	fmt.Println(" sum ", sum)
-	fmt.Println(" vol ", vol)
-	fmt.Println(" dur ", dur)
-	fmt.Println()
-	fmt.Println()
-
-	fs := http.FileServer(http.Dir(path))
-	fmt.Println("served charts at http://localhost:8089")
-	log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
-
-	return
-}
-
-func NewSimulation(c *config.Config, posture model.Posture) Result {
-
-	var positionIndexes []int
-	var then, that model.Candlestick
-
-	rates := GetRates(c, posture.ProductId())
-
-	for i, this := range rates {
-		if model.IsTweezer(then, that, this, posture.DeltaFloat()) {
-			positionIndexes = append(positionIndexes, i)
-			then = model.Candlestick{}
-			that = model.Candlestick{}
-		} else {
-			then = that
-			that = this
-		}
-	}
-
-	var won, lost, vol, ether float64
-	var scenarios []Scenario
-
-	for _, i := range positionIndexes {
-
-		// alpha is the index of tweezer pattern recognition
-		alpha := i - 2
-
-		// have we sold yet?
-		var foundExit bool
-
-		// entry buy order price
-		var entry,
-
-			// exit price
-			exit,
-
-			// exit - market - fees ... price
-			result float64
-
-		var lastRateTime time.Time
-
-		firstRateTime := rates[i].Time()
-		market := rates[i].Open
-		marketPlusFee := market + (market * fee)
-
-		gain := market + (market * util.Float64(posture.Gain))
-		loss := market - (market * util.Float64(posture.Loss))
-		size := util.Float64(posture.Size)
-
-		positionRates := rates[i:]
-
-		for j, r := range positionRates {
-
-			lastRateTime = r.Time()
-
-			if r.High >= gain { // if this candle reaches a high ge our gain goal,
-
-				// if this is the first candle
-				if entry == 0 {
-					entry = gain // then nuchal will place a stop loss order for the goal,
-					exit = gain  // and worst case scenario, we exit with the goal.
-					continue
-				}
-
-				// if we're climbing
-				if r.Close >= exit {
-					exit = r.Close
-					continue
-				}
-
-				if r.Open < exit || r.Low <= exit {
-					result = exit - marketPlusFee - (exit * fee)
-					foundExit = true
-				}
-
-			} else if r.Low <= loss {
-				// we bought at the open of this candle, and it tanked
-				result = loss - marketPlusFee - (loss * fee)
-				foundExit = true
-			}
-
-			if lastRateTime.Sub(firstRateTime) > time.Minute*60 && r.High >= marketPlusFee {
-				exit = marketPlusFee
-				result = exit - marketPlusFee - (exit * fee)
-				foundExit = true
-			}
-
-			if !foundExit && lastRateTime.Sub(firstRateTime) > time.Minute*90 && r.High >= market {
-				exit = market
-				result = exit - marketPlusFee - (exit * fee)
-				foundExit = true
-			}
-
-			if !foundExit {
-				continue
-			}
-
-			result *= size
-			if result > 0 {
-				won += result
-			} else {
-				lost += result
-			}
-
-			vol += market * size
-
-			scenarios = append(scenarios, Scenario{
-				lastRateTime,
-				rates[alpha : i+j+3],
-				market,
-				entry,
-				exit,
-				result,
-				market * size,
-			})
-			break
-		}
-
-		if !foundExit {
-			ether++
-		}
-
-	}
-
-	simulation := Result{
-		posture.ProductId(),
-		scenarios,
-		len(positionIndexes),
-		ether,
-		won,
-		lost,
-		vol,
-		rates[0].Time(),
-		rates[len(rates)-1].Time(),
-	}
-
-	fmt.Println()
-	fmt.Println("productId", simulation.ProductId)
-	fmt.Println("     from", simulation.From)
-	fmt.Println("       to", simulation.To)
-	fmt.Println("  entries", simulation.PatternLen)
-	fmt.Println("    exits", len(simulation.Scenarios))
-	fmt.Println("    ether", simulation.Ether)
-	fmt.Println("      won", simulation.Won)
-	fmt.Println("     lost", simulation.Lost)
-	fmt.Println("   volume", simulation.Vol)
-	fmt.Println("   result", simulation.Result())
-	fmt.Println()
-
-	page := components.NewPage()
-
-	sort.SliceStable(simulation.Scenarios, func(i, j int) bool {
-		return simulation.Scenarios[i].Result > simulation.Scenarios[j].Result
-	})
-
-	for _, s := range simulation.Scenarios {
-		kline := charts.NewKLine()
-		kline.SetGlobalOptions(
-			charts.WithTitleOpts(opts.Title{
-				Title: fmt.Sprintf("RESULT: %f\tBOUGHT: %f\tSOLD: %f\tGOAL: %f\tVOL: %f",
-					s.Result, s.Market, s.Exit, s.Entry, s.Volume),
-			}),
-			charts.WithXAxisOpts(opts.XAxis{
-				SplitNumber: 20,
-			}),
-			charts.WithYAxisOpts(opts.YAxis{
-				SplitNumber: 10,
-				Scale:       true,
-			}),
-			charts.WithDataZoomOpts(opts.DataZoom{
-				Start:      0,
-				End:        100,
-				XAxisIndex: []int{0},
-			}),
-		)
-
-		x := make([]string, 0)
-		y := make([]opts.KlineData, 0)
-		for i := 0; i < len(s.Rates); i++ {
-			x = append(x, s.Rates[i].Time().String())
-			y = append(y, opts.KlineData{Value: s.Rates[i].Data()})
-		}
-
-		kline.SetXAxis(x).AddSeries("kline", y).
-			SetSeriesOptions(
-				charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
-					Label: &opts.Label{
-						Show: true,
-					},
-				}),
-				charts.WithItemStyleOpts(opts.ItemStyle{
-					Color0:       "#ec0000",
-					Color:        "#00da3c",
-					BorderColor0: "#8A0000",
-					BorderColor:  "#008F28",
-				}),
-			)
-		page.AddCharts(kline)
-	}
-
-	fileName := fmt.Sprintf("./%s/%s.html", path, simulation.ProductId)
-
-	if f, err := os.Create(fileName); err != nil {
-		log.Error().Err(err).Msg(fmt.Sprintf("error creating filename [%s]", fileName))
-		panic(err)
-	} else if err := page.Render(io.MultiWriter(f)); err != nil {
-		panic(err)
-	}
-
-	return simulation
-}
-
-func logRequest(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
-		handler.ServeHTTP(w, r)
-	})
 }
 
 func getHistoricRates(client *cb.Client, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
@@ -401,4 +479,11 @@ func getHistoricRates(client *cb.Client, productId string, from, to time.Time, a
 		log.Debug().Int("qty", len(rates)).Msg("get historic rates")
 		return rates
 	}
+}
+
+func logRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
 }

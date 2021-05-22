@@ -6,6 +6,7 @@ import (
 	"nuchal/pkg/util"
 )
 
+// Posture is the type of position to take on a currency.
 type Posture struct {
 	cb.Product
 	Pattern

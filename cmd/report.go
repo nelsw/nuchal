@@ -6,9 +6,11 @@ import (
 	"nuchal/pkg/cmd/report"
 )
 
-var (
-	use     = "report --force-holds --recurring"
-	example = `
+func init() {
+
+	c := &cobra.Command{
+		Use: "report --force-holds --recurring",
+		Example: `
 	# Print report report stats.
 	nuchal report
 
@@ -16,15 +18,16 @@ var (
 	nuchal report --recurring
 
 	# Print report report stats, and place limit orders to hold the full balance.
-	nuchal report --force-holds`
-)
+	nuchal report --force-holds`,
+		Run: func(cmd *cobra.Command, args []string) {
 
-func init() {
+			forceHolds := cmd.Flag("force-holds").Value.String() == "true"
+			recurring := cmd.Flag("recurring").Value.String() == "true"
 
-	c := &cobra.Command{
-		Use:     use,
-		Example: example,
-		Run:     run,
+			if err := report.New(forceHolds, recurring); err != nil {
+				log.Error().Err(err).Send()
+			}
+		},
 	}
 
 	c.Flags().Bool("force-holds", false,
@@ -34,14 +37,4 @@ func init() {
 		"If true, audit will repeat every minute until the configured duration expires.")
 
 	rootCmd.AddCommand(c)
-}
-
-func run(cmd *cobra.Command, args []string) {
-
-	forceHolds := cmd.Flag("force-holds").Value.String() == "true"
-	recurring := cmd.Flag("recurring").Value.String() == "true"
-
-	if err := report.New(forceHolds, recurring); err != nil {
-		log.Error().Err(err).Send()
-	}
 }

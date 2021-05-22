@@ -25,6 +25,14 @@
       "size": "5"
     },
     {
+      "id": "BTC-USD",
+      "gain": "0.0145",
+      "loss": "0.495",
+      "delta": "1.0",
+      "enable": false,
+      "size": "1"
+    },
+    {
       "id": "CTSI-USD",
       "gain": "0.0195",
       "loss": "0.495",

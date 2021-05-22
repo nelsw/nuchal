@@ -40,6 +40,10 @@ func IsTweezer(t, u, v Candlestick, d float64) bool {
 	return isTweezerPattern(t, u, v) && isTweezerValue(u, v, d)
 }
 
+func IsTweezerTop(u, v Candlestick, d float64) bool {
+	return isTweezerValue(u, v, d)
+}
+
 func isTweezerValue(u, v Candlestick, d float64) bool {
 	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
 	b := f <= d

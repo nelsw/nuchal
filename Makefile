@@ -1,4 +1,4 @@
-.SILENT: up down build sim trade acc
+.SILENT: up down bld sim trade it
 
 it: bld
 	cd build && go install && export PATH=$PATH:/Users/${USER}/go/bin
