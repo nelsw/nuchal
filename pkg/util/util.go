@@ -3,7 +3,6 @@ package util
 import (
 	"fmt"
 	"github.com/rs/zerolog/log"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -98,10 +97,6 @@ func DoIndefinitely(fun func()) error {
 			return nil
 		}
 	}
-}
-
-func IsTestMode() bool {
-	return os.Getenv("MODE") == "test"
 }
 
 func IsZero(s string) bool {

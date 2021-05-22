@@ -1,4 +1,4 @@
-package statistic
+package model
 
 import (
 	"github.com/rs/zerolog/log"
@@ -37,7 +37,7 @@ func (v *Candlestick) Data() [4]float64 {
 }
 
 func IsTweezer(t, u, v Candlestick, d float64) bool {
-	return isTweezerPattern(t, u, v) && isTweezerValue(t, u, d)
+	return isTweezerPattern(t, u, v) && isTweezerValue(u, v, d)
 }
 
 func isTweezerValue(u, v Candlestick, d float64) bool {

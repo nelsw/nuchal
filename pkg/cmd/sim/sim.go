@@ -11,8 +11,7 @@ import (
 	"net/http"
 	"nuchal/pkg/config"
 	"nuchal/pkg/db"
-	"nuchal/pkg/model/crypto"
-	"nuchal/pkg/model/statistic"
+	"nuchal/pkg/model"
 	"nuchal/pkg/util"
 	"os"
 	"sort"
@@ -25,7 +24,7 @@ const (
 	asc     = "unix asc"
 	desc    = "unix desc"
 	query   = "product_id = ?"
-	timeVal = "2021-05-10T00:00:00+00:00"
+	timeVal = "2021-05-20T00:00:00+00:00"
 )
 
 type Result struct {
@@ -33,6 +32,9 @@ type Result struct {
 
 	Scenarios []Scenario
 
+	PatternLen int
+
+	Ether,
 	Won,
 	Lost,
 	Vol float64
@@ -43,7 +45,7 @@ type Result struct {
 
 type Scenario struct {
 	Time  time.Time
-	Rates []statistic.Candlestick
+	Rates []model.Candlestick
 	Market,
 	Entry,
 	Exit,
@@ -67,16 +69,21 @@ func init() {
 	}
 }
 
-func GetRates(c *config.Config, productId string) []statistic.Candlestick {
+func GetRates(c *config.Config, productId string) []model.Candlestick {
 
 	log.Info().Msg("get rates for " + productId)
 
 	pg := db.NewDB()
 
+	err := pg.AutoMigrate(model.Candlestick{})
+	if err != nil {
+		panic(err)
+	}
+
 	var from time.Time
-	var r statistic.Candlestick
+	var r model.Candlestick
 	pg.Where(query, productId).Order(desc).First(&r)
-	if r != (statistic.Candlestick{}) {
+	if r != (model.Candlestick{}) {
 		log.Info().Msg("found previous rate found for " + productId)
 		from = r.Time()
 	} else {
@@ -86,8 +93,10 @@ func GetRates(c *config.Config, productId string) []statistic.Candlestick {
 
 	to := from.Add(time.Hour * 4)
 	for {
-		for _, r := range getHistoricRates(c.User().GetClient(), productId, from, to) {
-			rc := &statistic.Candlestick{
+		oldRates := getHistoricRates(c.RandomClient(), productId, from, to)
+
+		for _, r := range oldRates {
+			rc := &model.Candlestick{
 				r.Time.UnixNano(),
 				productId,
 				r.Low,
@@ -96,16 +105,17 @@ func GetRates(c *config.Config, productId string) []statistic.Candlestick {
 				r.Close,
 				r.Volume,
 			}
-			pg.Save(&rc)
+			pg.Create(&rc)
 		}
 		if from.After(time.Now()) {
 			break
 		}
 		from = to
 		to = to.Add(time.Hour * 4)
+		log.Info().Int("... building simulating data", len(oldRates)).Send()
 	}
 
-	var savedRates []statistic.Candlestick
+	var savedRates []model.Candlestick
 	pg.Where("product_id = ?", productId).
 		Where("unix >= ?", c.StartTime().UnixNano()).
 		Order(asc).
@@ -152,63 +162,101 @@ func New() {
 	return
 }
 
-func NewSimulation(c *config.Config, posture crypto.Posture) Result {
+func NewSimulation(c *config.Config, posture model.Posture) Result {
 
 	var positionIndexes []int
-	var then, that statistic.Candlestick
+	var then, that model.Candlestick
 
 	rates := GetRates(c, posture.ProductId())
 
 	for i, this := range rates {
-		if statistic.IsTweezer(then, that, this, posture.DeltaFloat()) {
+		if model.IsTweezer(then, that, this, posture.DeltaFloat()) {
 			positionIndexes = append(positionIndexes, i)
-			then = statistic.Candlestick{}
-			that = statistic.Candlestick{}
+			then = model.Candlestick{}
+			that = model.Candlestick{}
 		} else {
 			then = that
 			that = this
 		}
 	}
 
-	var won, lost, vol float64
+	var won, lost, vol, ether float64
 	var scenarios []Scenario
 
 	for _, i := range positionIndexes {
 
+		// alpha is the index of tweezer pattern recognition
 		alpha := i - 2
 
-		var entry, exit, result float64
+		// have we sold yet?
+		var foundExit bool
+
+		// entry buy order price
+		var entry,
+
+			// exit price
+			exit,
+
+			// exit - market - fees ... price
+			result float64
+
+		var lastRateTime time.Time
+
+		firstRateTime := rates[i].Time()
 		market := rates[i].Open
+		marketPlusFee := market + (market * fee)
 
 		gain := market + (market * util.Float64(posture.Gain))
 		loss := market - (market * util.Float64(posture.Loss))
+		size := util.Float64(posture.Size)
 
-		for j, r := range rates[i:] {
+		positionRates := rates[i:]
+
+		for j, r := range positionRates {
+
+			lastRateTime = r.Time()
 
 			if r.High >= gain { // if this candle reaches a high ge our gain goal,
 
+				// if this is the first candle
 				if entry == 0 {
 					entry = gain // then nuchal will place a stop loss order for the goal,
 					exit = gain  // and worst case scenario, we exit with the goal.
-				}
-
-				if r.Open >= exit {
-					exit = r.Open
-				}
-
-				if r.Low <= exit {
-					result = exit - market - (market * fee) - (exit * fee)
-				} else {
 					continue
 				}
+
+				// if we're climbing
+				if r.Close >= exit {
+					exit = r.Close
+					continue
+				}
+
+				if r.Open < exit || r.Low <= exit {
+					result = exit - marketPlusFee - (exit * fee)
+					foundExit = true
+				}
+
 			} else if r.Low <= loss {
 				// we bought at the open of this candle, and it tanked
-				result = loss - market - (market * fee) - (loss * fee)
-			} else {
-				continue
+				result = loss - marketPlusFee - (loss * fee)
+				foundExit = true
 			}
 
-			size := util.Float64(posture.Size)
+			if lastRateTime.Sub(firstRateTime) > time.Minute*60 && r.High >= marketPlusFee {
+				exit = marketPlusFee
+				result = exit - marketPlusFee - (exit * fee)
+				foundExit = true
+			}
+
+			if !foundExit && lastRateTime.Sub(firstRateTime) > time.Minute*90 && r.High >= market {
+				exit = market
+				result = exit - marketPlusFee - (exit * fee)
+				foundExit = true
+			}
+
+			if !foundExit {
+				continue
+			}
 
 			result *= size
 			if result > 0 {
@@ -220,7 +268,7 @@ func NewSimulation(c *config.Config, posture crypto.Posture) Result {
 			vol += market * size
 
 			scenarios = append(scenarios, Scenario{
-				r.Time(),
+				lastRateTime,
 				rates[alpha : i+j+3],
 				market,
 				entry,
@@ -230,11 +278,18 @@ func NewSimulation(c *config.Config, posture crypto.Posture) Result {
 			})
 			break
 		}
+
+		if !foundExit {
+			ether++
+		}
+
 	}
 
 	simulation := Result{
 		posture.ProductId(),
 		scenarios,
+		len(positionIndexes),
+		ether,
 		won,
 		lost,
 		vol,
@@ -246,12 +301,13 @@ func NewSimulation(c *config.Config, posture crypto.Posture) Result {
 	fmt.Println("productId", simulation.ProductId)
 	fmt.Println("     from", simulation.From)
 	fmt.Println("       to", simulation.To)
-	fmt.Println("scenarios", len(simulation.Scenarios))
+	fmt.Println("  entries", simulation.PatternLen)
+	fmt.Println("    exits", len(simulation.Scenarios))
+	fmt.Println("    ether", simulation.Ether)
 	fmt.Println("      won", simulation.Won)
 	fmt.Println("     lost", simulation.Lost)
-	fmt.Println("   report", simulation.Sum())
 	fmt.Println("   volume", simulation.Vol)
-	fmt.Println("   return", simulation.Result())
+	fmt.Println("   result", simulation.Result())
 	fmt.Println()
 
 	page := components.NewPage()

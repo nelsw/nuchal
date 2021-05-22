@@ -1,4 +1,4 @@
-package statistic
+package model
 
 import "nuchal/pkg/util"
 

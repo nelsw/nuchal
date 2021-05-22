@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"nuchal/pkg/model/account"
-	"nuchal/pkg/model/crypto"
-	"nuchal/pkg/util"
+	"nuchal/pkg/model"
 	"os"
 	"strings"
 	"time"
@@ -14,9 +12,10 @@ import (
 
 // Config for the environment
 type Config struct {
-	*account.Group
+	SimPort string `envconfig:"SIM_PORT" default:":8080"`
+	*model.Group
 	*time.Duration
-	*crypto.Strategy
+	*model.Strategy
 }
 
 func (c Config) StartTime() *time.Time {
@@ -38,12 +37,14 @@ func (c Config) IsTimeToExit() bool {
 }
 
 func init() {
+
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	if util.IsTestMode() {
+	if os.Getenv("MODE") == "test" {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
+
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	output.FormatLevel = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("| %-6s|", i))
@@ -66,8 +67,8 @@ func NewConfig() (*Config, error) {
 
 	c := new(Config)
 
-	// get a new account group
-	if group, err := account.NewGroup(); err != nil {
+	// get a new report group
+	if group, err := model.NewGroup(); err != nil {
 		log.Error().Err(err).Msg("error ")
 		return nil, err
 	} else {
@@ -75,7 +76,7 @@ func NewConfig() (*Config, error) {
 	}
 
 	// get a new product strategy
-	if strategy, err := crypto.NewStrategy(); err != nil {
+	if strategy, err := model.NewStrategy(); err != nil {
 		log.Error().Err(err)
 		return nil, err
 	} else {

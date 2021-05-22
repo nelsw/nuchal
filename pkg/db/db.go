@@ -52,10 +52,7 @@ func init() {
 }
 
 func NewDB() *gorm.DB {
-	db, err := OpenDB()
-	if err != nil {
-		zog.Error().Err(err).Msg("error opening DB!")
-	}
+	db, _ := OpenDB()
 	return db
 }
 

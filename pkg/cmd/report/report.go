@@ -1,10 +1,10 @@
-package account
+package report
 
 import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"nuchal/pkg/config"
-	"nuchal/pkg/model/account"
+	"nuchal/pkg/model"
 	"nuchal/pkg/util"
 	"time"
 )
@@ -62,14 +62,14 @@ func New(forceHolds, recurring bool) error {
 	}
 }
 
-func getPortfolio(u account.User) (*account.Portfolio, error) {
+func getPortfolio(u model.User) (*model.Portfolio, error) {
 
 	accounts, err := u.GetClient().GetAccounts()
 	if err != nil {
 		return nil, err
 	}
 
-	var positions []account.Position
+	var positions []model.Position
 
 	for _, a := range accounts {
 
@@ -85,13 +85,13 @@ func getPortfolio(u account.User) (*account.Portfolio, error) {
 		positions = append(positions, *position)
 	}
 
-	return account.NewPortfolio(u.Name, positions), nil
+	return model.NewPortfolio(u.Name, positions), nil
 }
 
-func getPosition(u account.User, a cb.Account) (*account.Position, error) {
+func getPosition(u model.User, a cb.Account) (*model.Position, error) {
 
 	if a.Currency == "USD" {
-		return account.NewPosition(a, cb.Ticker{}, nil), nil
+		return model.NewPosition(a, cb.Ticker{}, nil), nil
 	}
 
 	productId := a.Currency + "-USD"
@@ -114,5 +114,5 @@ func getPosition(u account.User, a cb.Account) (*account.Position, error) {
 		return nil, err
 	}
 
-	return account.NewPosition(a, ticker, allFills), nil
+	return model.NewPosition(a, ticker, allFills), nil
 }

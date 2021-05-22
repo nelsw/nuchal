@@ -1,10 +1,9 @@
-package crypto
+package model
 
 import (
 	"encoding/json"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	"nuchal/pkg/model/statistic"
 	"os"
 	"sort"
 	"strings"
@@ -30,7 +29,7 @@ func NewStrategy() (*Strategy, error) {
 	}
 
 	var patterns struct {
-		Tweezer []statistic.Pattern `json:"tweezer"`
+		Tweezer []Pattern `json:"tweezer"`
 	}
 
 	if file, err := os.Open("pkg/config/patterns.json"); err != nil {

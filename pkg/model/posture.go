@@ -1,15 +1,14 @@
-package crypto
+package model
 
 import (
 	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nuchal/pkg/model/statistic"
 	"nuchal/pkg/util"
 )
 
 type Posture struct {
 	cb.Product
-	statistic.Pattern
+	Pattern
 }
 
 func (p *Posture) ProductId() string {

@@ -3,20 +3,20 @@ package cmd
 import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"nuchal/pkg/cmd/account"
+	"nuchal/pkg/cmd/report"
 )
 
 var (
-	use     = "account --force-holds --recurring"
+	use     = "report --force-holds --recurring"
 	example = `
-	# Print account account stats.
-	nuchal account
+	# Print report report stats.
+	nuchal report
 
-	# Print account account stats, every minute.
-	nuchal account --recurring
+	# Print report report stats, every minute.
+	nuchal report --recurring
 
-	# Print account account stats, and place limit orders to hold the full balance.
-	nuchal account --force-holds`
+	# Print report report stats, and place limit orders to hold the full balance.
+	nuchal report --force-holds`
 )
 
 func init() {
@@ -41,7 +41,7 @@ func run(cmd *cobra.Command, args []string) {
 	forceHolds := cmd.Flag("force-holds").Value.String() == "true"
 	recurring := cmd.Flag("recurring").Value.String() == "true"
 
-	if err := account.New(forceHolds, recurring); err != nil {
+	if err := report.New(forceHolds, recurring); err != nil {
 		log.Error().Err(err).Send()
 	}
 }
