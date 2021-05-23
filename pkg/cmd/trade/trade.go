@@ -36,11 +36,11 @@ func trade(g *model.Group, p model.Posture) {
 		Str("productId", p.ProductId()).
 		Msg("creating trades")
 
-	var then, that model.Candlestick
+	var then, that model.Rate
 	for {
 		if this, err := getRate(p.ProductId()); err != nil {
-			then = model.Candlestick{}
-			that = model.Candlestick{}
+			then = model.Rate{}
+			that = model.Rate{}
 			// logging in getRate
 		} else if !model.IsTweezer(then, that, *this, p.DeltaFloat()) { // logging in IsTweezer
 			then = that
@@ -49,8 +49,8 @@ func trade(g *model.Group, p model.Posture) {
 			for _, u := range g.Users {
 				go buy(u, p)
 			}
-			then = model.Candlestick{}
-			that = model.Candlestick{}
+			then = model.Rate{}
+			that = model.Rate{}
 		}
 	}
 }
@@ -194,7 +194,7 @@ func sell(u model.User, exitPrice float64, size string, p model.Posture) {
 	}
 }
 
-func getRate(productId string) (*model.Candlestick, error) {
+func getRate(productId string) (*model.Rate, error) {
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -247,7 +247,7 @@ func getRate(productId string) (*model.Candlestick, error) {
 				Str("productId", productId).
 				Msg("...built rate")
 
-			return &model.Candlestick{
+			return &model.Rate{
 				time.Now().UnixNano(),
 				productId,
 				low,

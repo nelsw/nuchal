@@ -66,15 +66,6 @@ func NewStrategy() (*Strategy, error) {
 	return c, nil
 }
 
-func (s Strategy) GetProduct(productId string) cb.Product {
-	for _, p := range s.Products {
-		if p.ID == productId {
-			return p
-		}
-	}
-	panic("no product found for " + productId)
-}
-
 func (s Strategy) GetPosture(productId string) Posture {
 	for _, p := range s.Postures {
 		if p.ProductId() == productId {

@@ -1,6 +1,10 @@
 package model
 
-import "nuchal/pkg/util"
+import (
+	"github.com/rs/zerolog/log"
+	"math"
+	"nuchal/pkg/util"
+)
 
 type Pattern struct {
 	Id     string `json:"id"`
@@ -33,4 +37,27 @@ func (p *Pattern) LossFloat() float64 {
 
 func (p *Pattern) SizeFloat() float64 {
 	return util.Float64(p.Size)
+}
+
+func IsTweezer(t, u, v Rate, d float64) bool {
+	return isTweezerPattern(t, u, v) && isTweezerValue(u, v, d)
+}
+
+func IsTweezerTop(u, v Rate, d float64) bool {
+	return isTweezerValue(u, v, d)
+}
+
+func isTweezerValue(u, v Rate, d float64) bool {
+	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
+	b := f <= d
+	if b {
+		log.Info().
+			Str("productId", v.ProductId).
+			Float64("tweezer", d-f)
+	}
+	return b
+}
+
+func isTweezerPattern(t, u, v Rate) bool {
+	return t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
 }

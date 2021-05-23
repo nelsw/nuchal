@@ -2,9 +2,9 @@
   "tweezer": [
     {
       "id": "ADA-USD",
-      "gain": "0.0195",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -42,25 +42,25 @@
     },
     {
       "id": "EOS-USD",
-      "gain": "0.0195",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
     {
       "id": "MANA-USD",
-      "gain": "0.0195",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
     {
       "id": "MATIC-USD",
-      "gain": "0.0195",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -76,7 +76,7 @@
       "id": "XTZ-USD",
       "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -84,7 +84,7 @@
       "id": "ZRX-USD",
       "gain": "0.0195",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     }
