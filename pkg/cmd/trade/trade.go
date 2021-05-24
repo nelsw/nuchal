@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 	ws "github.com/gorilla/websocket"
+	"github.com/nelsw/nuchal/pkg/config"
+	"github.com/nelsw/nuchal/pkg/model"
+	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	"nuchal/pkg/config"
-	"nuchal/pkg/model"
-	"nuchal/pkg/util"
 	"time"
 )
 
