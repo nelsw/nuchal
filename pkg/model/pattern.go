@@ -39,7 +39,7 @@ func (p *Pattern) SizeFloat() float64 {
 	return util.Float64(p.Size)
 }
 
-func (p Pattern) matchesTweezerBottomPattern(then, that, this Rate) bool {
+func (p Pattern) MatchesTweezerBottomPattern(then, that, this Rate) bool {
 	return isTweezerBottomTrend(then, that, this) && isTweezerBottomValue(that, this, p.DeltaFloat())
 }
 

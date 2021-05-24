@@ -7,7 +7,7 @@ bld:
 	GOOS=linux GOARCH=amd64 && go build -o build/nuchal main.go
 
 sim: bld up
-	build/nuchal sim && open http://localhost:8090
+	MODE=dev build/nuchal sim && open http://localhost:8090
 
 report: bld
 	build/nuchal report

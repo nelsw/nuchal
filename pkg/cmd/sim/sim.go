@@ -71,7 +71,7 @@ func New(username string, serve bool) error {
 	fmt.Println()
 	fmt.Println()
 
-	if !serve {
+	if !serve && c.Mode != "DEV" && c.Mode != "PROD" {
 		return nil
 	}
 
@@ -111,6 +111,7 @@ func handlePage(productId, dir string, charts []model.Chart) error {
 	page.Assets.InitAssets()
 	page.Renderer = render.NewPageRender(page, page.Validate)
 	page.Layout = components.PageFlexLayout
+	page.PageTitle = "nuchal | simulation"
 
 	sort.SliceStable(charts, func(i, j int) bool {
 		return charts[i].Result() > charts[j].Result()

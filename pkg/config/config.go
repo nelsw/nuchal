@@ -94,7 +94,7 @@ func NewConfig() (*Config, error) {
 	} else {
 		c.Group = group
 		for _, user := range c.Group.Users {
-			log.Debug().Str("name", user.Name).Send()
+			log.Debug().Str("user", user.Name).Send()
 		}
 		log.Info().Msg("configured users")
 	}
@@ -105,7 +105,7 @@ func NewConfig() (*Config, error) {
 	} else {
 		c.Strategy = strategy
 		for _, posture := range strategy.Postures {
-			log.Debug().Str("id", posture.Id).Send()
+			log.Debug().Str("product", posture.Id).Send()
 		}
 		log.Info().Msgf("configured products")
 	}
