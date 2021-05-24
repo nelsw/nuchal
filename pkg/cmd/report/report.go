@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"nuchal/pkg/config"
@@ -42,8 +43,13 @@ func New(forceHolds, recurring bool) error {
 
 						order := posture.StopGainOrder(fill)
 
-						if _, err := user.GetClient().CreateOrder(order); err != nil {
+						if o, err := user.GetClient().CreateOrder(order); err != nil {
+							if util.IsInsufficientFunds(err) {
+								continue
+							}
 							return err
+						} else {
+							fmt.Println(o)
 						}
 					}
 				}
