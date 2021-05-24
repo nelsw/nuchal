@@ -37,23 +37,40 @@ func New(username string, serve bool) error {
 		return err
 	}
 
-	makerFee := user.MakerFee
-	takerFee := user.TakerFee
-
-	simulation := model.NewSimulation(*c.Duration)
+	var ether, winners, losers int
+	var won, lost, total, volume float64
+	simulations := map[string]model.Simulation{}
 
 	for _, posture := range c.Postures {
 
-		rates := GetRates(c, posture.ProductId())
+		productId := posture.ProductId()
 
-		series := model.NewSeries(rates, posture, makerFee, takerFee)
+		rates := GetRates(user, c.StartTimeUnixNano(), productId)
 
-		simulation.Series = append(simulation.Series, *series)
+		simulation := model.NewSimulation(rates, posture, user.MakerFee, user.TakerFee)
+		winners += simulation.WonLen()
+		losers += simulation.LostLen()
+		ether += simulation.EtherLen()
+		won += simulation.WonSum()
+		lost += simulation.LostSum()
+		total += simulation.Total()
+		volume += simulation.Volume()
+		simulations[productId] = *simulation
+
+		simulation.Log()
 	}
 
-	simulation.Log()
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("      won", won)
+	fmt.Println("     lost", lost)
+	fmt.Println("    ether", ether)
+	fmt.Println("    total", total)
+	fmt.Println("   volume", volume)
+	fmt.Println()
+	fmt.Println()
 
-	if c.IsTestMode() {
+	if c.IsTestMode() || !serve {
 		return nil
 	}
 
@@ -61,22 +78,20 @@ func New(username string, serve bool) error {
 		return err
 	}
 
-	for _, series := range simulation.Series {
+	for productId, simulation := range simulations {
 
-		productId := series.Posture.ProductId()
-
-		if series.WonLen() > 0 {
-			if err := handlePage(productId, "won", series.Won); err != nil {
+		if simulation.WonLen() > 0 {
+			if err := handlePage(productId, "won", simulation.Won); err != nil {
 				return err
 			}
 		}
-		if series.LostLen() > 0 {
-			if err := handlePage(productId, "lost", series.Lost); err != nil {
+		if simulation.LostLen() > 0 {
+			if err := handlePage(productId, "lost", simulation.Lost); err != nil {
 				return err
 			}
 		}
-		if series.EtherLen() > 0 {
-			if err := handlePage(productId, "ether", series.Ether); err != nil {
+		if simulation.EtherLen() > 0 {
+			if err := handlePage(productId, "ether", simulation.Ether); err != nil {
 				return err
 			}
 		}
@@ -118,7 +133,7 @@ func handlePage(productId, dir string, charts []model.Chart) error {
 	return nil
 }
 
-func GetRates(c *config.Config, productId string) []model.Rate {
+func GetRates(u *model.User, unix int64, productId string) []model.Rate {
 
 	log.Info().Msg("get rates for " + productId)
 
@@ -145,7 +160,7 @@ func GetRates(c *config.Config, productId string) []model.Rate {
 	to := from.Add(time.Hour * 4)
 	for {
 
-		oldRates := getHistoricRates(c.RandomClient(), productId, from, to)
+		oldRates := getHistoricRates(u.GetClient(), productId, from, to)
 
 		for _, r := range oldRates {
 			rc := model.NewRate(productId, r)
@@ -163,7 +178,7 @@ func GetRates(c *config.Config, productId string) []model.Rate {
 
 	var savedRates []model.Rate
 	pg.Where("product_id = ?", productId).
-		Where("unix >= ?", c.StartTime().UnixNano()).
+		Where("unix >= ?", unix).
 		Order("unix asc").
 		Find(&savedRates)
 

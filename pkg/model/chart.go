@@ -16,7 +16,7 @@ type Chart struct {
 	// Posture is an aggregate of the product to trade, and the pattern which used to trade.
 	Posture
 
-	// Rates are the candlesticks used to build a chart.
+	// Rates are used to build a chart. The first 3 rates are the tweezer pattern prefix and the last rate is the exit.
 	Rates []Rate
 
 	// Duration is the amount of time the chart spans.
@@ -34,8 +34,10 @@ type Chart struct {
 	// Exit is the actual price which the trade was exited.
 	Exit float64
 
+	// MakerFee is a fee for placing a limit order.
 	MakerFee float64
 
+	// TakerFee is a fee for placing a market order.
 	TakerFee float64
 }
 
@@ -66,11 +68,11 @@ func (c *Chart) Result() float64 {
 }
 
 func (c *Chart) EntryPlusFee() float64 {
-	return c.Entry + (c.Entry * c.MakerFee)
+	return c.Entry + (c.Entry * c.TakerFee)
 }
 
 func (c *Chart) ExitPlusFee() float64 {
-	return c.Exit + (c.Exit * c.TakerFee)
+	return c.Exit + (c.Exit * c.MakerFee)
 }
 
 func NewChart(makerFee, takerFee float64, rates []Rate, posture Posture) *Chart {

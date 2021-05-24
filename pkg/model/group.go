@@ -3,9 +3,7 @@ package model
 import (
 	"encoding/json"
 	"errors"
-	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	"math/rand"
 	"nuchal/pkg/db"
 	"os"
 	"strings"
@@ -13,13 +11,6 @@ import (
 
 type Group struct {
 	Users []User `json:"users"`
-}
-
-func (c Group) RandomClient() *cb.Client {
-	l := len(c.Users)
-	i := rand.Intn(l)
-	u := &c.Users[i]
-	return u.GetClient()
 }
 
 func (c Group) GetUser(name string) (*User, error) {
