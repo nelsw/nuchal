@@ -1,10 +1,10 @@
 package cmd
 
 import (
+	"github.com/nelsw/nuchal/pkg/cmd/report"
+	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"nuchal/pkg/cmd/report"
-	"nuchal/pkg/util"
 )
 
 var reportExample = `
