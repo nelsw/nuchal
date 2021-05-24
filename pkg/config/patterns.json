@@ -311,7 +311,7 @@
       "gain": "0.0145",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {

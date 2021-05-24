@@ -13,7 +13,7 @@ import (
 
 // Config for the environment
 type Config struct {
-	Sim         string `envconfig:"SIM" default:":8080"`
+	Port        string `envconfig:"PORT" default:":8080"`
 	Mode        string `envconfig:"MODE" default:"DEBUG"`
 	DurationStr string `envconfig:"DURATION" default:"24h"`
 	*model.Group

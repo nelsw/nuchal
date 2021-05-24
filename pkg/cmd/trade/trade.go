@@ -14,8 +14,6 @@ import (
 
 func New(user string, coins []string) error {
 
-	fmt.Println(user, coins)
-
 	log.Info().Msg("creating trades")
 
 	c, err := config.NewConfig()

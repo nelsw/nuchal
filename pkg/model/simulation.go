@@ -110,13 +110,15 @@ func (s *Simulation) Total() float64 {
 
 func (s *Simulation) Log() {
 	fmt.Println()
-	fmt.Println("productId", s.ProductId())
-	fmt.Println("      won", s.WonLen())
+	fmt.Println("  product", s.ProductId())
+	fmt.Println("  trading", s.EtherLen())
+	fmt.Println("  winners", s.WonLen())
+	fmt.Println("   losers", s.LostLen())
 	fmt.Println("     even", s.EvenLen())
-	fmt.Println("     lost", s.LostLen())
-	fmt.Println("    ether", s.EtherLen())
-	fmt.Println("   volume", s.Volume())
+	fmt.Println("      won", s.WonSum())
+	fmt.Println("     lost", s.LostSum())
 	fmt.Println("    total", s.Total())
+	fmt.Println("   volume", s.Volume())
 	fmt.Println("        %", (s.Total()/s.Volume())*100)
 	fmt.Println()
 }
