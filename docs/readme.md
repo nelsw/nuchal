@@ -15,9 +15,6 @@ This project requires a [Coinbase Pro][1] API key and working installations of [
 ### Configure
 Required environment variables.
 ```shell
-export PORT=8080
-export MODE="DEBUG"
-export DURATION=24h
 export GOOS=linux 
 export GOARCH=amd64
 export PATH=${PATH}:/Users/${USER}/go/bin
@@ -72,14 +69,12 @@ go install
 ```shell
 docker compose -p nuchal -f build/docker-compose.yml up -d
 ```
-
-
 ```shell
-nuchal sim --user 'Carl Brutananadilewski'
-
 nuchal sim --serve
 
 nuchal sim --coin 'ADA,MATIC,XTZ'
+
+nuchal sim --user 'Carl Brutananadilewski'
 ```
 ### Trade
 

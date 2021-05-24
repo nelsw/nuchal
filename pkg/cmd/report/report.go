@@ -20,7 +20,7 @@ func New(username string, forceHolds, recurring bool) error {
 
 	util.PrintNewLine()
 
-	if cfg.IsTestMode() && username == util.GuestName {
+	if username != util.GuestName {
 		if user, err := cfg.GetUser(username); err == nil {
 			err = printPortfolio(cfg, *user, forceHolds)
 			if err == nil {
