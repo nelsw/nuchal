@@ -43,21 +43,11 @@ func (p Pattern) MatchesTweezerBottomPattern(then, that, this Rate) bool {
 	return isTweezerBottomTrend(then, that, this) && isTweezerBottomValue(that, this, p.DeltaFloat())
 }
 
-func IsTweezerBottom(t, u, v Rate, d float64) bool {
-	return isTweezerBottomTrend(t, u, v) && isTweezerBottomValue(u, v, d)
-}
-
-func IsTweezerTop(u, v Rate, d float64) bool {
-	return isTweezerBottomValue(u, v, d)
-}
-
 func isTweezerBottomValue(u, v Rate, d float64) bool {
 	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
 	b := f <= d
 	if b {
-		log.Info().
-			Str("productId", v.ProductId).
-			Float64("tweezer", d-f)
+		log.Info().Str("product", v.ProductId).Float64("tweezer", d-f)
 	}
 	return b
 }
