@@ -9,32 +9,30 @@ The **goals** of this project are to:
 - provide a streaming summary of portfolio positions
 
 
-## Build
-Before you get started, you'll need a [Coinbase Pro][1] API key and working installation of [Go][2] and [git][3].
+## Setup
+This project requires a [Coinbase Pro][1] API key and working installations of [Go][2], [git][3], and [Docker][4].
 
-```shell
-git clone https://github.com/nelsw/nuchal.git && 
-cd nuchal &&
-GOOS=linux GOARCH=amd64 && 
-go build -o build/nuchal main.go && 
-PATH=${PATH}:/Users/${USER}/go/bin && 
-go install
-```
-
-### Single User
+### Configure
+Required environment variables.
 ```shell
 export PORT=8080
 export MODE="DEBUG"
 export DURATION=24h
-export USER=${USER}
+export GOOS=linux 
+export GOARCH=amd64
+export PATH=${PATH}:/Users/${USER}/go/bin
+```
+
+#### Single User
+```shell
 export COINBASE_PRO_KEY="your_coinbase_pro_api_key"
 export COINBASE_PRO_PASSPHRASE="your_coinbase_pro_api_passphrase"
 export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
 ```
 
-### Multiple Users
+#### Multiple Users
 
-#### .json
+##### .json
 Place a `.json` file in the config directory:
 ```json
 {
@@ -57,10 +55,32 @@ Place a `.json` file in the config directory:
 }
 ```
 
+### Build
+
+```shell
+git clone https://github.com/nelsw/nuchal.git &&
+cd nuchal &&
+go mod download &&
+go mod tidy &&
+go build -o build/nuchal main.go &&
+go install
+```
+
 ## Use
 
 ### Simulate
+```shell
+docker compose -p nuchal -f build/docker-compose.yml up -d
+```
 
+
+```shell
+nuchal sim --user 'Carl Brutananadilewski'
+
+nuchal sim --serve
+
+nuchal sim --coin 'ADA,MATIC,XTZ'
+```
 ### Trade
 
 ### Report
@@ -71,3 +91,4 @@ This code is Copyright Connor Ross Van Elswyk and licensed under Apache License 
 [1]: https://pro.coinbase.com
 [2]: https://golang.org/
 [3]: https://git-scm.com/
+[4]: https://git-scm.com/

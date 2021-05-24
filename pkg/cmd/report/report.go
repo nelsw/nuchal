@@ -20,10 +20,12 @@ func New(username string, forceHolds, recurring bool) error {
 
 	util.PrintNewLine()
 
-	if user, err := cfg.GetUser(username); err == nil {
-		err = printPortfolio(cfg, *user, forceHolds)
-		if err == nil {
-			return nil
+	if cfg.IsTestMode() && username == util.GuestName {
+		if user, err := cfg.GetUser(username); err == nil {
+			err = printPortfolio(cfg, *user, forceHolds)
+			if err == nil {
+				return nil
+			}
 		}
 	}
 
