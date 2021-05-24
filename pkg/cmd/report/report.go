@@ -37,12 +37,11 @@ func New(username string, forceHolds, recurring bool) error {
 			}
 		}
 
-		util.LogBanner()
-
 		if !recurring {
 			return nil
 		}
 
+		util.LogBanner()
 		util.Sleep(time.Minute * 1)
 	}
 }
