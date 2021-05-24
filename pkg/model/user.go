@@ -20,7 +20,7 @@ func NewUser() (*User, error) {
 
 	u.Name = os.Getenv("USER")
 	if u.Name == "" {
-		u.Name = "Guest"
+		u.Name = "Carl Brutanandilewski"
 	}
 
 	api, err := NewCoinbaseApi()

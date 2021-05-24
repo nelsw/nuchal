@@ -6,15 +6,18 @@ import (
 )
 
 type Simulation struct {
-	Courses []Course
+	time.Duration
+
+	Series []Series
+
 	Ether,
 	Winners,
-	Losers,
+	Losers int
+
 	Won,
 	Lost,
 	Result,
 	Volume float64
-	time.Duration
 }
 
 func NewSimulation(duration time.Duration) *Simulation {
@@ -25,15 +28,17 @@ func NewSimulation(duration time.Duration) *Simulation {
 
 func (s Simulation) Log() {
 
-	for _, course := range s.Courses {
-		s.Ether += course.Ether
-		s.Winners += course.Winners
-		s.Won += course.Won
-		s.Losers += course.Winners
-		s.Lost += course.Lost
-		s.Volume += course.Vol
-		s.Result += course.Result()
-		course.Log()
+	for _, series := range s.Series {
+
+		s.Ether += series.EtherLen()
+		s.Winners += series.WonLen()
+		s.Losers += series.LostLen()
+		s.Won += series.WonSum()
+		s.Lost += series.LostSum()
+		s.Volume += series.Volume()
+		s.Result += series.Result()
+
+		series.Log()
 	}
 
 	fmt.Println()

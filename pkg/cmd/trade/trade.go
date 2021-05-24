@@ -42,7 +42,7 @@ func trade(g *model.Group, p model.Posture) {
 			then = model.Rate{}
 			that = model.Rate{}
 			// logging in getRate
-		} else if !model.IsTweezer(then, that, *this, p.DeltaFloat()) { // logging in IsTweezer
+		} else if !model.IsTweezerBottom(then, that, *this, p.DeltaFloat()) { // logging in IsTweezerBottom
 			then = that
 			that = *this
 		} else {

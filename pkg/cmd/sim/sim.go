@@ -18,31 +18,37 @@ import (
 )
 
 const (
-	path = "html"
-	fee  = 0.005
+	htmlDir = "html"
 )
 
 // New creates a new simulation, and boy is that an understatement.
 // Per usual, we start by getting program configurations.
-func New() error {
+func New(username string, serve bool) error {
+
+	var err error
 
 	c, err := config.NewConfig()
 	if err != nil {
 		return err
 	}
 
+	user, err := c.GetUser(username)
+	if err != nil {
+		return err
+	}
+
+	makerFee := user.MakerFee
+	takerFee := user.TakerFee
+
 	simulation := model.NewSimulation(*c.Duration)
 
 	for _, posture := range c.Postures {
 
 		rates := GetRates(c, posture.ProductId())
-		indexes := NewPositionIndexes(rates, posture)
-		course, err := NewCourse(rates, indexes, posture)
-		if err != nil {
-			return err
-		}
 
-		simulation.Courses = append(simulation.Courses, *course)
+		series := model.NewSeries(rates, posture, makerFee, takerFee)
+
+		simulation.Series = append(simulation.Series, *series)
 	}
 
 	simulation.Log()
@@ -51,204 +57,65 @@ func New() error {
 		return nil
 	}
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.Mkdir(path, 0755); err != nil {
-			return err
-		}
+	if err := makePath(htmlDir); err != nil {
+		return err
 	}
 
-	for _, course := range simulation.Courses {
-		page := &components.Page{}
-		page.Assets.InitAssets()
-		page.Renderer = render.NewPageRender(page, page.Validate)
-		page.Layout = components.PageFlexLayout
+	for _, series := range simulation.Series {
 
-		sort.SliceStable(course.Charts, func(i, j int) bool {
-			return course.Charts[i].Result > course.Charts[j].Result
-		})
+		productId := series.Posture.ProductId()
 
-		for _, s := range course.Charts {
-			page.AddCharts(s.Kline())
+		if series.WonLen() > 0 {
+			if err := handlePage(productId, "won", series.Won); err != nil {
+				return err
+			}
 		}
-
-		fileName := fmt.Sprintf("./%s/%s.html", path, course.ProductId())
-
-		if f, err := os.Create(fileName); err != nil {
-			return err
-		} else if err := page.Render(io.MultiWriter(f)); err != nil {
-			return err
+		if series.LostLen() > 0 {
+			if err := handlePage(productId, "lost", series.Lost); err != nil {
+				return err
+			}
+		}
+		if series.EtherLen() > 0 {
+			if err := handlePage(productId, "ether", series.Ether); err != nil {
+				return err
+			}
 		}
 	}
 
 	return util.DoIndefinitely(func() {
-		fs := http.FileServer(http.Dir(path))
+		fs := http.FileServer(http.Dir(htmlDir))
 		fmt.Println("served charts at http://localhost:8089")
 		log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
 	})
 }
 
-func NewPositionIndexes(rates []model.Rate, posture model.Posture) []int {
+func handlePage(productId, dir string, charts []model.Chart) error {
 
-	var positionIndexes []int
-	var then, that model.Rate
+	page := &components.Page{}
+	page.Assets.InitAssets()
+	page.Renderer = render.NewPageRender(page, page.Validate)
+	page.Layout = components.PageFlexLayout
 
-	for i, this := range rates {
-		if model.IsTweezer(then, that, this, posture.DeltaFloat()) {
-			positionIndexes = append(positionIndexes, i)
-			then = model.Rate{}
-			that = model.Rate{}
-		} else {
-			then = that
-			that = this
-		}
+	sort.SliceStable(charts, func(i, j int) bool {
+		return charts[i].Result() > charts[j].Result()
+	})
+
+	for _, s := range charts {
+		page.AddCharts(s.Kline())
 	}
 
-	return positionIndexes
-}
-
-func NewCourse(rates []model.Rate, positionIndexes []int, posture model.Posture) (*model.Course, error) {
-
-	course := new(model.Course)
-	course.Posture = posture
-	course.PatternLen = len(positionIndexes)
-
-	// i == this (green, tweezer)
-	// i - 1 == that (red, tweezer)
-	// i - 2 == then (red)
-	for _, i := range positionIndexes {
-
-		var foundExit bool
-		var exit, result float64
-
-		positionRates := rates[i:]
-		positionRatesLen := len(positionRates)
-
-		firstRate := positionRates[0]
-		firstRateTime := firstRate.Time()
-		entry := firstRate.Close
-
-		gain := posture.GainPrice(entry)
-		loss := posture.LossPrice(entry)
-
-		var lastRate model.Rate
-		for j, r := range positionRates {
-
-			// first up, did we take a bath?
-			if r.Low <= loss {
-				exit = loss
-				foundExit = true
-			}
-
-			// have we established an exit and now below said exit?
-			if r.Low <= exit {
-				foundExit = true
-			}
-
-			// k, cool, but did we meet our goal?
-			if r.High >= gain {
-
-				// if this is the first candle
-				if exit == 0 {
-					exit = gain // and worst case scenario, we exit with the goal.
-					foundExit = true
-				}
-
-				// if we're climbing
-				if r.Close >= exit {
-					exit = r.Close
-					foundExit = true
-				}
-
-			}
-
-			// tweezer tops?
-			//if foundGoal &&
-			//	r.IsDown() &&
-			//	lastRate.IsUp() &&
-			//	model.IsTweezerTop(lastRate, r, posture.DeltaFloat()*5) {
-			//	foundExit = true
-			//}
-
-			//if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*15 && r.High >= gain-(gain*.001) {
-			//	exit = gain - (gain * .001)
-			//	foundExit = true
-			//}
-
-			if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*30 && r.High >= entry+(entry*fee) {
-				exit = entry + (entry * fee)
-				foundExit = true
-			}
-
-			if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*60 && r.High >= entry {
-				exit = entry
-				foundExit = true
-			}
-
-			//if !foundExit && lastRate.Time().Sub(firstRateTime) > time.Minute*120 && r.High >= gain-(gain*.01) {
-			//	exit = gain - (gain * .01)
-			//	foundExit = true
-			//}
-
-			// tweezer tops?
-			//if r.IsDown() &&
-			//	lastRate.IsUp() &&
-			//	model.IsTweezerTop(lastRate, r, posture.DeltaFloat()*.1) {
-			//	exit = r.Close - (r.Close * fee)
-			//	foundExit = true
-			//}
-
-			lastRate = r
-
-			if !foundExit {
-				if positionRatesLen-1 == j {
-					fmt.Println("lost chart to the ether")
-				}
-				continue
-			}
-
-			result = (exit - (exit * fee)) - (entry + (entry * fee))
-			size := util.Float64(posture.Size)
-
-			result *= size
-			if result > 0 {
-				course.Won += result
-				course.Winners++
-			} else {
-				course.Lost += result
-				course.Losers++
-			}
-
-			course.Vol += entry * size
-
-			course.Charts = append(course.Charts, model.Chart{
-				rates[i-2 : i+j+4],
-				lastRate.Time().Sub(firstRateTime),
-				entry,
-				gain,
-				exit,
-				result,
-				size,
-				foundExit,
-			})
-			break
-		}
-
-		if !foundExit {
-			course.Ether++
-			course.Charts = append(course.Charts, model.Chart{
-				rates[i-2:],
-				lastRate.Time().Sub(firstRateTime),
-				entry,
-				gain,
-				exit,
-				result,
-				util.Float64(posture.Size),
-				foundExit,
-			})
-		}
+	if err := makePath(htmlDir + "/" + productId); err != nil {
+		return err
 	}
 
-	return course, nil
+	fileName := fmt.Sprintf("./%s/%s/%s.html", htmlDir, productId, dir)
+
+	if f, err := os.Create(fileName); err != nil {
+		return err
+	} else if err := page.Render(io.MultiWriter(f)); err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetRates(c *config.Config, productId string) []model.Rate {
@@ -333,4 +200,13 @@ func logRequest(handler http.Handler) http.Handler {
 		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
 		handler.ServeHTTP(w, r)
 	})
+}
+
+func makePath(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.Mkdir(path, 0755); err != nil {
+			return err
+		}
+	}
+	return nil
 }

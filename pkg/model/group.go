@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"errors"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"math/rand"
@@ -19,6 +20,15 @@ func (c Group) RandomClient() *cb.Client {
 	i := rand.Intn(l)
 	u := &c.Users[i]
 	return u.GetClient()
+}
+
+func (c Group) GetUser(name string) (*User, error) {
+	for _, user := range c.Users {
+		if user.Name == name {
+			return &user, nil
+		}
+	}
+	return nil, errors.New("no user found for " + name)
 }
 
 func NewGroup() (*Group, error) {
