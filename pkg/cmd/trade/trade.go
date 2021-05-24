@@ -12,7 +12,9 @@ import (
 	"time"
 )
 
-func New() error {
+func New(user string, coins []string) error {
+
+	fmt.Println(user, coins)
 
 	log.Info().Msg("creating trades")
 
@@ -30,11 +32,11 @@ func New() error {
 
 func trade(g *model.Group, p model.Posture) {
 
-	log.Info().Str("product", p.Id).Msg("creating trades")
+	log.Info().Str("🪙", p.Id).Msg("creating trades")
 
 	var then, that model.Rate
 	for {
-		if this, err := getRate(p.ProductId()); err != nil {
+		if this, err := getRate(p.Id); err != nil {
 			then = model.Rate{}
 			that = model.Rate{}
 		} else if !p.MatchesTweezerBottomPattern(then, that, *this) {
@@ -52,11 +54,19 @@ func trade(g *model.Group, p model.Posture) {
 
 func buy(u model.User, p model.Posture) {
 
-	log.Info().Str("user", u.Name).Str("id", p.Id).Msg("creating buy order")
+	log.Info().
+		Str("👤", u.Name).
+		Str("🪙", p.Id).
+		Msg("buy")
 
 	if order, err := createOrder(u, p.MarketEntryOrder()); err == nil {
 
-		log.Info().Str("user", u.Name).Str("product", p.Id).Msg("created buy order")
+		log.Info().
+			Str("👤", u.Name).
+			Str("🪙", p.Id).
+			Str("price", order.ExecutedValue).
+			Str("size", order.Size).
+			Msg("buy")
 
 		entry := util.Float64(order.ExecutedValue) / util.Float64(order.Size)
 		fees := util.Float64(order.FillFees)
@@ -73,8 +83,8 @@ func buy(u model.User, p model.Posture) {
 
 		log.Warn().
 			Err(err).
-			Str("report", u.Name).
-			Str("productId", p.ProductId()).
+			Str("👤", u.Name).
+			Str("🪙", p.Id).
 			Msg("Insufficient funds ... sleeping ...")
 
 		time.Sleep(time.Hour) // todo check if has funds and if more sleep required
@@ -82,30 +92,33 @@ func buy(u model.User, p model.Posture) {
 	} else {
 		log.Error().
 			Err(err).
-			Str("report", u.Name).
-			Str("productId", p.ProductId()).
+			Str("👤", u.Name).
+			Str("🪙", p.Id).
 			Msg("error buying")
 	}
 }
 
 func sell(u model.User, entry, fees, goal float64, size string, p model.Posture) error {
 
-	log.Info().Str("user", u.Name).Str("product", p.Id).Msg("creating sell order")
+	log.Info().
+		Str("👤", u.Name).
+		Str("🪙", p.Id).
+		Msg("sell")
 
 	// ws conn
 	var wsDialer ws.Dialer
 	var wsConn *ws.Conn
 	var err error
 	if wsConn, _, err = wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil); err != nil {
-		log.Error().Err(err).Str("user", u.Name).Str("product", p.Id).Msg("while opening ws conn")
+		log.Error().Err(err).Str("👤", u.Name).Str("🪙", p.Id).Msg("opening ws")
 		if _, err = createOrder(u, p.StopEntryOrder(goal, size)); err != nil {
-			log.Error().Err(err).Str("user", u.Name).Str("product", p.Id).Msg("while creating entry order")
+			log.Error().Err(err).Str("👤", u.Name).Str("🪙", p.Id).Msg("while creating entry order")
 		}
 		return err
 	}
 	defer func(wsConn *ws.Conn) {
 		if err = wsConn.Close(); err != nil {
-			log.Error().Err(err).Str("user", u.Name).Str("product", p.Id).Msg("while closing ws conn")
+			log.Error().Err(err).Str("👤", u.Name).Str("🪙", p.Id).Msg("closing ws")
 		}
 	}(wsConn)
 
@@ -142,10 +155,10 @@ func sell(u model.User, entry, fees, goal float64, size string, p model.Posture)
 	}
 }
 
-func anchor(u model.User, goal float64, lastPrice float64, size string, p model.Posture) error {
+func anchor(u model.User, goal float64, price float64, size string, p model.Posture) error {
 
 	// create a stop loss
-	order, err := createOrder(u, p.StopLossOrder(lastPrice, size))
+	order, err := createOrder(u, p.StopLossOrder(price, size))
 	if err != nil {
 		// this one is bad
 		return err
@@ -157,7 +170,7 @@ func anchor(u model.User, goal float64, lastPrice float64, size string, p model.
 
 func climb(u model.User, goal float64, size, orderId string, p model.Posture) error {
 
-	log.Info().Str("user", u.Name).Str("product", p.Id).Msg("climbing rate")
+	log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("climbing")
 
 	var err error
 	for {
@@ -169,13 +182,13 @@ func climb(u model.User, goal float64, size, orderId string, p model.Posture) er
 		}
 
 		if rate.Low <= goal {
-			log.Info().Str("user", u.Name).Str("product", p.Id).Msg("low <= goal :(")
+			log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("low <= goal :(")
 			break
 		}
 
 		if rate.Close > goal {
 
-			log.Info().Str("user", u.Name).Str("product", p.Id).Msg("close > goal :)")
+			log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("close > goal :)")
 
 			err = cancelOrder(u, orderId)
 			if err != nil {
@@ -195,14 +208,12 @@ func climb(u model.User, goal float64, size, orderId string, p model.Posture) er
 		}
 	}
 
-	log.Info().Str("user", u.Name).Str("product", p.Id).Msg("climbed rate")
+	log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("climbed")
 
 	return err
 }
 
 func getRate(productId string) (*model.Rate, error) {
-
-	log.Info().Str("product", productId).Msg("get rate")
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -251,7 +262,7 @@ func getRate(productId string) (*model.Rate, error) {
 
 		now := time.Now()
 		if now.After(end) {
-			log.Info().Str("product", productId).Msg("got rate")
+			log.Info().Str("product", productId).Msg("rate")
 			return &model.Rate{
 				now.UnixNano(),
 				productId,
@@ -347,7 +358,7 @@ func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 		return getOrder(u, id, i)
 	}
 
-	if !order.Settled || order.Status == "pending" {
+	if order.Status == "pending" {
 
 		log.Debug().
 			Str("user", u.Name).
@@ -355,7 +366,7 @@ func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 			Str("order", id).
 			Str("side", order.Side).
 			Str("type", order.Type).
-			Msg("got order, but it's pending or unsettled")
+			Msg("got order, but it's pending")
 
 		time.Sleep(1 * time.Second)
 		return getOrder(u, id, 0)

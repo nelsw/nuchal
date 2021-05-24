@@ -4,7 +4,7 @@ import "testing"
 
 func TestNew(t *testing.T) {
 
-	if err := New(); err != nil {
+	if err := New("Carl Brutanandilewski", []string{"ADA", "MATIC", "XTZ"}); err != nil {
 		t.Error(err)
 	}
 
