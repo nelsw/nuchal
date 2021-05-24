@@ -1,6 +1,7 @@
 package report
 
 import (
+	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"nuchal/pkg/config"
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-func New(forceHolds, recurring bool) error {
+func New(username string, forceHolds, recurring bool) error {
 
 	cfg, err := config.NewConfig()
 	if err != nil {
@@ -19,40 +20,22 @@ func New(forceHolds, recurring bool) error {
 
 	util.PrintNewLine()
 
+	if user, err := cfg.GetUser(username); err == nil {
+		err = printPortfolio(cfg, *user, forceHolds)
+		if err == nil {
+			return nil
+		}
+	}
+
 	for {
 
 		for _, user := range cfg.Users {
-
-			portfolio, err := getPortfolio(user)
-			if err != nil {
+			if err := printPortfolio(cfg, user, forceHolds); err != nil {
 				return err
 			}
-
-			portfolio.Info()
-
-			for _, position := range portfolio.CoinPositions() {
-
-				position.Log()
-
-				if position.HasOrphanBuyFills() && forceHolds {
-
-					posture := cfg.GetPosture(position.ProductId())
-
-					for _, fill := range position.OrphanBuyFills() {
-
-						order := posture.StopGainOrder(fill)
-
-						if _, err := user.GetClient().CreateOrder(order); err != nil {
-							return err
-						}
-					}
-				}
-			}
-			util.PrintNewLine()
 		}
 
 		util.LogBanner()
-		util.PrintCursor()
 
 		if !recurring {
 			return nil
@@ -60,6 +43,42 @@ func New(forceHolds, recurring bool) error {
 
 		util.Sleep(time.Minute * 1)
 	}
+}
+
+func printPortfolio(cfg *config.Config, user model.User, forceHolds bool) error {
+
+	portfolio, err := getPortfolio(user)
+	if err != nil {
+		return err
+	}
+
+	portfolio.Info()
+
+	for _, position := range portfolio.CoinPositions() {
+
+		position.Log()
+
+		if position.HasOrphanBuyFills() && forceHolds {
+
+			posture := cfg.GetPosture(position.ProductId())
+
+			for _, fill := range position.OrphanBuyFills() {
+
+				order := posture.StopGainOrder(fill)
+
+				if o, err := user.GetClient().CreateOrder(order); err != nil {
+					if util.IsInsufficientFunds(err) {
+						continue
+					}
+					return err
+				} else {
+					fmt.Println(o)
+				}
+			}
+		}
+	}
+	util.PrintNewLine()
+	return nil
 }
 
 func getPortfolio(u model.User) (*model.Portfolio, error) {

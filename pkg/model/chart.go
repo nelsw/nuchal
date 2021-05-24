@@ -43,16 +43,18 @@ type Chart struct {
 
 // Symbol returns an emoji correlated the the status of the chart
 func (c *Chart) Symbol() string {
-	if c.Exit == 0 {
+	if c.IsEther() {
 		return "🌌"
-	} else if c.Result() < 0 {
+	} else if c.IsLoser() {
 		return "💩"
+	} else if c.IsEven() {
+		return "👊🏻"
 	}
 	return "💎"
 }
 
 func (c *Chart) IsWinner() bool {
-	return c.Exit != 0 && c.Result() >= 0
+	return c.Exit != 0 && c.Result() > 0
 }
 
 func (c *Chart) IsLoser() bool {
@@ -61,6 +63,10 @@ func (c *Chart) IsLoser() bool {
 
 func (c *Chart) IsEther() bool {
 	return c.Exit == 0
+}
+
+func (c *Chart) IsEven() bool {
+	return c.EntryPlusFee() == c.ExitPlusFee()
 }
 
 func (c *Chart) Result() float64 {
@@ -84,6 +90,10 @@ func NewChart(makerFee, takerFee float64, rates []Rate, posture Posture) *Chart 
 	c.TakerFee = takerFee
 
 	iterableRates := rates[3:]
+	if len(iterableRates) < 1 {
+		return c
+	}
+
 	c.Entry = iterableRates[0].Open
 	c.Goal = posture.GainPrice(c.Entry)
 	c.Limit = posture.LossPrice(c.Entry)

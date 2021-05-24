@@ -4,6 +4,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"nuchal/pkg/cmd/sim"
+	"nuchal/pkg/util"
 )
 
 var simExample = `
@@ -11,7 +12,7 @@ var simExample = `
 	nuchal sim
 
 	# Print simulation result report to the console, with user maker/taker fees.
-	nuchal sim --user 'Carl Brutanandilewski'
+	nuchal sim --user 'Carl Brutananadilewski'
 
 	# Print simulation result report to the browser.
 	nuchal sim --serve
@@ -35,7 +36,7 @@ func init() {
 		},
 	}
 
-	c.Flags().String("user", "Carl Brutanandilewski",
+	c.Flags().String("user", util.GuestName,
 		"Name of the user for simulating trades.")
 
 	c.Flags().Bool("serve", false,

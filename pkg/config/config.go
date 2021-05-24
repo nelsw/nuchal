@@ -13,7 +13,7 @@ import (
 
 // Config for the environment
 type Config struct {
-	Sim         string `envconfig:"SIM" default:":8080"`
+	Port        string `envconfig:"PORT" default:":8080"`
 	Mode        string `envconfig:"MODE" default:"DEBUG"`
 	DurationStr string `envconfig:"DURATION" default:"24h"`
 	*model.Group
@@ -94,7 +94,7 @@ func NewConfig() (*Config, error) {
 	} else {
 		c.Group = group
 		for _, user := range c.Group.Users {
-			log.Debug().Str("name", user.Name).Send()
+			log.Debug().Str("user", user.Name).Send()
 		}
 		log.Info().Msg("configured users")
 	}
@@ -105,7 +105,7 @@ func NewConfig() (*Config, error) {
 	} else {
 		c.Strategy = strategy
 		for _, posture := range strategy.Postures {
-			log.Debug().Str("id", posture.Id).Send()
+			log.Debug().Str("product", posture.Id).Send()
 		}
 		log.Info().Msgf("configured products")
 	}

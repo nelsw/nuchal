@@ -6,23 +6,21 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	config2 "nuchal/pkg/config"
+	"nuchal/pkg/config"
 	"nuchal/pkg/model"
 	"nuchal/pkg/util"
 	"time"
 )
 
-func New() error {
+func New(user string, coins []string) error {
 
-	log.Info().Msg("creating new trades")
+	log.Info().Msg("creating trades")
 
-	c, err := config2.NewConfig()
+	c, err := config.NewConfig()
 	if err != nil {
-		log.Error().Err(err).Msg("error creating nuchal config")
 		return err
 	}
 
-	log.Info().Msg("trading indefinitely")
 	return util.DoIndefinitely(func() {
 		for _, p := range c.Postures {
 			go trade(c.Group, p)
@@ -32,17 +30,14 @@ func New() error {
 
 func trade(g *model.Group, p model.Posture) {
 
-	log.Info().
-		Str("productId", p.ProductId()).
-		Msg("creating trades")
+	log.Info().Str("🪙", p.Id).Msg("creating trades")
 
 	var then, that model.Rate
 	for {
-		if this, err := getRate(p.ProductId()); err != nil {
+		if this, err := getRate(p.Id); err != nil {
 			then = model.Rate{}
 			that = model.Rate{}
-			// logging in getRate
-		} else if !model.IsTweezerBottom(then, that, *this, p.DeltaFloat()) { // logging in IsTweezerBottom
+		} else if !p.MatchesTweezerBottomPattern(then, that, *this) {
 			then = that
 			that = *this
 		} else {
@@ -58,29 +53,36 @@ func trade(g *model.Group, p model.Posture) {
 func buy(u model.User, p model.Posture) {
 
 	log.Info().
-		Str("report", u.Name).
-		Str("productId", p.ProductId()).
-		Msg("... buying")
+		Str("👤", u.Name).
+		Str("🪙", p.Id).
+		Msg("buy")
 
 	if order, err := createOrder(u, p.MarketEntryOrder()); err == nil {
 
 		log.Info().
-			Str("report", u.Name).
-			Str("productId", p.ProductId()).
-			Str("orderId", order.ID).
-			Msg("created order")
+			Str("👤", u.Name).
+			Str("🪙", p.Id).
+			Str("price", order.ExecutedValue).
+			Str("size", order.Size).
+			Msg("buy")
 
-		entryPrice := util.Float64(order.ExecutedValue) / util.Float64(order.Size)
-		exitPrice := entryPrice + (entryPrice * p.GainFloat())
+		entry := util.Float64(order.ExecutedValue) / util.Float64(order.Size)
+		fees := util.Float64(order.FillFees)
+		if fees == 0.0 {
+			fees = u.MakerFee
+		}
+		goal := entry + (entry * p.GainFloat())
 
-		sell(u, exitPrice, order.Size, p)
+		if err := sell(u, entry, fees, goal, order.Size, p); err != nil {
+			log.Error().Err(err).Str("user", u.Name).Str("product", p.Id).Msg("while selling")
+		}
 
 	} else if util.IsInsufficientFunds(err) {
 
 		log.Warn().
 			Err(err).
-			Str("report", u.Name).
-			Str("productId", p.ProductId()).
+			Str("👤", u.Name).
+			Str("🪙", p.Id).
 			Msg("Insufficient funds ... sleeping ...")
 
 		time.Sleep(time.Hour) // todo check if has funds and if more sleep required
@@ -88,110 +90,125 @@ func buy(u model.User, p model.Posture) {
 	} else {
 		log.Error().
 			Err(err).
-			Str("report", u.Name).
-			Str("productId", p.ProductId()).
+			Str("👤", u.Name).
+			Str("🪙", p.Id).
 			Msg("error buying")
 	}
 }
 
-func sell(u model.User, exitPrice float64, size string, p model.Posture) {
+func sell(u model.User, entry, fees, goal float64, size string, p model.Posture) error {
 
 	log.Info().
-		Str("report", u.Name).
-		Str("productId", p.ProductId()).
-		Float64("exitPrice", exitPrice).
-		Str("size", size).
-		Msg("... selling")
+		Str("👤", u.Name).
+		Str("🪙", p.Id).
+		Msg("sell")
 
+	// ws conn
 	var wsDialer ws.Dialer
-	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
-	if err != nil {
-
-		log.Error().
-			Err(err).
-			Str("report", u.Name).
-			Str("productId", p.ProductId()).
-			Msg("error opening websocket connection")
-
-		if _, err := createOrder(u, p.StopEntryOrder(exitPrice, size)); err != nil {
-			log.Error().
-				Err(err).
-				Str("report", u.Name).
-				Str("productId", p.ProductId()).
-				Msg("error while creating entry order")
+	var wsConn *ws.Conn
+	var err error
+	if wsConn, _, err = wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil); err != nil {
+		log.Error().Err(err).Str("👤", u.Name).Str("🪙", p.Id).Msg("opening ws")
+		if _, err = createOrder(u, p.StopEntryOrder(goal, size)); err != nil {
+			log.Error().Err(err).Str("👤", u.Name).Str("🪙", p.Id).Msg("while creating entry order")
 		}
-
-		return
+		return err
 	}
-
 	defer func(wsConn *ws.Conn) {
-		if err := wsConn.Close(); err != nil {
-			log.Error().
-				Err(err).
-				Str("report", u.Name).
-				Str("productId", p.ProductId()).
-				Msg("error while close websocket connection")
+		if err = wsConn.Close(); err != nil {
+			log.Error().Err(err).Str("👤", u.Name).Str("🪙", p.Id).Msg("closing ws")
 		}
 	}(wsConn)
 
+	// when do we start to sweat?
+	timeToBreakEven := time.Now().Add(time.Minute * 45)
 	for {
 
-		lastPrice, err := getPrice(wsConn, p.ProductId())
+		// get the last price
+		var lastPrice *float64
+		lastPrice, err = getPrice(wsConn, p.Id)
+		// rarely if ever happens
 		if err != nil {
-			log.Error().
-				Err(err).
-				Msg("error while getting sell price")
-			if _, err := createOrder(u, p.StopEntryOrder(exitPrice, size)); err != nil {
-				log.Error().
-					Err(err).
-					Msg("error while creating stop entry order")
+			log.Error().Err(err).Msg("error while getting sell price")
+			// but jic, create a stop entry with our goal price
+			if _, err = createOrder(u, p.StopEntryOrder(goal, size)); err != nil {
+				// this is the worst case scenario
+				log.Error().Err(err).Msg("error while creating stop entry order")
 			}
-			return
+			// propagate error back to mother ship
+			return err
 		}
 
-		if *lastPrice < exitPrice {
-			continue
+		// if we've met or exceeded our goal price, or ...
+		if *lastPrice >= goal ||
+			// if we haven't met our goal, has it been 45 minutes yet?
+			(time.Now().After(timeToBreakEven) &&
+				// if we can get our money back, with fees
+				*lastPrice >= entry+(entry*fees)) {
+			// then anchor and climb.
+			return anchor(u, goal, *lastPrice, size, p)
 		}
 
-		var stopLossOrder *cb.Order
-		if stopLossOrder, err = createOrder(u, p.StopLossOrder(*lastPrice, size)); err != nil {
+		// else, get the next price and keep the dream alive that it meets or exceeds our goal price.
+	}
+}
 
-			log.Error().
-				Err(err).
-				Msg("error while creating stop loss order")
-			return
+func anchor(u model.User, goal float64, price float64, size string, p model.Posture) error {
+
+	// create a stop loss
+	order, err := createOrder(u, p.StopLossOrder(price, size))
+	if err != nil {
+		// this one is bad
+		return err
+	}
+
+	// you're safe to climb, try and find a better sell price.
+	return climb(u, goal, size, order.ID, p)
+}
+
+func climb(u model.User, goal float64, size, orderId string, p model.Posture) error {
+
+	log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("climbing")
+
+	var err error
+	for {
+
+		var rate *model.Rate
+		rate, err = getRate(p.Id)
+		if err != nil {
+			break
 		}
 
-		for {
-			if r, err := getRate(p.ProductId()); err != nil {
-				log.Error().
-					Err(err).
-					Msg("error while getting rate during stop loss climb")
-				return
-			} else if r.Low <= exitPrice {
-				return // stop loss executed
-			} else if r.Close > exitPrice {
+		if rate.Low <= goal {
+			log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("low <= goal :(")
+			break
+		}
 
-				log.Info().
-					Msg("found better price!")
+		if rate.Close > goal {
 
-				if err := cancelOrder(u, stopLossOrder.ID); err != nil {
-					log.Error().
-						Err(err).
-						Msg("error while canceling order")
-					return
-				}
+			log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("close > goal :)")
 
-				exitPrice = r.Close
-				if stopLossOrder, err = createOrder(u, p.StopLossOrder(exitPrice, size)); err != nil {
-					log.Error().
-						Err(err).
-						Msg("error while creating stop loss order")
-					return
-				}
+			err = cancelOrder(u, orderId)
+			if err != nil {
+				break
+			}
+
+			var order *cb.Order
+			order, err = createOrder(u, p.StopLossOrder(rate.Close, size))
+			if err != nil {
+				break
+			}
+
+			err = climb(u, goal, size, order.ID, p)
+			if err != nil {
+				break
 			}
 		}
 	}
+
+	log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("climbed")
+
+	return err
 }
 
 func getRate(productId string) (*model.Rate, error) {
@@ -241,20 +258,13 @@ func getRate(productId string) (*model.Rate, error) {
 			low = *price
 		}
 
-		if time.Now().After(end) {
-
-			log.Info().
-				Str("productId", productId).
-				Msg("...built rate")
-
+		now := time.Now()
+		if now.After(end) {
+			log.Info().Str("product", productId).Msg("rate")
 			return &model.Rate{
-				time.Now().UnixNano(),
+				now.UnixNano(),
 				productId,
-				low,
-				high,
-				open,
-				*price,
-				vol,
+				cb.HistoricRate{now, low, high, open, *price, vol},
 			}, nil
 		}
 	}
@@ -326,7 +336,7 @@ func createOrder(u model.User, order *cb.Order, attempt ...int) (*cb.Order, erro
 // This function also performs extensive logging given its variable and seriously critical nature.
 func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 
-	log.Info().Str("report", u.Name).Str("orderId", id).Msg("get order")
+	log.Info().Str("user", u.Name).Str("order", id).Msg("get order")
 
 	order, err := u.GetClient().GetOrder(id)
 
@@ -334,14 +344,10 @@ func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 
 		i := util.FirstIntOrZero(attempt)
 
-		log.Error().
-			Err(err).
-			Str("report", u.Name).
-			Str("orderId", id).
-			Int("attempt", i).
-			Msg("error getting order")
+		log.Debug().Err(err).Str("user", u.Name).Str("id", id).Send()
 
 		if i > 10 {
+			log.Error().Err(err).Str("user", u.Name).Str("id", id).Send()
 			return nil, err
 		}
 
@@ -350,27 +356,22 @@ func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 		return getOrder(u, id, i)
 	}
 
-	if !order.Settled || order.Status == "pending" {
+	if order.Status == "pending" {
 
-		log.Warn().
-			Str("report", u.Name).
+		log.Debug().
+			Str("user", u.Name).
 			Str("product", order.ProductID).
-			Str("orderId", id).
+			Str("order", id).
 			Str("side", order.Side).
 			Str("type", order.Type).
-			Msg("got order, but it's pending or unsettled")
+			Msg("got order, but it's pending")
 
 		time.Sleep(1 * time.Second)
 		return getOrder(u, id, 0)
 	}
 
-	log.Info().
-		Str("report", u.Name).
-		Str("product", order.ProductID).
-		Str("orderId", id).
-		Str("side", order.Side).
-		Str("type", order.Type).
-		Msg("got order")
+	log.Info().Str("user", u.Name).Str("product", order.ProductID).Str("order", id).Msg("got order")
+
 	return &order, nil
 }
 
@@ -378,17 +379,13 @@ func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 func cancelOrder(u model.User, id string, attempt ...int) error {
 
 	log.Info().
-		Str("report", u.Name).
-		Str("report", u.Name).
-		Str("orderId", id).
+		Str("user", u.Name).
+		Str("order", id).
 		Msg("canceling order")
 
 	err := u.GetClient().CancelOrder(id)
 	if err == nil {
-		log.Info().
-			Str("report", u.Name).
-			Str("orderId", id).
-			Msg("canceled order")
+		log.Info().Str("user", u.Name).Str("order", id).Msg("canceled order")
 		return nil
 	}
 
@@ -396,8 +393,8 @@ func cancelOrder(u model.User, id string, attempt ...int) error {
 
 	log.Error().
 		Err(err).
-		Str("report", u.Name).
-		Str("orderId", id).
+		Str("user", u.Name).
+		Str("order", id).
 		Int("attempt", i).
 		Msg("error canceling order")
 

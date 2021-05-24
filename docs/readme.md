@@ -1,11 +1,5 @@
 # nuchal
-A project for evaluating & executing cryptocurrency trades on Coinbase Pro. 
-
-> **nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,*
-> 
-> "In marine biology, an exaggerated craniofacial trait responsible for defining rank and order among a species."
-
-This project does the same - it recognizes market characteristics and trades the best (profitable) selection.
+**nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* - a program for trading cryptocurrency on Coinbase Pro for *1-n* users.
 
 # Overview
 The **goals** of this project are to:
@@ -14,13 +8,25 @@ The **goals** of this project are to:
 - simulate automation results using historical ticker data
 - provide a streaming summary of portfolio positions
 
-## Build
 
-## Configure
-Before you get started, you'll need a [Coinbase Pro][1] API key and working installation of [Go][2] and [git][3]    .
+## Build
+Before you get started, you'll need a [Coinbase Pro][1] API key and working installation of [Go][2] and [git][3].
+
+```shell
+git clone https://github.com/nelsw/nuchal.git && 
+cd nuchal &&
+GOOS=linux GOARCH=amd64 && 
+go build -o build/nuchal main.go && 
+PATH=${PATH}:/Users/${USER}/go/bin && 
+go install
+```
 
 ### Single User
 ```shell
+export PORT=8080
+export MODE="DEBUG"
+export DURATION=24h
+export USER=${USER}
 export COINBASE_PRO_KEY="your_coinbase_pro_api_key"
 export COINBASE_PRO_PASSPHRASE="your_coinbase_pro_api_passphrase"
 export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
@@ -28,9 +34,8 @@ export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
 
 ### Multiple Users
 
-#### .sql
-
 #### .json
+Place a `.json` file in the config directory:
 ```json
 {
   "users": [

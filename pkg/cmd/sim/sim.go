@@ -37,7 +37,7 @@ func New(username string, serve bool) error {
 		return err
 	}
 
-	var ether, winners, losers int
+	var ether, winners, losers, even int
 	var won, lost, total, volume float64
 	simulations := map[string]model.Simulation{}
 
@@ -55,6 +55,7 @@ func New(username string, serve bool) error {
 		lost += simulation.LostSum()
 		total += simulation.Total()
 		volume += simulation.Volume()
+		even += len(simulation.Even)
 		simulations[productId] = *simulation
 
 		simulation.Log()
@@ -62,16 +63,19 @@ func New(username string, serve bool) error {
 
 	fmt.Println()
 	fmt.Println()
+	fmt.Println("  trading", ether)
+	fmt.Println("  winners", winners)
+	fmt.Println("   losers", losers)
+	fmt.Println("     even", even)
 	fmt.Println("      won", won)
 	fmt.Println("     lost", lost)
-	fmt.Println("    ether", ether)
 	fmt.Println("    total", total)
 	fmt.Println("   volume", volume)
 	fmt.Println("        %", (total/volume)*100)
 	fmt.Println()
 	fmt.Println()
 
-	if !serve {
+	if !serve && c.Mode != "DEV" && c.Mode != "PROD" {
 		return nil
 	}
 
@@ -101,6 +105,7 @@ func New(username string, serve bool) error {
 	return util.DoIndefinitely(func() {
 		fs := http.FileServer(http.Dir(htmlDir))
 		fmt.Println("served charts at http://localhost:8089")
+		util.LogBanner()
 		log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
 	})
 }
@@ -111,6 +116,7 @@ func handlePage(productId, dir string, charts []model.Chart) error {
 	page.Assets.InitAssets()
 	page.Renderer = render.NewPageRender(page, page.Validate)
 	page.Layout = components.PageFlexLayout
+	page.PageTitle = "nuchal | simulation"
 
 	sort.SliceStable(charts, func(i, j int) bool {
 		return charts[i].Result() > charts[j].Result()

@@ -61,10 +61,11 @@ func (p Position) HasOrphanBuyFills() bool {
 
 func (p *Position) LonelyBuyFills() []cb.Fill {
 	qty := util.MinInt(len(p.buys), len(p.sells))
-	result := p.buys[qty:]
+	result := p.buys
 	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].CreatedAt.Time().After(result[j].CreatedAt.Time())
+		return result[i].CreatedAt.Time().Before(result[j].CreatedAt.Time())
 	})
+	result = p.buys[qty:]
 	return result
 }
 
@@ -79,13 +80,16 @@ func (p *Position) LonelyBuyFillsLen() int {
 func (p *Position) OrphanBuyFills() []cb.Fill {
 	var fills []cb.Fill
 	var hold = p.Hold()
-	for _, fill := range p.fills {
+	for _, fill := range p.LonelyBuyFills() {
 		if p.Balance() == hold {
 			break
 		}
 		fills = append(fills, fill)
 		hold += util.Float64(fill.Size)
 	}
+	sort.SliceStable(fills, func(i, j int) bool {
+		return fills[i].CreatedAt.Time().After(fills[j].CreatedAt.Time())
+	})
 	return fills
 }
 
