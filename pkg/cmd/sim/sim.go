@@ -32,9 +32,14 @@ func New(username string, serve bool) error {
 		return err
 	}
 
-	user, err := c.GetUser(username)
-	if err != nil {
-		return err
+	var user *model.User
+	if username != util.GuestName {
+		user, err = c.GetUser(username)
+		if err != nil {
+			return err
+		}
+	} else {
+		user = &c.Users[0]
 	}
 
 	var ether, winners, losers, even int

@@ -1,7 +1,6 @@
 package model
 
 import (
-	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"net/http"
 	"os"
@@ -20,9 +19,6 @@ func NewUser() (*User, error) {
 	u.Enable = true
 
 	u.Name = os.Getenv("USER")
-	if u.Name == "" {
-		u.Name = util.GuestName
-	}
 
 	api, err := NewCoinbaseApi()
 	if err != nil {
