@@ -1,9 +1,9 @@
 package model
 
 import (
+	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"net/http"
-	"nuchal/pkg/util"
 	"os"
 	"time"
 )

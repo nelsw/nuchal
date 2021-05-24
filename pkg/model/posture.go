@@ -2,8 +2,8 @@ package model
 
 import (
 	"fmt"
+	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nuchal/pkg/util"
 )
 
 // Posture is the type of position to take on a currency.

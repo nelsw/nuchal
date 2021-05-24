@@ -17,7 +17,7 @@ limitations under the License.
 package main
 
 import (
-	"nuchal/cmd"
+	"github.com/nelsw/nuchal/cmd"
 )
 
 func main() {

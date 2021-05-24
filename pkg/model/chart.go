@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
+	"github.com/nelsw/nuchal/pkg/util"
 	"math"
-	"nuchal/pkg/util"
 	"strings"
 	"time"
 )

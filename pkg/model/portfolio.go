@@ -1,8 +1,8 @@
 package model
 
 import (
+	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/rs/zerolog/log"
-	"nuchal/pkg/util"
 	"sort"
 )
 

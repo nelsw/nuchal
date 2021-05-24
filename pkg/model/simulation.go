@@ -2,7 +2,7 @@ package model
 
 import (
 	"fmt"
-	"nuchal/pkg/util"
+	"github.com/nelsw/nuchal/pkg/util"
 	"time"
 )
 

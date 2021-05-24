@@ -1,9 +1,9 @@
 package model
 
 import (
+	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/rs/zerolog/log"
 	"math"
-	"nuchal/pkg/util"
 )
 
 type Pattern struct {

@@ -3,9 +3,9 @@ package config
 import (
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/nelsw/nuchal/pkg/model"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"nuchal/pkg/model"
 	"os"
 	"strings"
 	"time"

@@ -3,7 +3,7 @@ package model
 import (
 	"encoding/json"
 	"errors"
-	"nuchal/pkg/db"
+	"github.com/nelsw/nuchal/pkg/db"
 	"os"
 )
 

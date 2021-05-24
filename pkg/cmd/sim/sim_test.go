@@ -1,7 +1,7 @@
 package sim
 
 import (
-	"nuchal/pkg/util"
+	"github.com/nelsw/nuchal/pkg/util"
 	"testing"
 )
 

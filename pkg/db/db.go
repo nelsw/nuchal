@@ -3,12 +3,12 @@ package db
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/nelsw/nuchal/pkg/util"
 	zog "github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gol "gorm.io/gorm/logger"
 	"log"
-	"nuchal/pkg/util"
 	"os"
 	"time"
 )

@@ -1,4 +1,4 @@
-module nuchal
+module github.com/nelsw/nuchal
 
 go 1.16
 

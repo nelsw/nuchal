@@ -2,10 +2,10 @@ package model
 
 import (
 	"fmt"
+	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"nuchal/pkg/util"
 	"sort"
 )
 
