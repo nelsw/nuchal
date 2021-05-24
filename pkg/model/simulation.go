@@ -107,5 +107,6 @@ func (s *Simulation) Log() {
 	fmt.Println("    ether", s.EtherLen())
 	fmt.Println("   volume", s.Volume())
 	fmt.Println("    total", s.Total())
+	fmt.Println("        %", (s.Total()/s.Volume())*100)
 	fmt.Println()
 }

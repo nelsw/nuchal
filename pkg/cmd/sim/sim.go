@@ -67,10 +67,11 @@ func New(username string, serve bool) error {
 	fmt.Println("    ether", ether)
 	fmt.Println("    total", total)
 	fmt.Println("   volume", volume)
+	fmt.Println("        %", (total/volume)*100)
 	fmt.Println()
 	fmt.Println()
 
-	if c.IsTestMode() || !serve {
+	if !serve {
 		return nil
 	}
 
@@ -150,10 +151,10 @@ func GetRates(u *model.User, unix int64, productId string) []model.Rate {
 
 	var from time.Time
 	if r != (model.Rate{}) {
-		log.Info().Msg("found previous rate found for " + productId)
+		log.Debug().Msg("found previous rate found for " + productId)
 		from = r.Time()
 	} else {
-		log.Info().Msg("no previous rate found for " + productId)
+		log.Debug().Msg("no previous rate found for " + productId)
 		from, _ = time.Parse(time.RFC3339, "2021-05-20T00:00:00+00:00")
 	}
 
@@ -173,7 +174,7 @@ func GetRates(u *model.User, unix int64, productId string) []model.Rate {
 
 		from = to
 		to = to.Add(time.Hour * 4)
-		log.Info().Int("... building simulation data", len(oldRates)).Send()
+		log.Debug().Int("... building simulation data", len(oldRates)).Send()
 	}
 
 	var savedRates []model.Rate

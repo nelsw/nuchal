@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"nuchal/pkg/model"
@@ -12,10 +13,10 @@ import (
 
 // Config for the environment
 type Config struct {
-	SimPort string `envconfig:"SIM_PORT" default:":8080"`
-	Mode    string `envconfig:"MODE" default:"TEST"`
+	Sim         string `envconfig:"SIM" default:":8080"`
+	Mode        string `envconfig:"MODE" default:"DEBUG"`
+	DurationStr string `envconfig:"DURATION" default:"24h"`
 	*model.Group
-	*time.Duration
 	*model.Strategy
 }
 
@@ -23,28 +24,49 @@ func (c Config) IsTestMode() bool {
 	return c.Mode == "TEST"
 }
 
-func (c Config) StartTime() *time.Time {
-	start := time.Now().Add(-*c.Duration)
-	return &start
+func (c Config) IsDebugMode() bool {
+	return c.Mode == "DEBUG"
 }
 
-func (c Config) StartTimeUnixNano() int64 {
-	return c.StartTime().UnixNano()
+func (c *Config) StartTime() *time.Time {
+	now := time.Now()
+	then := now.Add(-*c.Duration())
+	return &then
 }
 
-func (c Config) EndTime() *time.Time {
-	end := time.Now().Add(*c.Duration)
-	return &end
+func (c *Config) Duration() *time.Duration {
+	duration, _ := time.ParseDuration(c.DurationStr)
+	return &duration
 }
 
-func (c Config) IsTimeToExit() bool {
-	return time.Now().After(*c.EndTime())
+func (c *Config) StartTimeUnixNano() int64 {
+	then := c.StartTime()
+	nano := then.UnixNano()
+	return nano
 }
 
-func init() {
+func (c *Config) EndTime() *time.Time {
+	now := time.Now()
+	then := now.Add(*c.Duration())
+	return &then
+}
+
+func (c *Config) IsTimeToExit() bool {
+	now := time.Now()
+	then := *c.EndTime()
+	return now.After(then)
+}
+
+// NewConfig reads configuration from environment variables and validates it
+func NewConfig() (*Config, error) {
+
+	c := new(Config)
+	if err := envconfig.Process("", c); err != nil {
+		return nil, err
+	}
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	if os.Getenv("MODE") == "test" {
+	if c.IsTestMode() || c.IsDebugMode() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -63,43 +85,36 @@ func init() {
 	output.FormatFieldValue = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("%s", i))
 	}
-}
 
-// NewConfig reads configuration from environment variables and validates it
-func NewConfig() (*Config, error) {
+	log.Info().Msg("configuring nuchal")
 
-	log.Info().Msg("creating configuration")
-
-	c := new(Config)
-
-	// get a new report group
+	log.Info().Msg("configuring users")
 	if group, err := model.NewGroup(); err != nil {
-		log.Error().Err(err).Msg("error ")
 		return nil, err
 	} else {
 		c.Group = group
+		for _, user := range c.Group.Users {
+			log.Debug().Str("name", user.Name).Send()
+		}
+		log.Info().Msg("configured users")
 	}
 
-	// get a new product strategy
+	log.Info().Msg("configuring products")
 	if strategy, err := model.NewStrategy(); err != nil {
-		log.Error().Err(err)
 		return nil, err
 	} else {
 		c.Strategy = strategy
+		for _, posture := range strategy.Postures {
+			log.Debug().Str("id", posture.Id).Send()
+		}
+		log.Info().Msgf("configured products")
 	}
 
-	// set duration from environment variable or set it to a default amount
-	d := os.Getenv("DURATION")
-	if d == "" {
-		d = "24h"
-	}
-
-	if duration, err := time.ParseDuration(d); err != nil {
+	// check that the duration is valid
+	if _, err := time.ParseDuration(c.DurationStr); err != nil {
 		return nil, err
-	} else {
-		c.Duration = &duration
 	}
 
-	log.Info().Msgf("created configuration [%v]", c)
+	log.Info().Msg("configured nuchal")
 	return c, nil
 }

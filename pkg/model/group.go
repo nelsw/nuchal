@@ -3,10 +3,8 @@ package model
 import (
 	"encoding/json"
 	"errors"
-	"github.com/rs/zerolog/log"
 	"nuchal/pkg/db"
 	"os"
-	"strings"
 )
 
 type Group struct {
@@ -23,8 +21,6 @@ func (c Group) GetUser(name string) (*User, error) {
 }
 
 func NewGroup() (*Group, error) {
-
-	log.Info().Msg("configuring user group")
 
 	g := new(Group)
 
@@ -44,7 +40,6 @@ func NewGroup() (*Group, error) {
 		g.Users = append(g.Users, *usr)
 	}
 
-	var names []string
 	var enabledUsers []User
 	for _, user := range g.Users {
 		if !user.Enable {
@@ -54,12 +49,8 @@ func NewGroup() (*Group, error) {
 			return nil, err
 		}
 		enabledUsers = append(enabledUsers, user)
-		names = append(names, user.Name)
 	}
 	g.Users = enabledUsers
-
-	csv := strings.Join(names, ", ")
-	log.Info().Msgf("configured user group [%v]", csv)
 
 	return g, nil
 }

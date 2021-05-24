@@ -5,8 +5,6 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"os"
-	"sort"
-	"strings"
 )
 
 type Strategy struct {
@@ -15,8 +13,6 @@ type Strategy struct {
 }
 
 func NewStrategy() (*Strategy, error) {
-
-	log.Info().Msg("creating product strategy")
 
 	c := new(Strategy)
 
@@ -50,18 +46,6 @@ func NewStrategy() (*Strategy, error) {
 			c.Postures = append(c.Postures, Posture{productMap[position.Id], position})
 		}
 	}
-
-	sort.SliceStable(c.Postures, func(i, j int) bool {
-		return strings.Compare(c.Postures[i].ProductId(), c.Postures[j].ProductId()) < 1
-	})
-
-	var names []string
-	for _, p := range c.Postures {
-		names = append(names, p.ProductId())
-	}
-
-	csv := strings.Join(names, ", ")
-	log.Info().Msgf("created product strategy [%v]", csv)
 
 	return c, nil
 }
