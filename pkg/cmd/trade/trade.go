@@ -6,11 +6,9 @@ import (
 	ws "github.com/gorilla/websocket"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
-	config2 "nchl/config"
-	"nchl/pkg/model/account"
-	"nchl/pkg/model/crypto"
-	"nchl/pkg/model/statistic"
-	"nchl/pkg/util"
+	config2 "nuchal/pkg/config"
+	"nuchal/pkg/model"
+	"nuchal/pkg/util"
 	"time"
 )
 
@@ -32,42 +30,42 @@ func New() error {
 	})
 }
 
-func trade(g *account.Group, p crypto.Posture) {
+func trade(g *model.Group, p model.Posture) {
 
 	log.Info().
 		Str("productId", p.ProductId()).
 		Msg("creating trades")
 
-	var then, that statistic.Candlestick
+	var then, that model.Rate
 	for {
 		if this, err := getRate(p.ProductId()); err != nil {
-			then = statistic.Candlestick{}
-			that = statistic.Candlestick{}
+			then = model.Rate{}
+			that = model.Rate{}
 			// logging in getRate
-		} else if !statistic.IsTweezer(then, that, *this, p.DeltaFloat()) { // logging in IsTweezer
+		} else if !model.IsTweezerBottom(then, that, *this, p.DeltaFloat()) { // logging in IsTweezerBottom
 			then = that
 			that = *this
 		} else {
 			for _, u := range g.Users {
 				go buy(u, p)
 			}
-			then = statistic.Candlestick{}
-			that = statistic.Candlestick{}
+			then = model.Rate{}
+			that = model.Rate{}
 		}
 	}
 }
 
-func buy(u account.User, p crypto.Posture) {
+func buy(u model.User, p model.Posture) {
 
 	log.Info().
-		Str("user", u.Name).
+		Str("report", u.Name).
 		Str("productId", p.ProductId()).
 		Msg("... buying")
 
 	if order, err := createOrder(u, p.MarketEntryOrder()); err == nil {
 
 		log.Info().
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("productId", p.ProductId()).
 			Str("orderId", order.ID).
 			Msg("created order")
@@ -81,7 +79,7 @@ func buy(u account.User, p crypto.Posture) {
 
 		log.Warn().
 			Err(err).
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("productId", p.ProductId()).
 			Msg("Insufficient funds ... sleeping ...")
 
@@ -90,16 +88,16 @@ func buy(u account.User, p crypto.Posture) {
 	} else {
 		log.Error().
 			Err(err).
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("productId", p.ProductId()).
 			Msg("error buying")
 	}
 }
 
-func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
+func sell(u model.User, exitPrice float64, size string, p model.Posture) {
 
 	log.Info().
-		Str("user", u.Name).
+		Str("report", u.Name).
 		Str("productId", p.ProductId()).
 		Float64("exitPrice", exitPrice).
 		Str("size", size).
@@ -111,14 +109,14 @@ func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 
 		log.Error().
 			Err(err).
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("productId", p.ProductId()).
 			Msg("error opening websocket connection")
 
 		if _, err := createOrder(u, p.StopEntryOrder(exitPrice, size)); err != nil {
 			log.Error().
 				Err(err).
-				Str("user", u.Name).
+				Str("report", u.Name).
 				Str("productId", p.ProductId()).
 				Msg("error while creating entry order")
 		}
@@ -130,7 +128,7 @@ func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 		if err := wsConn.Close(); err != nil {
 			log.Error().
 				Err(err).
-				Str("user", u.Name).
+				Str("report", u.Name).
 				Str("productId", p.ProductId()).
 				Msg("error while close websocket connection")
 		}
@@ -196,7 +194,7 @@ func sell(u account.User, exitPrice float64, size string, p crypto.Posture) {
 	}
 }
 
-func getRate(productId string) (*statistic.Candlestick, error) {
+func getRate(productId string) (*model.Rate, error) {
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
@@ -249,7 +247,7 @@ func getRate(productId string) (*statistic.Candlestick, error) {
 				Str("productId", productId).
 				Msg("...built rate")
 
-			return &statistic.Candlestick{
+			return &model.Rate{
 				time.Now().UnixNano(),
 				productId,
 				low,
@@ -307,7 +305,7 @@ func getPrice(wsConn *ws.Conn, productId string) (*float64, error) {
 // createOrder creates an order on Coinbase and returns the order once it is no longer pending and has settled.
 // Given that there are many different types of orders that can be created in many different scenarios, it is the
 // responsibility of the method calling this function to perform logging.
-func createOrder(u account.User, order *cb.Order, attempt ...int) (*cb.Order, error) {
+func createOrder(u model.User, order *cb.Order, attempt ...int) (*cb.Order, error) {
 
 	r, err := u.GetClient().CreateOrder(order)
 	if err == nil {
@@ -326,9 +324,9 @@ func createOrder(u account.User, order *cb.Order, attempt ...int) (*cb.Order, er
 
 // getOrder is a recursive function that returns an order equal to the given id once it is settled and not pending.
 // This function also performs extensive logging given its variable and seriously critical nature.
-func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
+func getOrder(u model.User, id string, attempt ...int) (*cb.Order, error) {
 
-	log.Info().Str("user", u.Name).Str("orderId", id).Msg("get order")
+	log.Info().Str("report", u.Name).Str("orderId", id).Msg("get order")
 
 	order, err := u.GetClient().GetOrder(id)
 
@@ -338,7 +336,7 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 
 		log.Error().
 			Err(err).
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("orderId", id).
 			Int("attempt", i).
 			Msg("error getting order")
@@ -355,7 +353,7 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 	if !order.Settled || order.Status == "pending" {
 
 		log.Warn().
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("product", order.ProductID).
 			Str("orderId", id).
 			Str("side", order.Side).
@@ -367,7 +365,7 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 	}
 
 	log.Info().
-		Str("user", u.Name).
+		Str("report", u.Name).
 		Str("product", order.ProductID).
 		Str("orderId", id).
 		Str("side", order.Side).
@@ -377,18 +375,18 @@ func getOrder(u account.User, id string, attempt ...int) (*cb.Order, error) {
 }
 
 // cancelOrder is a recursive function that cancels an order equal to the given id.
-func cancelOrder(u account.User, id string, attempt ...int) error {
+func cancelOrder(u model.User, id string, attempt ...int) error {
 
 	log.Info().
-		Str("user", u.Name).
-		Str("user", u.Name).
+		Str("report", u.Name).
+		Str("report", u.Name).
 		Str("orderId", id).
 		Msg("canceling order")
 
 	err := u.GetClient().CancelOrder(id)
 	if err == nil {
 		log.Info().
-			Str("user", u.Name).
+			Str("report", u.Name).
 			Str("orderId", id).
 			Msg("canceled order")
 		return nil
@@ -398,7 +396,7 @@ func cancelOrder(u account.User, id string, attempt ...int) error {
 
 	log.Error().
 		Err(err).
-		Str("user", u.Name).
+		Str("report", u.Name).
 		Str("orderId", id).
 		Int("attempt", i).
 		Msg("error canceling order")

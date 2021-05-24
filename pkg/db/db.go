@@ -1,13 +1,14 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	zog "github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gol "gorm.io/gorm/logger"
 	"log"
-	"nchl/pkg/util"
+	"nuchal/pkg/util"
 	"os"
 	"time"
 )
@@ -25,35 +26,33 @@ var config *Config
 
 func init() {
 
-	host := os.Getenv("POSTGRES_HOST")
-	if host == "" {
-		host = "host.docker.internal"
-	}
-
 	config = &Config{
-		host,
+		os.Getenv("POSTGRES_HOST"),
 		os.Getenv("POSTGRES_USER"),
 		os.Getenv("POSTGRES_PASSWORD"),
 		os.Getenv("POSTGRES_DB"),
 		util.Int(os.Getenv("POSTGRES_PORT")),
 	}
 
+	if config.Port == -1 {
+		if file, err := os.Open("pkg/config/database.json"); err == nil {
+			_ = json.NewDecoder(file).Decode(&config)
+		}
+	}
+
 	if db, err := OpenDB(); err != nil {
-		zog.Error().Err(err)
+		zog.Error().Err(err).Send()
 	} else if sql, err := db.DB(); err != nil {
-		zog.Error().Err(err)
+		zog.Error().Err(err).Send()
 	} else if err := sql.Ping(); err != nil {
-		zog.Error().Err(err)
+		zog.Error().Err(err).Send()
 	} else if err := sql.Close(); err != nil {
-		zog.Error().Err(err)
+		zog.Error().Err(err).Send()
 	}
 }
 
 func NewDB() *gorm.DB {
-	db, err := OpenDB()
-	if err != nil {
-		zog.Error().Err(err).Msg("error opening DB!")
-	}
+	db, _ := OpenDB()
 	return db
 }
 

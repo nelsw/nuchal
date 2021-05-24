@@ -14,9 +14,9 @@
     },
     {
       "id": "ADA-USD",
-      "gain": "0.0295",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -28,7 +28,7 @@
     },
     {
       "id": "ALGO-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
       "delta": "0.001",
       "enable": false,
@@ -54,10 +54,10 @@
     },
     {
       "id": "BAT-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
       "delta": "0.001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {
@@ -74,28 +74,18 @@
     },
     {
       "id": "BTC-USD",
-      "gain": "0.0295",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001"
-    },
-    {
-      "id": "CGLD-USD",
-      "gain": "0.0295",
-      "loss": "0.495",
-      "delta": "0.001"
-    },
-    {
-      "id": "CRV-USD",
-      "gain": "0.0295",
-      "loss": "0.495",
-      "delta": "0.001"
+      "delta": "1.0",
+      "enable": true,
+      "size": "1"
     },
     {
       "id": "CTSI-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
       "delta": "0.001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {
@@ -106,9 +96,11 @@
     },
     {
       "id": "DASH-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
-      "delta": "0.001"
+      "delta": "0.001",
+      "enable": true,
+      "size": "5"
     },
     {
       "id": "DAI-USD",
@@ -124,9 +116,11 @@
     },
     {
       "id": "ETH-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
-      "delta": "0.001"
+      "delta": "0.001",
+      "enable": true,
+      "size": "5"
     },
     {
       "id": "ENJ-USD",
@@ -136,9 +130,9 @@
     },
     {
       "id": "EOS-USD",
-      "gain": "0.0295",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -186,17 +180,17 @@
     },
     {
       "id": "MANA-USD",
-      "gain": "0.0295",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
     {
       "id": "MATIC-USD",
-      "gain": "0.0295",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -256,10 +250,10 @@
     },
     {
       "id": "RLC-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
       "delta": "0.001",
-      "enable": false,
+      "enable": true,
       "size": "5"
     },
     {
@@ -306,15 +300,17 @@
     },
     {
       "id": "XLM-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
-      "delta": "0.001"
+      "delta": "0.001",
+      "enable": true,
+      "size": "5"
     },
     {
       "id": "XTZ-USD",
-      "gain": "0.0295",
+      "gain": "0.0145",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     },
@@ -322,13 +318,15 @@
       "id": "ZEC-USD",
       "gain": "0.0295",
       "loss": "0.495",
-      "delta": "0.001"
+      "delta": "0.001",
+      "enable": true,
+      "size": "5"
     },
     {
       "id": "ZRX-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
-      "delta": "0.001",
+      "delta": "0.0001",
       "enable": true,
       "size": "5"
     }

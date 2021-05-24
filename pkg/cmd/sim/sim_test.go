@@ -5,5 +5,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	New()
+	if err := New("Carl Brutanandilewski", false); err != nil {
+		t.Error(err)
+	}
 }

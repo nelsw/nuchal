@@ -1,14 +1,15 @@
-package crypto
+package model
 
 import (
 	"fmt"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"nchl/pkg/model/statistic"
+	"nuchal/pkg/util"
 )
 
+// Posture is the type of position to take on a currency.
 type Posture struct {
 	cb.Product
-	statistic.Pattern
+	Pattern
 }
 
 func (p *Posture) ProductId() string {
@@ -34,6 +35,12 @@ func (p *Posture) StopEntryOrder(price float64, size string) *cb.Order {
 		StopPrice: Price(price),
 		Stop:      "entry",
 	}
+}
+
+func (p *Posture) StopGainOrder(fill cb.Fill) *cb.Order {
+	exit := util.Float64(fill.Price)
+	gain := exit + (exit * p.GainFloat())
+	return p.StopEntryOrder(gain, fill.Size)
 }
 
 func (p *Posture) StopLossOrder(price float64, size string) *cb.Order {

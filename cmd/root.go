@@ -55,7 +55,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.nchl.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.nuchal.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -74,13 +74,16 @@ func initConfig() {
 
 		// Search config in home directory with name ".nchl" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".nchl")
+		viper.SetConfigName(".nuchal")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
+		if _, err := fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed()); err != nil {
+			panic(err)
+		}
+
 	}
 }
