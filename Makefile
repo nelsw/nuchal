@@ -1,18 +1,18 @@
 .SILENT: up down bld sim trade it
 
-it: bld
-	cd build && go install && export PATH=$PATH:/Users/${USER}/go/bin
-
 bld:
+	PATH=${PATH}:/Users/${USER}/go/bin && go install
+
+it:
 	GOOS=linux GOARCH=amd64 && go build -o build/nuchal main.go
 
-sim: bld up
-	MODE=dev build/nuchal sim && open http://localhost:8090
+sim: it up
+	build/nuchal sim && open http://localhost:8090
 
-report: bld
+report: it
 	build/nuchal report
 
-trade: bld
+trade: it
 	build/nuchal trade
 
 up:
