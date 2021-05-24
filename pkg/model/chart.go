@@ -90,6 +90,10 @@ func NewChart(makerFee, takerFee float64, rates []Rate, posture Posture) *Chart 
 	c.TakerFee = takerFee
 
 	iterableRates := rates[3:]
+	if len(iterableRates) < 1 {
+		return c
+	}
+
 	c.Entry = iterableRates[0].Open
 	c.Goal = posture.GainPrice(c.Entry)
 	c.Limit = posture.LossPrice(c.Entry)
