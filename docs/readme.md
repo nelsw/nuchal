@@ -1,5 +1,13 @@
 # nuchal
-**nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* - a program for trading cryptocurrency on Coinbase Pro for *1-n* users.
+In marine biology, **nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* is defined as 
+> *" ... an exaggerated (craniofacial) trait, responsible for defining success among a species."*
+
+Like its namesake, **nuchal** defines successful opportunities and creates trades based on these opportunities. 
+
+At its core, **nuchal** is a project for automating cryptocurrency trades on Coinbase Pro. **nuchal** creates mainly 
+profitable results when configured properly and run during specific market stages, namely the markup and distribution 
+stage. However, **nuchal** is not perfect - and markets can stay irrational longer than we can stay solvent. That said, 
+**nuchal** GUARANTEES NOTHING - USE AT YOUR OWN RISK.
 
 ## Overview
 The **goals** of this project are to:
@@ -8,25 +16,37 @@ The **goals** of this project are to:
 - simulate automation results using historical ticker data
 - provide a streaming summary of portfolio positions
 
-### Setup
-This project requires a [Coinbase Pro][1] API key and working installations of [Go][2], [git][3], and [Docker][4].
+### Requirements
+- a [Coinbase Pro][1] account
+- a working installation of [GO][2]
+- a running instance of [Docker][3]
 
-#### Configure
+### Configuration
+
+#### Coinbase
 ```shell
+# Create a Coinbase Pro API and export the values
 export COINBASE_PRO_KEY="your_coinbase_pro_api_key"
 export COINBASE_PRO_PASSPHRASE="your_coinbase_pro_api_passphrase"
 export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
 ```
 
-#### Build
+#### GO
 ```shell
+# Add the go bin directory to your system path
 export PATH=${PATH}:/Users/${USER}/go/bin
-git clone https://github.com/nelsw/nuchal.git &&
-cd nuchal &&
-go mod download &&
-go mod tidy &&
-go build -o build/nuchal main.go &&
-go install
+
+# Download and install nuchal 
+go get github.com/nelsw/nuchal
+```
+
+#### Docker
+```shell
+# Start the nuchal docker composition (database)
+docker compose -p nuchal -f build/docker-compose.yml up -d
+
+# To power down the database, use the following command
+docker compose -f build/docker-compose.yml down
 ```
 
 ### Use
@@ -47,35 +67,27 @@ nuchal trade
 
 #### Simulate
 ```shell
-# start the nuchal docker composition (database)
-docker compose -p nuchal -f build/docker-compose.yml up -d
-```
-```shell
-# run simulation and print results to console.
+# Run simulation and print results to console.
 nuchal sim
 
-# run simulation, print results to console, and serve charts to localhost.
+# Run simulation, print results to console, and serve charts to localhost.
 nuchal sim --serve
-```
-```shell
-# stop the nuchal docker composition (database)
-docker compose -f build/docker-compose.yml down
 ```
 
 #### Report
 ```shell
-# print report report stats.
+# Print report report stats.
 nuchal report
 
-# print report report stats, every minute.
+# Print report report stats, every minute.
 nuchal report --recurring
 
-# print report report stats, and place limit orders to hold the full balance.
+# Print report report stats, and place limit orders to hold the full balance.
 nuchal report --force-holds
 ```
 
 #### Multiple Users
-Place a `.json` file in the config directory:
+Place a `.json` file in the `pkg/config` directory:
 ```json
 {
   "users": [
@@ -102,5 +114,4 @@ This code is Copyright Connor Ross Van Elswyk and licensed under Apache License 
 
 [1]: https://pro.coinbase.com
 [2]: https://golang.org/
-[3]: https://git-scm.com/
-[4]: https://www.docker.com/
+[3]: https://www.docker.com/

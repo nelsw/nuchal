@@ -25,26 +25,25 @@ const (
 // Per usual, we start by getting program configurations.
 func New(serve bool) error {
 
-	var err error
-
-	c, err := config.NewConfig()
+	properties, err := config.NewProperties()
 	if err != nil {
 		return err
 	}
 
-	user := &c.Users[0]
+	user := &properties.Users[0]
 
 	var ether, winners, losers, even int
 	var won, lost, total, volume float64
 	simulations := map[string]model.Simulation{}
 
-	for _, posture := range c.Postures {
+	for productId, product := range properties.Products {
 
-		productId := posture.ProductId()
+		rates, err := GetRates(properties, user, productId)
+		if err != nil {
+			return err
+		}
 
-		rates := GetRates(user, c.StartTimeUnixNano(), productId)
-
-		simulation := model.NewSimulation(rates, posture, user.MakerFee, user.TakerFee)
+		simulation := model.NewSimulation(rates, product, user.MakerFee, user.TakerFee)
 		winners += simulation.WonLen()
 		losers += simulation.LostLen()
 		ether += simulation.EtherLen()
@@ -72,7 +71,7 @@ func New(serve bool) error {
 	fmt.Println()
 	fmt.Println()
 
-	if !serve && c.Mode != "DEV" && c.Mode != "PROD" {
+	if !serve && properties.Mode != "DEV" && properties.Mode != "PROD" {
 		return nil
 	}
 
@@ -101,9 +100,9 @@ func New(serve bool) error {
 
 	return util.DoIndefinitely(func() {
 		fs := http.FileServer(http.Dir(htmlDir))
-		fmt.Println("served charts at http://localhost:8089")
+		log.Info().Msgf("Charts successfully served, visit them at http://%s", properties.SimAddress())
 		util.LogBanner()
-		log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
+		log.Print(http.ListenAndServe(properties.SimAddress(), logRequest(fs)))
 	})
 }
 
@@ -137,11 +136,11 @@ func handlePage(productId, dir string, charts []model.Chart) error {
 	return nil
 }
 
-func GetRates(u *model.User, unix int64, productId string) []model.Rate {
+func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Rate, error) {
 
 	log.Info().Msg("get rates for " + productId)
 
-	pg := db.NewDB()
+	pg := db.NewDB(c.DSN())
 
 	var r model.Rate
 	if err := pg.AutoMigrate(r); err != nil {
@@ -164,9 +163,12 @@ func GetRates(u *model.User, unix int64, productId string) []model.Rate {
 	to := from.Add(time.Hour * 4)
 	for {
 
-		oldRates := getHistoricRates(u.GetClient(), productId, from, to)
+		rates, err := u.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
+		if err != nil {
+			return nil, err
+		}
 
-		for _, r := range oldRates {
+		for _, r := range rates {
 			rc := model.NewRate(productId, r)
 			pg.Create(&rc)
 		}
@@ -177,41 +179,18 @@ func GetRates(u *model.User, unix int64, productId string) []model.Rate {
 
 		from = to
 		to = to.Add(time.Hour * 4)
-		log.Debug().Int("... building simulation data", len(oldRates)).Send()
+		log.Debug().Int("... building simulation data", len(rates)).Send()
 	}
 
 	var savedRates []model.Rate
 	pg.Where("product_id = ?", productId).
-		Where("unix >= ?", unix).
+		Where("unix >= ?", c.StartTimeUnixNano()).
 		Order("unix asc").
 		Find(&savedRates)
 
 	log.Info().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
 
-	return savedRates
-}
-
-func getHistoricRates(client *cb.Client, productId string, from, to time.Time, attempt ...int) []cb.HistoricRate {
-	var i int
-	if attempt != nil && len(attempt) > 0 {
-		i = attempt[0]
-	}
-	if rates, err := client.GetHistoricRates(productId, cb.GetHistoricRatesParams{
-		from,
-		to,
-		60,
-	}); err != nil {
-		log.Error().Err(err).Msg("error getting historic rate")
-		i++
-		if i > 10 {
-			panic(err)
-		}
-		time.Sleep(time.Duration(i*3) * time.Second)
-		return getHistoricRates(client, productId, from, to, i)
-	} else {
-		log.Debug().Int("qty", len(rates)).Msg("get historic rates")
-		return rates
-	}
+	return savedRates, nil
 }
 
 func logRequest(handler http.Handler) http.Handler {

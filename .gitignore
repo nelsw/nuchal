@@ -1,5 +1,4 @@
 /html/
 *.env
 /pkg/config/users.json
-/pkg/config/database.json
 /build/html/

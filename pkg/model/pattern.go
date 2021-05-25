@@ -31,14 +31,6 @@ func (p *Pattern) GainFloat() float64 {
 	return util.Float64(p.Gain)
 }
 
-func (p *Pattern) LossFloat() float64 {
-	return util.Float64(p.Loss)
-}
-
-func (p *Pattern) SizeFloat() float64 {
-	return util.Float64(p.Size)
-}
-
 func (p Pattern) MatchesTweezerBottomPattern(then, that, this Rate) bool {
 	return isTweezerBottomTrend(then, that, this) && isTweezerBottomValue(that, this, p.DeltaFloat())
 }

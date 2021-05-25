@@ -1,10 +1,7 @@
 package model
 
 import (
-	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"net/http"
 	"os"
-	"time"
 )
 
 type User struct {
@@ -29,19 +26,6 @@ func NewUser() (*User, error) {
 	return u, nil
 }
 
-func (u *User) validate() error {
+func (u *User) Validate() error {
 	return u.CoinbaseApi.validate()
-}
-
-func (u *User) GetClient() *cb.Client {
-	return &cb.Client{
-		"https://api.pro.coinbase.com",
-		u.Secret,
-		u.Key,
-		u.Passphrase,
-		&http.Client{
-			Timeout: 15 * time.Second,
-		},
-		0,
-	}
 }
