@@ -20,7 +20,7 @@ func (p *Posture) MarketEntryOrder() *cb.Order {
 	return &cb.Order{
 		ProductID: p.ProductId(),
 		Side:      "buy",
-		Size:      fmt.Sprintf("%.3f", util.Float64(p.BaseMinSize)*3),
+		Size:      p.Size,
 		Type:      "market",
 	}
 }

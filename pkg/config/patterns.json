@@ -99,7 +99,7 @@
       "gain": "0.0195",
       "loss": "0.495",
       "delta": "0.001",
-      "enable": true,
+      "enable": false,
       "size": "5"
     },
     {
@@ -311,7 +311,7 @@
       "gain": "0.0145",
       "loss": "0.495",
       "delta": "0.0001",
-      "enable": true,
+      "enable": false,
       "size": "5"
     },
     {
