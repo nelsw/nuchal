@@ -14,12 +14,12 @@ import (
 
 func New() error {
 
-	log.Info().Msg("creating trades")
-
 	c, err := config.NewProperties()
 	if err != nil {
 		return err
 	}
+
+	log.Info().Msg("creating trades")
 
 	return util.DoIndefinitely(func() {
 		for _, p := range c.Products {
