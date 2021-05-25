@@ -29,8 +29,8 @@ func NewSimulation(rates []Rate, posture Posture, makerFee, takerFee float64) *S
 	simulation := new(Simulation)
 	simulation.Posture = posture
 
-	open, _ := time.Parse(time.RFC3339, "2021-05-24T10:00:00+00:00")
-	clos, _ := time.Parse(time.RFC3339, "2021-05-24T22:00:00+00:00")
+	open, _ := time.Parse(time.RFC3339, "2021-05-25T10:00:00+00:00")
+	clos, _ := time.Parse(time.RFC3339, "2021-05-25T22:00:00+00:00")
 
 	var then, that Rate
 	for i, this := range rates {
