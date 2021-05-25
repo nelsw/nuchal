@@ -68,6 +68,8 @@ go install
 ### Simulate
 ```shell
 docker compose -p nuchal -f build/docker-compose.yml up -d
+
+docker compose -f build/docker-compose.yml down
 ```
 ```shell
 nuchal sim --serve
