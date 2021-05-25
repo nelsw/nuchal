@@ -16,20 +16,39 @@ import (
 
 // Properties for the environment
 type Properties struct {
-	SimPort     string       `envconfig:"SIM_PORT" default:"8080"`
-	Mode        string       `envconfig:"MODE" default:"DEBUG"`
-	DurationStr string       `envconfig:"DURATION" default:"24h"`
-	Host        string       `envconfig:"POSTGRES_HOST" default:"localhost"`
-	User        string       `envconfig:"POSTGRES_USER" default:"postgres"`
-	Pass        string       `envconfig:"POSTGRES_PASSWORD" default:"somePassword"`
-	Name        string       `envconfig:"POSTGRES_DB" default:"nuchal"`
-	Port        int          `envconfig:"POSTGRES_PORT" default:"5432"`
-	Users       []model.User `json:"users"`
-	Products    map[string]model.Product
+
+	// Mode is a value for defining application mode.
+	Mode string `envconfig:"MODE" default:"DEBUG"`
+
+	// SimPort is the port where nuchal will serve simulation html files.
+	SimPort int `envconfig:"SIM_PORT" default:"8080"`
+
+	// DurationStr is a time.Duration parsable value for the amount of time the command should be executed.
+	DurationStr string `envconfig:"DURATION" default:"24h"`
+
+	// AlphaStr is time.Time parsable value for defining when products are eligible for simulation and trading.
+	AlphaStr string `envconfig:"ALPHA"`
+
+	// OmegaStr is time.Time parsable value for defining when products are no longer eligible for simulation or trading.
+	OmegaStr string `envconfig:"OMEGA"`
+
+	Host string `envconfig:"POSTGRES_HOST" default:"localhost"`
+	User string `envconfig:"POSTGRES_USER" default:"postgres"`
+	Pass string `envconfig:"POSTGRES_PASSWORD" default:"somePassword"`
+	Name string `envconfig:"POSTGRES_DB" default:"nuchal"`
+	Port int    `envconfig:"POSTGRES_PORT" default:"5432"`
+
+	Users []model.User `json:"users"`
+
+	Products map[string]model.Product
 }
 
 func (p *Properties) DSN() string {
 	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d", p.Host, p.User, p.Pass, p.Name, p.Port)
+}
+
+func (p *Properties) SimAddress() string {
+	return fmt.Sprintf("localhost:%d", p.SimPort)
 }
 
 func (p *Properties) IsTestMode() bool {
@@ -40,32 +59,21 @@ func (p *Properties) IsDebugMode() bool {
 	return p.Mode == "DEBUG"
 }
 
-func (p *Properties) StartTime() *time.Time {
-	now := time.Now()
-	then := now.Add(-*p.Duration())
-	return &then
-}
-
 func (p *Properties) Duration() *time.Duration {
 	duration, _ := time.ParseDuration(p.DurationStr)
 	return &duration
 }
 
 func (p *Properties) StartTimeUnixNano() int64 {
-	then := p.StartTime()
+	now := time.Now()
+	then := now.Add(-*p.Duration())
 	nano := then.UnixNano()
 	return nano
 }
 
-func (p *Properties) EndTime() *time.Time {
-	now := time.Now()
-	then := now.Add(*p.Duration())
-	return &then
-}
-
 func (p *Properties) IsTimeToExit() bool {
 	now := time.Now()
-	then := *p.EndTime()
+	then := now.Add(*p.Duration())
 	return now.After(then)
 }
 
@@ -79,7 +87,7 @@ func NewProperties() (*Properties, error) {
 
 	c.initLogging()
 
-	log.Info().Msg("configuring nuchal")
+	log.Info().Msg("configuring")
 
 	if err := c.initDatabase(); err != nil {
 		return nil, err
@@ -91,7 +99,7 @@ func NewProperties() (*Properties, error) {
 		return nil, err
 	}
 
-	log.Info().Msg("configured nuchal")
+	log.Info().Msg("configured")
 
 	return c, nil
 }

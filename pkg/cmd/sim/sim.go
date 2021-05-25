@@ -25,8 +25,6 @@ const (
 // Per usual, we start by getting program configurations.
 func New(serve bool) error {
 
-	var err error
-
 	properties, err := config.NewProperties()
 	if err != nil {
 		return err
@@ -102,9 +100,9 @@ func New(serve bool) error {
 
 	return util.DoIndefinitely(func() {
 		fs := http.FileServer(http.Dir(htmlDir))
-		fmt.Println("served charts at http://localhost:8089")
+		log.Info().Msgf("Charts successfully served, visit them at http://%s", properties.SimAddress())
 		util.LogBanner()
-		log.Print(http.ListenAndServe("localhost:8089", logRequest(fs)))
+		log.Print(http.ListenAndServe(properties.SimAddress(), logRequest(fs)))
 	})
 }
 
@@ -165,17 +163,12 @@ func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Ra
 	to := from.Add(time.Hour * 4)
 	for {
 
-		oldRates, err := u.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{
-			from,
-			to,
-			60,
-		})
-
+		rates, err := u.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
 		if err != nil {
 			return nil, err
 		}
 
-		for _, r := range oldRates {
+		for _, r := range rates {
 			rc := model.NewRate(productId, r)
 			pg.Create(&rc)
 		}
@@ -186,7 +179,7 @@ func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Ra
 
 		from = to
 		to = to.Add(time.Hour * 4)
-		log.Debug().Int("... building simulation data", len(oldRates)).Send()
+		log.Debug().Int("... building simulation data", len(rates)).Send()
 	}
 
 	var savedRates []model.Rate
