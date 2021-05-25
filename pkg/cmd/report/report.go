@@ -12,7 +12,7 @@ import (
 
 func New(forceHolds, recurring bool) error {
 
-	cfg, err := config.NewConfig()
+	cfg, err := config.NewProperties()
 	if err != nil {
 		log.Error().Err(err).Send()
 		return err
@@ -37,7 +37,7 @@ func New(forceHolds, recurring bool) error {
 	}
 }
 
-func printPortfolio(cfg *config.Config, user model.User, forceHolds bool) error {
+func printPortfolio(cfg *config.Properties, user model.User, forceHolds bool) error {
 
 	portfolio, err := getPortfolio(user)
 	if err != nil {
@@ -52,7 +52,7 @@ func printPortfolio(cfg *config.Config, user model.User, forceHolds bool) error 
 
 		if position.HasOrphanBuyFills() && forceHolds {
 
-			posture := cfg.GetPosture(position.ProductId())
+			posture := cfg.Products[position.ProductId()]
 
 			for _, fill := range position.OrphanBuyFills() {
 

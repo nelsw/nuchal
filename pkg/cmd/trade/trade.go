@@ -16,19 +16,19 @@ func New() error {
 
 	log.Info().Msg("creating trades")
 
-	c, err := config.NewConfig()
+	c, err := config.NewProperties()
 	if err != nil {
 		return err
 	}
 
 	return util.DoIndefinitely(func() {
-		for _, p := range c.Postures {
-			go trade(c.Group, p)
+		for _, p := range c.Products {
+			go trade(c.Users, p)
 		}
 	})
 }
 
-func trade(g *model.Group, p model.Posture) {
+func trade(users []model.User, p model.Product) {
 
 	log.Info().Str("🪙", p.Id).Msg("creating trades")
 
@@ -41,7 +41,7 @@ func trade(g *model.Group, p model.Posture) {
 			then = that
 			that = *this
 		} else {
-			for _, u := range g.Users {
+			for _, u := range users {
 				go buy(u, p)
 			}
 			then = model.Rate{}
@@ -50,7 +50,7 @@ func trade(g *model.Group, p model.Posture) {
 	}
 }
 
-func buy(u model.User, p model.Posture) {
+func buy(u model.User, p model.Product) {
 
 	log.Info().
 		Str("👤", u.Name).
@@ -96,7 +96,7 @@ func buy(u model.User, p model.Posture) {
 	}
 }
 
-func sell(u model.User, entry, fees, goal float64, size string, p model.Posture) error {
+func sell(u model.User, entry, fees, goal float64, size string, p model.Product) error {
 
 	log.Info().
 		Str("👤", u.Name).
@@ -153,7 +153,7 @@ func sell(u model.User, entry, fees, goal float64, size string, p model.Posture)
 	}
 }
 
-func anchor(u model.User, goal float64, price float64, size string, p model.Posture) error {
+func anchor(u model.User, goal float64, price float64, size string, p model.Product) error {
 
 	// create a stop loss
 	order, err := createOrder(u, p.StopLossOrder(price, size))
@@ -166,7 +166,7 @@ func anchor(u model.User, goal float64, price float64, size string, p model.Post
 	return climb(u, goal, size, order.ID, p)
 }
 
-func climb(u model.User, goal float64, size, orderId string, p model.Posture) error {
+func climb(u model.User, goal float64, size, orderId string, p model.Product) error {
 
 	log.Info().Str("👤", u.Name).Str("🪙", p.Id).Msg("climbing")
 

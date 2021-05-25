@@ -1,9 +1,12 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/model"
+	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
@@ -11,68 +14,100 @@ import (
 	"time"
 )
 
-// Config for the environment
-type Config struct {
-	Port        string `envconfig:"PORT" default:":8080"`
-	Mode        string `envconfig:"MODE" default:"DEBUG"`
-	DurationStr string `envconfig:"DURATION" default:"24h"`
-	*model.Group
-	*model.Strategy
+// Properties for the environment
+type Properties struct {
+	SimPort     string       `envconfig:"SIM_PORT" default:"8080"`
+	Mode        string       `envconfig:"MODE" default:"DEBUG"`
+	DurationStr string       `envconfig:"DURATION" default:"24h"`
+	Host        string       `envconfig:"POSTGRES_HOST" default:"localhost"`
+	User        string       `envconfig:"POSTGRES_USER" default:"postgres"`
+	Pass        string       `envconfig:"POSTGRES_PASSWORD" default:"somePassword"`
+	Name        string       `envconfig:"POSTGRES_DB" default:"nuchal"`
+	Port        int          `envconfig:"POSTGRES_PORT" default:"5432"`
+	Users       []model.User `json:"users"`
+	Products    map[string]model.Product
 }
 
-func (c Config) IsTestMode() bool {
-	return c.Mode == "TEST"
+func (p *Properties) DSN() string {
+	return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d", p.Host, p.User, p.Pass, p.Name, p.Port)
 }
 
-func (c Config) IsDebugMode() bool {
-	return c.Mode == "DEBUG"
+func (p *Properties) IsTestMode() bool {
+	return p.Mode == "TEST"
 }
 
-func (c *Config) StartTime() *time.Time {
+func (p *Properties) IsDebugMode() bool {
+	return p.Mode == "DEBUG"
+}
+
+func (p *Properties) StartTime() *time.Time {
 	now := time.Now()
-	then := now.Add(-*c.Duration())
+	then := now.Add(-*p.Duration())
 	return &then
 }
 
-func (c *Config) Duration() *time.Duration {
-	duration, _ := time.ParseDuration(c.DurationStr)
+func (p *Properties) Duration() *time.Duration {
+	duration, _ := time.ParseDuration(p.DurationStr)
 	return &duration
 }
 
-func (c *Config) StartTimeUnixNano() int64 {
-	then := c.StartTime()
+func (p *Properties) StartTimeUnixNano() int64 {
+	then := p.StartTime()
 	nano := then.UnixNano()
 	return nano
 }
 
-func (c *Config) EndTime() *time.Time {
+func (p *Properties) EndTime() *time.Time {
 	now := time.Now()
-	then := now.Add(*c.Duration())
+	then := now.Add(*p.Duration())
 	return &then
 }
 
-func (c *Config) IsTimeToExit() bool {
+func (p *Properties) IsTimeToExit() bool {
 	now := time.Now()
-	then := *c.EndTime()
+	then := *p.EndTime()
 	return now.After(then)
 }
 
-// NewConfig reads configuration from environment variables and validates it
-func NewConfig() (*Config, error) {
+// NewProperties reads configuration from environment variables and validates it
+func NewProperties() (*Properties, error) {
 
-	c := new(Config)
+	c := new(Properties)
 	if err := envconfig.Process("", c); err != nil {
 		return nil, err
 	}
 
+	c.initLogging()
+
+	log.Info().Msg("configuring nuchal")
+
+	if err := c.initDatabase(); err != nil {
+		return nil, err
+	} else if err := c.initUsers(); err != nil {
+		return nil, err
+	} else if err := c.initProducts(); err != nil {
+		return nil, err
+	} else if _, err := time.ParseDuration(c.DurationStr); err != nil {
+		return nil, err
+	}
+
+	log.Info().Msg("configured nuchal")
+
+	return c, nil
+}
+
+func (p *Properties) initLogging() {
+
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	if c.IsTestMode() || c.IsDebugMode() {
+
+	if p.IsTestMode() || p.IsDebugMode() {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	}
 
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
+
 	output.FormatLevel = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("| %-6s|", i))
 	}
@@ -85,36 +120,104 @@ func NewConfig() (*Config, error) {
 	output.FormatFieldValue = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("%s", i))
 	}
+}
 
-	log.Info().Msg("configuring nuchal")
-
-	log.Info().Msg("configuring users")
-	if group, err := model.NewGroup(); err != nil {
-		return nil, err
-	} else {
-		c.Group = group
-		for _, user := range c.Group.Users {
-			log.Debug().Str("user", user.Name).Send()
-		}
-		log.Info().Msg("configured users")
+func (p *Properties) initDatabase() error {
+	log.Info().Msg("configuring database")
+	if pg, err := db.OpenDB(p.DSN()); err != nil {
+		return err
+	} else if sql, err := pg.DB(); err != nil {
+		return err
+	} else if err := sql.Ping(); err != nil {
+		return err
+	} else if err := sql.Close(); err != nil {
+		return err
 	}
+	log.Info().Msg("configured database")
+	return nil
+}
+
+func (p *Properties) initProducts() error {
 
 	log.Info().Msg("configuring products")
-	if strategy, err := model.NewStrategy(); err != nil {
-		return nil, err
-	} else {
-		c.Strategy = strategy
-		for _, posture := range strategy.Postures {
-			log.Debug().Str("product", posture.Id).Send()
+
+	var productsWrapper struct {
+		All []cb.Product `json:"products"`
+	}
+
+	if file, err := os.Open("pkg/config/products.json"); err != nil {
+		log.Warn().Err(err).Msg("unable to open products.json")
+		return err
+	} else if err := json.NewDecoder(file).Decode(&productsWrapper); err != nil {
+		log.Warn().Err(err).Msg("unable to decode products.json")
+		return err
+	}
+
+	var patternsWrapper struct {
+		All []model.Pattern `json:"tweezer"`
+	}
+
+	if file, err := os.Open("pkg/config/patterns.json"); err != nil {
+		log.Warn().Err(err).Msg("unable to open patterns.json")
+		return err
+	} else if err := json.NewDecoder(file).Decode(&patternsWrapper); err != nil {
+		log.Warn().Err(err).Msg("unable to decode patterns.json")
+		return err
+	}
+
+	productMap := map[string]cb.Product{}
+	for _, product := range productsWrapper.All {
+		productMap[product.ID] = product
+	}
+
+	p.Products = map[string]model.Product{}
+	for _, pattern := range patternsWrapper.All {
+		if pattern.Enable {
+			p.Products[pattern.Id] = model.Product{productMap[pattern.Id], pattern}
+			log.Debug().Str("product", pattern.Id).Send()
 		}
-		log.Info().Msgf("configured products")
 	}
 
-	// check that the duration is valid
-	if _, err := time.ParseDuration(c.DurationStr); err != nil {
-		return nil, err
+	log.Info().Msgf("configured products")
+
+	return nil
+}
+
+func (p *Properties) initUsers() error {
+
+	log.Info().Msg("configuring users")
+
+	if file, err := os.Open("pkg/config/users.json"); err == nil {
+		if err := json.NewDecoder(file).Decode(&p); err != nil {
+			return err
+		}
+	} else {
+		db.NewDB(p.DSN()).Where("enable = ?", true).Find(&p.Users)
 	}
 
-	log.Info().Msg("configured nuchal")
-	return c, nil
+	if p.Users == nil && len(p.Users) < 1 {
+		usr, err := model.NewUser()
+		if err != nil {
+			return err
+		}
+		p.Users = append(p.Users, *usr)
+	}
+
+	var enabledUsers []model.User
+	for _, user := range p.Users {
+		if !user.Enable {
+			continue
+		}
+		if err := user.Validate(); err != nil {
+			return err
+		}
+		enabledUsers = append(enabledUsers, user)
+		log.Debug().Str("user", user.Name).Send()
+	}
+
+	p.Users = enabledUsers
+
+	log.Info().Msg("configured users")
+
+	return nil
 }

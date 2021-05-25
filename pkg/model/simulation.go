@@ -8,8 +8,8 @@ import (
 
 type Simulation struct {
 
-	// Posture is an aggregate of the product to trade, and the pattern which used to trade.
-	Posture
+	// Product is an aggregate of the product to trade, and the pattern which used to trade.
+	Product
 
 	// Won are charts where we were profitable or broke even.
 	Won []Chart
@@ -24,10 +24,10 @@ type Simulation struct {
 	Even []Chart
 }
 
-func NewSimulation(rates []Rate, posture Posture, makerFee, takerFee float64) *Simulation {
+func NewSimulation(rates []Rate, posture Product, makerFee, takerFee float64) *Simulation {
 
 	simulation := new(Simulation)
-	simulation.Posture = posture
+	simulation.Product = posture
 
 	open, _ := time.Parse(time.RFC3339, "2021-05-25T10:00:00+00:00")
 	clos, _ := time.Parse(time.RFC3339, "2021-05-25T22:00:00+00:00")
@@ -110,7 +110,7 @@ func (s *Simulation) Total() float64 {
 
 func (s *Simulation) Log() {
 	fmt.Println()
-	fmt.Println("  product", s.ProductId())
+	fmt.Println("  product", s.Id)
 	fmt.Println("  trading", s.EtherLen())
 	fmt.Println("  winners", s.WonLen())
 	fmt.Println("   losers", s.LostLen())

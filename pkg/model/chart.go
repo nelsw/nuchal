@@ -13,8 +13,8 @@ import (
 // A Chart represents the data used to represent chart activity and trade results.
 type Chart struct {
 
-	// Posture is an aggregate of the product to trade, and the pattern which used to trade.
-	Posture
+	// Product is an aggregate of the product to trade, and the pattern which used to trade.
+	Product
 
 	// Rates are used to build a chart. The first 3 rates are the tweezer pattern prefix and the last rate is the exit.
 	Rates []Rate
@@ -81,11 +81,11 @@ func (c *Chart) ExitPlusFee() float64 {
 	return c.Exit + (c.Exit * c.MakerFee)
 }
 
-func NewChart(makerFee, takerFee float64, rates []Rate, posture Posture) *Chart {
+func NewChart(makerFee, takerFee float64, rates []Rate, posture Product) *Chart {
 
 	c := new(Chart)
 
-	c.Posture = posture
+	c.Product = posture
 	c.MakerFee = makerFee
 	c.TakerFee = takerFee
 

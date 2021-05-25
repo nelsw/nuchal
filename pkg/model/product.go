@@ -6,26 +6,22 @@ import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 )
 
-// Posture is the type of position to take on a currency.
-type Posture struct {
+// Product is an aggregate of a Coinbase Product and the type of pattern to apply towards trading the product.
+type Product struct {
 	cb.Product
 	Pattern
 }
 
-func (p *Posture) ProductId() string {
-	return p.Product.ID
-}
-
-func (p *Posture) MarketEntryOrder() *cb.Order {
+func (p *Product) MarketEntryOrder() *cb.Order {
 	return &cb.Order{
-		ProductID: p.ProductId(),
+		ProductID: p.Id,
 		Side:      "buy",
 		Size:      p.Size,
 		Type:      "market",
 	}
 }
 
-func (p *Posture) StopEntryOrder(price float64, size string) *cb.Order {
+func (p *Product) StopEntryOrder(price float64, size string) *cb.Order {
 	return &cb.Order{
 		Price:     Price(price),
 		ProductID: p.Id,
@@ -37,16 +33,16 @@ func (p *Posture) StopEntryOrder(price float64, size string) *cb.Order {
 	}
 }
 
-func (p *Posture) StopGainOrder(fill cb.Fill) *cb.Order {
+func (p *Product) StopGainOrder(fill cb.Fill) *cb.Order {
 	exit := util.Float64(fill.Price)
 	gain := exit + (exit * p.GainFloat())
 	return p.StopEntryOrder(gain, fill.Size)
 }
 
-func (p *Posture) StopLossOrder(price float64, size string) *cb.Order {
+func (p *Product) StopLossOrder(price float64, size string) *cb.Order {
 	return &cb.Order{
 		Price:     Price(price),
-		ProductID: p.ProductId(),
+		ProductID: p.Id,
 		Side:      "sell",
 		Size:      size,
 		Type:      "limit",
