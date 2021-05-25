@@ -4,44 +4,23 @@ import (
 	"github.com/nelsw/nuchal/pkg/cmd/trade"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var tradeExample = `
 	# Trade from a predefined product strategy.
-	nuchal trade
-
-	# Trade from a predefined product strategy for only the provided user.
-	nuchal trade --user 'Carl Brutanandilewski'
-
-	# rade from a predefined product strategy for the provided cryptocurrencies.
-	nuchal trade --coin 'ADA,MATIC,XTZ'`
+	nuchal trade`
 
 func init() {
 
 	c := &cobra.Command{
-		Use:     "trade --user --coin",
+		Use:     "trade",
 		Example: tradeExample,
 		Run: func(cmd *cobra.Command, args []string) {
-
-			user := cmd.Flag("user").Value.String()
-			coinCsv := cmd.Flag("coin").Value.String()
-			coins := strings.Split(coinCsv, ",")
-
-			if err := trade.New(user, coins); err != nil {
+			if err := trade.New(); err != nil {
 				log.Error().Err(err)
 				panic(err)
 			}
-
 		}}
-
-	rootCmd.AddCommand(c)
-
-	c.Flags().String("user", "Carl Brutanandilewski",
-		"Name of the user for simulating trades.")
-
-	c.Flags().StringArray("coin", []string{"ADA", "MATIC", "XTZ"},
-		"A csv list of cryptocurrencies to trade.")
 
 	rootCmd.AddCommand(c)
 }

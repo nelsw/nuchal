@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func New(user string, coins []string) error {
+func New() error {
 
 	log.Info().Msg("creating trades")
 

@@ -23,7 +23,7 @@ const (
 
 // New creates a new simulation, and boy is that an understatement.
 // Per usual, we start by getting program configurations.
-func New(username string, serve bool) error {
+func New(serve bool) error {
 
 	var err error
 
@@ -32,15 +32,7 @@ func New(username string, serve bool) error {
 		return err
 	}
 
-	var user *model.User
-	if username != util.GuestName {
-		user, err = c.GetUser(username)
-		if err != nil {
-			return err
-		}
-	} else {
-		user = &c.Users[0]
-	}
+	user := &c.Users[0]
 
 	var ether, winners, losers, even int
 	var won, lost, total, volume float64

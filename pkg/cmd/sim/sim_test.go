@@ -1,12 +1,11 @@
 package sim
 
 import (
-	"github.com/nelsw/nuchal/pkg/util"
 	"testing"
 )
 
 func TestNew(t *testing.T) {
-	if err := New(util.GuestName, false); err != nil {
+	if err := New(false); err != nil {
 		t.Error(err)
 	}
 }

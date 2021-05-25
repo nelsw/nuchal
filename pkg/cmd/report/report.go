@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func New(username string, forceHolds, recurring bool) error {
+func New(forceHolds, recurring bool) error {
 
 	cfg, err := config.NewConfig()
 	if err != nil {
@@ -19,15 +19,6 @@ func New(username string, forceHolds, recurring bool) error {
 	}
 
 	util.PrintNewLine()
-
-	if username != util.GuestName {
-		if user, err := cfg.GetUser(username); err == nil {
-			err = printPortfolio(cfg, *user, forceHolds)
-			if err == nil {
-				return nil
-			}
-		}
-	}
 
 	for {
 
