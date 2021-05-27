@@ -38,11 +38,10 @@ func NewPortfolio(name string, positions []Position) *Portfolio {
 
 func (p *Portfolio) Info() {
 	log.Info().
-		Str("#", p.Username).
-		Str("cash", p.Cash).
-		Str("coin", p.Crypto).
-		Str("val", p.Value).
-		Send()
+		Str(util.Dollar, p.Cash).
+		Str(util.Currency, p.Crypto).
+		Str(util.Sigma, p.Value).
+		Msg(p.Username)
 }
 
 func (p *Portfolio) CoinPositions() []Position {

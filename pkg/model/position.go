@@ -4,25 +4,24 @@ import (
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"sort"
 )
 
 type Position struct {
+	Product
 	cb.Account
 	cb.Ticker
-	fills,
 	buys,
-	sells []cb.Fill
-}
-
-func (p Position) Url() string {
-	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId())
+	sells []Trade
 }
 
 func (p Position) ProductId() string {
 	return p.Currency + "-USD"
+}
+
+func (p Position) Url() string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId())
 }
 
 func (p Position) Balance() float64 {
@@ -34,7 +33,15 @@ func (p Position) Hold() float64 {
 }
 
 func (p Position) Value() float64 {
-	return util.Float64(p.Price) * p.Balance()
+	return p.Price() * p.Balance()
+}
+
+func (p Position) Price() float64 {
+	return util.Float64(p.Ticker.Price)
+}
+
+func NewUsdPosition(account cb.Account) *Position {
+	return NewPosition(account, cb.Ticker{}, nil)
 }
 
 func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Position {
@@ -42,81 +49,75 @@ func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Positio
 	p := new(Position)
 	p.Account = account
 	p.Ticker = ticker
-	p.fills = fills
 
 	for _, fill := range fills {
 		if fill.Side == "buy" {
-			p.buys = append(p.buys, fill)
+			p.buys = append(p.buys, *NewTrade(fill))
 		} else {
-			p.sells = append(p.sells, fill)
+			p.sells = append(p.sells, *NewTrade(fill))
 		}
 	}
 
 	return p
 }
 
-func (p Position) HasOrphanBuyFills() bool {
-	return p.OrphanBuyFillsLen() > 0
-}
+func (p *Position) Trading() []Trade {
 
-func (p *Position) LonelyBuyFills() []cb.Fill {
-	qty := util.MinInt(len(p.buys), len(p.sells))
-	result := p.buys
-	sort.SliceStable(result, func(i, j int) bool {
-		return result[i].CreatedAt.Time().Before(result[j].CreatedAt.Time())
+	if p.Hold() == p.Balance() {
+		return nil
+	}
+
+	buys := p.buys
+	sort.SliceStable(buys, func(i, j int) bool {
+		return buys[i].CreatedAt.Time().After(buys[j].CreatedAt.Time())
 	})
-	result = p.buys[qty:]
-	return result
-}
 
-func (p *Position) OrphanBuyFillsLen() int {
-	return len(p.OrphanBuyFills())
-}
-
-func (p *Position) LonelyBuyFillsLen() int {
-	return len(p.LonelyBuyFills())
-}
-
-func (p *Position) OrphanBuyFills() []cb.Fill {
-	var fills []cb.Fill
-	var hold = p.Hold()
-	for _, fill := range p.LonelyBuyFills() {
-		if p.Balance() == hold {
+	var trading []Trade
+	hold := p.Hold()
+	for _, trade := range buys {
+		if hold >= p.Balance() {
 			break
 		}
-		fills = append(fills, fill)
-		hold += util.Float64(fill.Size)
+		trading = append(trading, trade)
+		hold += trade.Size()
 	}
-	sort.SliceStable(fills, func(i, j int) bool {
-		return fills[i].CreatedAt.Time().After(fills[j].CreatedAt.Time())
+
+	sort.SliceStable(trading, func(i, j int) bool {
+		return trading[i].Price() > trading[j].Price()
 	})
-	return fills
+
+	return trading
 }
 
 func (p *Position) Log() {
 
-	log.Info().Msg(p.Url())
 	log.Info().
-		Str("#", p.Currency).
-		Str("$", p.Price).
+		Str(util.Dollar, util.Money(p.Price())).
 		Str("bal", fmt.Sprintf(`%.3f`, p.Balance())).
 		Str("hld", fmt.Sprintf(`%.3f`, p.Hold())).
-		Str("val", util.Usd(p.Value())).
-		Send()
+		Str(util.Sigma, util.Usd(p.Value())).
+		Msg(p.Currency)
 
-	o := p.OrphanBuyFillsLen()
-	l := p.LonelyBuyFillsLen()
-	lvl := zerolog.InfoLevel
+	totalResult := 0.0
+	for i, trade := range p.Trading() {
 
-	for i, f := range p.LonelyBuyFills() {
+		gain := p.Product.GainPrice(trade.Price())
+		result := (gain - (gain * .005)) * trade.Size()
 
-		if i == l-o {
-			lvl = zerolog.WarnLevel
-		}
+		totalResult += result
 
-		log.WithLevel(lvl).
-			Str("#", fmt.Sprintf(`%s`, p.Currency)).
-			Float64("$", util.Float64(f.Price)).
+		log.Warn().
+			Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
+			Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
+			Str(util.Sigma, fmt.Sprintf("%.3f", trade.Total())).
+			Time("🗓", trade.CreatedAt.Time()).
+			Str("🎯", fmt.Sprintf("%.3f", gain)).
+			Str("💰", fmt.Sprintf("%.3f", result)).
 			Send()
+
+		if i == len(p.Trading())-1 {
+			log.Warn().Str("💰", fmt.Sprintf("%.3f", totalResult)).Send()
+		}
 	}
+
 }

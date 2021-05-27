@@ -9,6 +9,10 @@ import (
 )
 
 const (
+	Quantity  = `꠹`
+	Dollar    = `$`
+	Currency  = `¤`
+	Sigma     = `𝚺`
 	GuestName = "Carl Brutananadilewski"
 	banner    = `
 
@@ -26,14 +30,6 @@ ____________________________________________/\\\_________________________/\\\\\\
 `
 )
 
-func Int(s string) int {
-	if i, err := strconv.Atoi(s); err != nil {
-		return -1
-	} else {
-		return i
-	}
-}
-
 func Float64(s string) float64 {
 	if f, err := strconv.ParseFloat(s, 64); err != nil {
 		log.Error().Err(err).Send()
@@ -43,22 +39,13 @@ func Float64(s string) float64 {
 	}
 }
 
-func MinInt(a, z int) int {
-	if a < z {
-		return a
-	} else {
-		return z
-	}
-}
-
 func Round2Places(f float64) string {
 	x := (f * 100) + 0.5
 	x = x / 100
-	return fmt.Sprintf("%.2f", x)
+	return fmt.Sprintf("%.3f", x)
 }
 
 func Usd(f float64) string {
-
 	rounded := Round2Places(f)
 	chunks := strings.Split(rounded, `.`)
 	dollars := chunks[0]
@@ -80,6 +67,31 @@ func Usd(f float64) string {
 	}
 	rounded = strings.Join(newFields, ``)
 	return fmt.Sprintf("$%s.%s", rounded, cents)
+}
+
+func Money(f float64) string {
+
+	rounded := Round2Places(f)
+	chunks := strings.Split(rounded, `.`)
+	dollars := chunks[0]
+	cents := chunks[1]
+
+	places := len(dollars)
+
+	if places < 4 {
+		return fmt.Sprintf("$%s.%s", dollars, cents)
+	}
+
+	pivot := places - 3
+	var newFields []string
+	for i, oldField := range dollars {
+		if i == pivot {
+			newFields = append(newFields, ",")
+		}
+		newFields = append(newFields, string(oldField))
+	}
+	rounded = strings.Join(newFields, ``)
+	return fmt.Sprintf("%s.%s", rounded, cents)
 }
 
 func FirstIntOrZero(arr []int) int {
