@@ -102,18 +102,10 @@ func getPosition(u model.User, a cb.Account) (*model.Position, error) {
 	}
 
 	productId := a.Currency + "-USD"
-	cursor := u.GetClient().ListFills(cb.ListFillsParams{ProductID: productId})
 
-	var newFills, allFills []cb.Fill
-	for cursor.HasMore {
-
-		if err := cursor.NextPage(&newFills); err != nil {
-			return nil, err
-		}
-
-		for _, chunk := range newFills {
-			allFills = append(allFills, chunk)
-		}
+	fills, err := u.GetFills(productId)
+	if err != nil {
+		return nil, err
 	}
 
 	ticker, err := u.GetClient().GetTicker(productId)
@@ -121,5 +113,5 @@ func getPosition(u model.User, a cb.Account) (*model.Position, error) {
 		return nil, err
 	}
 
-	return model.NewPosition(a, ticker, allFills), nil
+	return model.NewPosition(a, ticker, *fills), nil
 }

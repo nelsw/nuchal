@@ -45,3 +45,22 @@ func (c *CoinbaseApi) GetClient() *cb.Client {
 		0,
 	}
 }
+
+func (c *CoinbaseApi) GetFills(productId string) (*[]cb.Fill, error) {
+
+	cursor := c.GetClient().ListFills(cb.ListFillsParams{ProductID: productId})
+
+	var newChunks, allChunks []cb.Fill
+	for cursor.HasMore {
+
+		if err := cursor.NextPage(&newChunks); err != nil {
+			return nil, err
+		}
+
+		for _, chunk := range newChunks {
+			allChunks = append(allChunks, chunk)
+		}
+	}
+
+	return &allChunks, nil
+}
