@@ -18,7 +18,7 @@
       "loss": "0.495",
       "delta": "0.0001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     },
     {
       "id": "ANKR-USD",
@@ -58,7 +58,7 @@
       "loss": "0.495",
       "delta": "0.001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     },
     {
       "id": "BCH-USD",
@@ -86,7 +86,7 @@
       "loss": "0.495",
       "delta": "0.001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     },
     {
       "id": "COMP-USD",
@@ -134,7 +134,7 @@
       "loss": "0.495",
       "delta": "0.0001",
       "enable": true,
-      "size": "5"
+      "size": "1"
     },
     {
       "id": "FIL-USD",
@@ -168,9 +168,11 @@
     },
     {
       "id": "LRC-USD",
-      "gain": "0.0295",
+      "gain": "0.0195",
       "loss": "0.495",
-      "delta": "0.001"
+      "delta": "0.001",
+      "enable": true,
+      "size": "1"
     },
     {
       "id": "LTC-USD",
@@ -184,7 +186,7 @@
       "loss": "0.495",
       "delta": "0.0001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     },
     {
       "id": "MATIC-USD",
@@ -192,7 +194,7 @@
       "loss": "0.495",
       "delta": "0.0001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     },
     {
       "id": "MKR-USD",
@@ -254,7 +256,7 @@
       "loss": "0.495",
       "delta": "0.001",
       "enable": true,
-      "size": "5"
+      "size": "1"
     },
     {
       "id": "SKL-USD",
@@ -304,7 +306,7 @@
       "loss": "0.495",
       "delta": "0.001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     },
     {
       "id": "XTZ-USD",
@@ -312,7 +314,7 @@
       "loss": "0.495",
       "delta": "0.0001",
       "enable": false,
-      "size": "5"
+      "size": "1"
     },
     {
       "id": "ZEC-USD",
@@ -328,7 +330,7 @@
       "loss": "0.495",
       "delta": "0.0001",
       "enable": true,
-      "size": "5"
+      "size": "10"
     }
   ]
 }

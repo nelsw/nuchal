@@ -48,21 +48,17 @@ func printPortfolio(cfg *config.Properties, user model.User, forceHolds bool) er
 
 	for _, position := range portfolio.CoinPositions() {
 
+		position.Product = cfg.Products[position.ProductId()]
 		position.Log()
 
-		if position.HasOrphanBuyFills() && forceHolds {
+		if len(position.Trading()) > 0 && forceHolds {
 
-			posture := cfg.Products[position.ProductId()]
+			for _, trade := range position.Trading() {
 
-			for _, fill := range position.OrphanBuyFills() {
-
-				order := posture.StopGainOrder(fill)
+				order := position.Product.StopGainOrder(trade.Fill)
 
 				if o, err := user.GetClient().CreateOrder(order); err != nil {
-					if util.IsInsufficientFunds(err) {
-						continue
-					}
-					return err
+					log.Error().Err(err).Send()
 				} else {
 					fmt.Println(o)
 				}
@@ -102,7 +98,7 @@ func getPortfolio(u model.User) (*model.Portfolio, error) {
 func getPosition(u model.User, a cb.Account) (*model.Position, error) {
 
 	if a.Currency == "USD" {
-		return model.NewPosition(a, cb.Ticker{}, nil), nil
+		return model.NewUsdPosition(a), nil
 	}
 
 	productId := a.Currency + "-USD"
