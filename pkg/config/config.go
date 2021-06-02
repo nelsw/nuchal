@@ -86,6 +86,10 @@ func NewSession() (*Session, error) {
 		}
 	}
 
+	if c.Port == 0 {
+		c.Port = 8080
+	}
+
 	if api, err := cbp.NewApi(); err != nil {
 		return nil, err
 	} else {

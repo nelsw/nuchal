@@ -9,6 +9,7 @@ var simExample = `
 
 	# Prints a simulation result report and serves a local 
 	# website for graphs of said simulation results.
+
 	nuchal sim
 
 `

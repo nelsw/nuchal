@@ -9,6 +9,7 @@ var reportExample = `
 
 	# Prints USD, Cryptocurrency, and total value of the configured Coinbase Pro account.
 	# Also prints position information, namely available balance and holds.
+
 	nuchal report
 
 `
