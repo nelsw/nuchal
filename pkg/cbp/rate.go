@@ -1,4 +1,4 @@
-package model
+package cbp
 
 import (
 	cb "github.com/preichenberger/go-coinbasepro/v2"

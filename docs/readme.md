@@ -32,7 +32,7 @@ export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
 ```
 
 #### GO
-```shell
+```shell****
 # Add the go bin directory to your system path
 export PATH=${PATH}:/Users/${USER}/go/bin
 

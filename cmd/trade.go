@@ -5,7 +5,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var tradeExample = `
+var (
+	tradeExample = `
 	
 	# Trade all products configured in pkg/config/patterns.json.
 	# Trading creates active trading positions, AKA an available balance.
@@ -36,17 +37,35 @@ var tradeExample = `
 	nuchal trade --exit
 
 `
-
-func init() {
-
-	c := &cobra.Command{
+	hold,
+	sell,
+	exit bool
+	tradeCmd = &cobra.Command{
 		Use:     "trade",
 		Example: tradeExample,
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := trade.New(); err != nil {
+
+			var err error
+
+			if hold {
+				err = trade.NewHolds()
+			} else if sell {
+				err = trade.NewSells()
+			} else if exit {
+				err = trade.NewExits()
+			} else {
+				err = trade.New()
+			}
+
+			if err != nil {
 				panic(err)
 			}
 		}}
+)
 
-	rootCmd.AddCommand(c)
+func init() {
+	rootCmd.PersistentFlags().BoolVarP(&hold, "hold", "d", false, "Hold trades")
+	rootCmd.PersistentFlags().BoolVarP(&sell, "sell", "s", false, "Sell trades")
+	rootCmd.PersistentFlags().BoolVarP(&exit, "exit", "e", false, "Exit trades")
+	rootCmd.AddCommand(tradeCmd)
 }

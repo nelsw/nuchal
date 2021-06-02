@@ -1,10 +1,10 @@
-package model
+package sim
 
 import (
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
-	"github.com/nelsw/nuchal/pkg/util"
+	"github.com/nelsw/nuchal/pkg/cbp"
 	"math"
 	"strings"
 	"time"
@@ -14,10 +14,10 @@ import (
 type Chart struct {
 
 	// Product is an aggregate of the product to trade, and the pattern which used to trade.
-	Product
+	cbp.Product
 
 	// Rates are used to build a chart. The first 3 rates are the tweezer pattern prefix and the last rate is the exit.
-	Rates []Rate
+	Rates []cbp.Rate
 
 	// Duration is the amount of time the chart spans.
 	Duration time.Duration
@@ -70,7 +70,7 @@ func (c *Chart) IsEven() bool {
 }
 
 func (c *Chart) Result() float64 {
-	return (c.ExitPlusFee() - c.EntryPlusFee()) * util.Float64(c.Size)
+	return (c.ExitPlusFee() - c.EntryPlusFee()) * c.Size
 }
 
 func (c *Chart) EntryPlusFee() float64 {
@@ -81,7 +81,7 @@ func (c *Chart) ExitPlusFee() float64 {
 	return c.Exit + (c.Exit * c.MakerFee)
 }
 
-func NewChart(makerFee, takerFee float64, rates []Rate, posture Product) *Chart {
+func NewChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product) *Chart {
 
 	c := new(Chart)
 
@@ -95,13 +95,13 @@ func NewChart(makerFee, takerFee float64, rates []Rate, posture Product) *Chart 
 	}
 
 	c.Entry = iterableRates[0].Open
-	c.Goal = posture.GainPrice(c.Entry)
+	c.Goal = posture.GoalPrice(c.Entry)
 	c.Limit = posture.LossPrice(c.Entry)
 
 	firstRateTime := iterableRates[0].Time()
 
 	var j int
-	var rate Rate
+	var rate cbp.Rate
 
 	for j, rate = range iterableRates {
 
@@ -213,9 +213,9 @@ func (c *Chart) title() string {
 		k[i] = k[i] + " %s"
 	}
 
-	v1 := c.Exit - c.Entry
+	v1 := c.ExitPlusFee()
 	if c.Result() < 0 {
-		v1 = c.Entry - c.Exit
+		v1 = c.EntryPlusFee()
 	}
 	f := c.Symbol() + "\t" + strings.Join(k, "\t\t\t\t")
 

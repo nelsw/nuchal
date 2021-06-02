@@ -1,4 +1,4 @@
-package model
+package cbp
 
 import (
 	"fmt"
@@ -61,7 +61,7 @@ func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Positio
 	return p
 }
 
-func (p *Position) Trading() []Trade {
+func (p *Position) GetActiveTrades() []Trade {
 
 	if p.Hold() == p.Balance() {
 		return nil
@@ -99,9 +99,9 @@ func (p *Position) Log() {
 		Msg(p.Currency)
 
 	totalResult := 0.0
-	for i, trade := range p.Trading() {
+	for i, trade := range p.GetActiveTrades() {
 
-		gain := p.Product.GainPrice(trade.Price())
+		gain := p.Product.GoalPrice(trade.Price())
 		result := (gain - (gain * .005)) * trade.Size()
 
 		totalResult += result
@@ -115,7 +115,7 @@ func (p *Position) Log() {
 			Str("💰", fmt.Sprintf("%.3f", result)).
 			Send()
 
-		if i == len(p.Trading())-1 {
+		if i == len(p.GetActiveTrades())-1 {
 			log.Warn().Str("💰", fmt.Sprintf("%.3f", totalResult)).Send()
 		}
 	}

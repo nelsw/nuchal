@@ -2,34 +2,28 @@ package cmd
 
 import (
 	"github.com/nelsw/nuchal/pkg/cmd/sim"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
 var simExample = `
-	# Print simulation result report.
+
+	# Prints a simulation result report and serves a local 
+	# website for graphs of said simulation results.
 	nuchal sim
 
-	# Print simulation result report to the browser.
-	nuchal sim --serve`
+`
 
 func init() {
 
 	c := &cobra.Command{
-		Use:     "sim --serve",
+		Use:     "sim",
 		Example: simExample,
 		Run: func(cmd *cobra.Command, args []string) {
-
-			serve := cmd.Flag("serve").Value.String() == "true"
-
-			if err := sim.New(serve); err != nil {
-				log.Error().Err(err).Send()
+			if err := sim.New(); err != nil {
+				panic(err)
 			}
 		},
 	}
-
-	c.Flags().Bool("serve", false,
-		"If true, will serve html depicting simulation results.")
 
 	rootCmd.AddCommand(c)
 
