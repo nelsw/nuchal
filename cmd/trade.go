@@ -8,28 +8,28 @@ import (
 var (
 	tradeExample = `
 	
-	# Trade all products configured in pkg/config/patterns.json.
+	# Trade, that is buy and sell configured products.
 	# Trading creates active trading positions, AKA an available balance.
 	# This will run until it uses all cash available.
 	# This function is not perfect, not even graceful.
 
 	nuchal trade
 
-	# Hold the available balance for all products configured in pkg/config/patterns.json.	
+	# Hold the available balance for all configured products.	
 	# Holding means to place a limit entry order on every active trading position.
 	# This is best if you want to set stop gains and shut down.
 	# This is the safest function.
 
 	nuchal trade --hold
 
-	# Sell the available balance for all products configured in pkg/config/patterns.json.
+	# Sell the available balance for all configured products.
 	# Selling means to place a limit loss order on on every active trading position that meet or exceeds the goal.
 	# Selling will also attempt to break even after 45 minutes of trading.
 	# This is an experimental function.
 
 	nuchal trade --sell
 
-	# Exit the available balance for all products configured in pkg/config/patterns.json.
+	# Exit the available balance for all configured products.
 	# Exiting means to place a market entry order on ever active trading position.
 	# Exiting will effectively fire sale your open positions at the market price.
 	# This is a safe function.
