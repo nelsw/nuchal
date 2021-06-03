@@ -1,4 +1,4 @@
-package model
+package cbp
 
 import (
 	"github.com/nelsw/nuchal/pkg/util"

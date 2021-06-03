@@ -1,20 +1,24 @@
 package util
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v2"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	Quantity  = `꠹`
-	Dollar    = `$`
-	Currency  = `¤`
-	Sigma     = `𝚺`
-	GuestName = "Carl Brutananadilewski"
-	banner    = `
+	Fish     = `🐠`
+	Quantity = `꠹`
+	Dollar   = `$`
+	Currency = `¤`
+	Sigma    = `𝚺`
+	Banner   = `
 
 ____________________________________________/\\\_________________________/\\\\\\____        
  ___________________________________________\/\\\________________________\////\\\____       
@@ -25,7 +29,6 @@ ____________________________________________/\\\_________________________/\\\\\\
       _\/\\\___\/\\\_\/\\\___\/\\\_\//\\\________\/\\\___\/\\\__/\\\/////\\\_____\/\\\____  
        _\/\\\___\/\\\_\//\\\\\\\\\___\///\\\\\\\\_\/\\\___\/\\\_\//\\\\\\\\/\\__/\\\\\\\\\_ 
         _\///____\///___\/////////______\////////__\///____\///___\////////\//__\/////////__
-
 
 `
 )
@@ -133,7 +136,11 @@ func Sleep(d time.Duration) {
 }
 
 func LogBanner() {
-	fmt.Println(banner)
+	fmt.Println(Banner)
+}
+
+func PrintlnBanner() {
+	fmt.Println(Banner)
 }
 
 func PrintCursor() {
@@ -142,4 +149,46 @@ func PrintCursor() {
 
 func PrintNewLine() {
 	fmt.Print("\n")
+}
+
+func PrintlnPrettyJson(v interface{}) {
+	fmt.Println(PrettyJson(v))
+}
+
+func PrettyJson(v interface{}) string {
+	b, _ := json.MarshalIndent(v, "", " ")
+	return string(b)
+}
+
+func ConfigFromYml(v interface{}) error {
+
+	log.Debug().Interface("ConfigFromYml", v).Send()
+
+	f, err := os.Open("config.yml")
+	if err != nil {
+		log.Debug().Err(err).Send()
+		return err
+	}
+
+	d := yaml.NewDecoder(f)
+	if err := d.Decode(v); err != nil {
+		log.Debug().Err(err).Send()
+		return err
+	}
+
+	log.Debug().Interface("ConfigFromYml", v).Send()
+	return nil
+}
+
+func ConfigFromEnv(v interface{}) error {
+
+	log.Debug().Interface("ConfigFromEnv", v).Send()
+
+	if err := envconfig.Process("", v); err != nil {
+		log.Debug().Err(err).Send()
+		return err
+	}
+
+	log.Debug().Interface("ConfigFromEnv", v).Send()
+	return nil
 }

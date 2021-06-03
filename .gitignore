@@ -1,4 +1,2 @@
 /html/
-*.env
-/pkg/config/users.json
-/build/html/
+config.yml

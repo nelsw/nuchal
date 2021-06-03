@@ -1,15 +1,15 @@
-package model
+package sim
 
 import (
 	"fmt"
-	"github.com/nelsw/nuchal/pkg/util"
-	"time"
+	"github.com/nelsw/nuchal/pkg/cbp"
+	"github.com/nelsw/nuchal/pkg/config"
 )
 
 type Simulation struct {
 
 	// Product is an aggregate of the product to trade, and the pattern which used to trade.
-	Product
+	cbp.Product
 
 	// Won are charts where we were profitable or broke even.
 	Won []Chart
@@ -24,24 +24,21 @@ type Simulation struct {
 	Even []Chart
 }
 
-func NewSimulation(rates []Rate, posture Product, makerFee, takerFee float64) *Simulation {
+func NewSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, period config.Period) *Simulation {
 
 	simulation := new(Simulation)
-	simulation.Product = posture
+	simulation.Product = product
 
-	open, _ := time.Parse(time.RFC3339, "2021-05-25T10:00:00+00:00")
-	clos, _ := time.Parse(time.RFC3339, "2021-05-25T22:00:00+00:00")
-
-	var then, that Rate
+	var then, that cbp.Rate
 	for i, this := range rates {
 
-		if this.Time().Before(open) || this.Time().After(clos) {
+		if !period.InRange(this.Time()) {
 			continue
 		}
 
-		if posture.MatchesTweezerBottomPattern(then, that, this) {
+		if product.MatchesTweezerBottomPattern(then, that, this) {
 
-			chart := NewChart(makerFee, takerFee, rates[i-2:], posture)
+			chart := NewChart(maker, taker, rates[i-2:], product)
 			if chart.IsWinner() {
 				simulation.Won = append(simulation.Won, *chart)
 			} else if chart.IsLoser() {
@@ -101,7 +98,7 @@ func (s *Simulation) Volume() float64 {
 	for _, e := range s.Ether {
 		sum += e.EntryPlusFee()
 	}
-	return sum * util.Float64(s.Size)
+	return sum * s.Size
 }
 
 func (s *Simulation) Total() float64 {

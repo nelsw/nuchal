@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/components"
 	"github.com/go-echarts/go-echarts/v2/render"
+	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/db"
-	"github.com/nelsw/nuchal/pkg/model"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
@@ -17,33 +17,27 @@ import (
 	"time"
 )
 
-const (
-	htmlDir = "html"
-)
-
 // New creates a new simulation, and boy is that an understatement.
 // Per usual, we start by getting program configurations.
-func New(serve bool) error {
+func New() error {
 
-	properties, err := config.NewProperties()
+	cfg, err := config.NewSession()
 	if err != nil {
 		return err
 	}
 
-	user := &properties.Users[0]
-
 	var ether, winners, losers, even int
 	var won, lost, total, volume float64
-	simulations := map[string]model.Simulation{}
+	simulations := map[string]Simulation{}
 
-	for productId, product := range properties.Products {
+	for productId, product := range cfg.Products {
 
-		rates, err := GetRates(properties, user, productId)
+		rates, err := GetRates(cfg, productId)
 		if err != nil {
 			return err
 		}
 
-		simulation := model.NewSimulation(rates, product, user.MakerFee, user.TakerFee)
+		simulation := NewSimulation(rates, product, cfg.Maker, cfg.Taker, cfg.Period)
 		winners += simulation.WonLen()
 		losers += simulation.LostLen()
 		ether += simulation.EtherLen()
@@ -71,11 +65,7 @@ func New(serve bool) error {
 	fmt.Println()
 	fmt.Println()
 
-	if !serve && properties.Mode != "DEV" && properties.Mode != "PROD" {
-		return nil
-	}
-
-	if err := makePath(htmlDir); err != nil {
+	if err := makePath("html"); err != nil {
 		return err
 	}
 
@@ -99,14 +89,14 @@ func New(serve bool) error {
 	}
 
 	return util.DoIndefinitely(func() {
-		fs := http.FileServer(http.Dir(htmlDir))
-		log.Info().Msgf("Charts successfully served, visit them at http://%s", properties.SimAddress())
+		fs := http.FileServer(http.Dir("html"))
+		log.Info().Msgf("Charts successfully served, visit them at http://%s", cfg.SimulationAddress())
 		util.LogBanner()
-		log.Print(http.ListenAndServe(properties.SimAddress(), logRequest(fs)))
+		log.Print(http.ListenAndServe(cfg.SimulationAddress(), logRequest(fs)))
 	})
 }
 
-func handlePage(productId, dir string, charts []model.Chart) error {
+func handlePage(productId, dir string, charts []Chart) error {
 
 	page := &components.Page{}
 	page.Assets.InitAssets()
@@ -122,11 +112,11 @@ func handlePage(productId, dir string, charts []model.Chart) error {
 		page.AddCharts(s.Kline())
 	}
 
-	if err := makePath(htmlDir + "/" + productId); err != nil {
+	if err := makePath("html/" + productId); err != nil {
 		return err
 	}
 
-	fileName := fmt.Sprintf("./%s/%s/%s.html", htmlDir, productId, dir)
+	fileName := fmt.Sprintf("./html/%s/%s.html", productId, dir)
 
 	if f, err := os.Create(fileName); err != nil {
 		return err
@@ -136,13 +126,13 @@ func handlePage(productId, dir string, charts []model.Chart) error {
 	return nil
 }
 
-func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Rate, error) {
+func GetRates(c *config.Session, productId string) ([]cbp.Rate, error) {
 
-	log.Info().Msg("get rates for " + productId)
+	log.Debug().Msg("get rates for " + productId)
 
-	pg := db.NewDB(c.DSN())
+	pg := db.NewDB()
 
-	var r model.Rate
+	var r cbp.Rate
 	if err := pg.AutoMigrate(r); err != nil {
 		panic(err)
 	}
@@ -152,7 +142,7 @@ func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Ra
 		First(&r)
 
 	var from time.Time
-	if r != (model.Rate{}) {
+	if r != (cbp.Rate{}) {
 		log.Debug().Msg("found previous rate found for " + productId)
 		from = r.Time()
 	} else {
@@ -163,13 +153,13 @@ func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Ra
 	to := from.Add(time.Hour * 4)
 	for {
 
-		rates, err := u.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
+		rates, err := c.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
 		if err != nil {
 			return nil, err
 		}
 
 		for _, r := range rates {
-			rc := model.NewRate(productId, r)
+			rc := cbp.NewRate(productId, r)
 			pg.Create(&rc)
 		}
 
@@ -182,13 +172,13 @@ func GetRates(c *config.Properties, u *model.User, productId string) ([]model.Ra
 		log.Debug().Int("... building simulation data", len(rates)).Send()
 	}
 
-	var savedRates []model.Rate
+	var savedRates []cbp.Rate
 	pg.Where("product_id = ?", productId).
-		Where("unix >= ?", c.StartTimeUnixNano()).
+		Where("unix >= ?", c.SimulationStart()).
 		Order("unix asc").
 		Find(&savedRates)
 
-	log.Info().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
+	log.Debug().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
 
 	return savedRates, nil
 }

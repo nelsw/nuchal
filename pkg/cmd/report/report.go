@@ -1,20 +1,16 @@
 package report
 
 import (
-	"fmt"
 	"github.com/nelsw/nuchal/pkg/config"
-	"github.com/nelsw/nuchal/pkg/model"
 	"github.com/nelsw/nuchal/pkg/util"
-	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"time"
 )
 
-func New(forceHolds, recurring bool) error {
+func New() error {
 
-	cfg, err := config.NewProperties()
+	cfg, err := config.NewSession()
 	if err != nil {
-		log.Error().Err(err).Send()
 		return err
 	}
 
@@ -22,104 +18,40 @@ func New(forceHolds, recurring bool) error {
 
 	for {
 
-		for _, user := range cfg.Users {
-			if err := printPortfolio(cfg, user, forceHolds); err != nil {
-				return err
+		positions, err := cfg.GetActivePositions()
+		if err != nil {
+			return err
+		}
+
+		cash := 0.0
+		crypto := 0.0
+		for _, position := range *positions {
+			if position.Currency == "USD" {
+				cash += position.Balance()
+				continue
+			}
+			crypto += position.Value()
+		}
+
+		log.Info().
+			Str(util.Dollar, util.Usd(cash)).
+			Str(util.Currency, util.Usd(crypto)).
+			Str(util.Sigma, util.Usd(cash+crypto)).
+			Msg(cfg.User())
+
+		for _, position := range *positions {
+			if position.Currency != "USD" {
+				position.Log()
 			}
 		}
 
-		if !recurring {
+		util.PrintNewLine()
+		util.LogBanner()
+
+		if cfg.End().After(time.Now()) {
 			return nil
 		}
 
-		util.LogBanner()
 		util.Sleep(time.Minute * 1)
 	}
-}
-
-func printPortfolio(cfg *config.Properties, user model.User, forceHolds bool) error {
-
-	portfolio, err := getPortfolio(user)
-	if err != nil {
-		return err
-	}
-
-	portfolio.Info()
-
-	for _, position := range portfolio.CoinPositions() {
-
-		position.Product = cfg.Products[position.ProductId()]
-		position.Log()
-
-		if len(position.Trading()) > 0 && forceHolds {
-
-			for _, trade := range position.Trading() {
-
-				order := position.Product.StopGainOrder(trade.Fill)
-
-				if o, err := user.GetClient().CreateOrder(order); err != nil {
-					log.Error().Err(err).Send()
-				} else {
-					fmt.Println(o)
-				}
-			}
-		}
-	}
-	util.PrintNewLine()
-	return nil
-}
-
-func getPortfolio(u model.User) (*model.Portfolio, error) {
-
-	accounts, err := u.GetClient().GetAccounts()
-	if err != nil {
-		return nil, err
-	}
-
-	var positions []model.Position
-
-	for _, a := range accounts {
-
-		if util.IsZero(a.Balance) && util.IsZero(a.Hold) {
-			continue
-		}
-
-		position, err := getPosition(u, a)
-		if err != nil {
-			return nil, err
-		}
-
-		positions = append(positions, *position)
-	}
-
-	return model.NewPortfolio(u.Name, positions), nil
-}
-
-func getPosition(u model.User, a cb.Account) (*model.Position, error) {
-
-	if a.Currency == "USD" {
-		return model.NewUsdPosition(a), nil
-	}
-
-	productId := a.Currency + "-USD"
-	cursor := u.GetClient().ListFills(cb.ListFillsParams{ProductID: productId})
-
-	var newFills, allFills []cb.Fill
-	for cursor.HasMore {
-
-		if err := cursor.NextPage(&newFills); err != nil {
-			return nil, err
-		}
-
-		for _, chunk := range newFills {
-			allFills = append(allFills, chunk)
-		}
-	}
-
-	ticker, err := u.GetClient().GetTicker(productId)
-	if err != nil {
-		return nil, err
-	}
-
-	return model.NewPosition(a, ticker, allFills), nil
 }

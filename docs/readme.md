@@ -1,29 +1,13 @@
 # nuchal
-In marine biology, **nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* is defined as 
-> *" ... an exaggerated (craniofacial) trait, responsible for defining success among a species."*
+**nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* is an application for evaluating and executing cryptocurrency trades 
+from based statistical pattern recognition on technical analysis using multiple timeframes. 
 
-Like its namesake, **nuchal** defines successful opportunities and creates trades based on these opportunities. 
+The goal of **nuchal** was to create a trading extension capable of simulating trades from historical rates, executing 
+live trades with optimized limit orders, and providing detailed account position reports.
 
-At its core, **nuchal** is a project for automating cryptocurrency trades on Coinbase Pro. **nuchal** creates mainly 
-profitable results when configured properly and run during specific market stages, namely the markup and distribution 
-stage. However, **nuchal** is not perfect - and markets can stay irrational longer than we can stay solvent. That said, 
-**nuchal** GUARANTEES NOTHING - USE AT YOUR OWN RISK.
-
-## Overview
-The **goals** of this project are to:
-- recognize trade opportunities based on statistical pattern analysis
-- automate market and limit trading based on pattern recognition
-- simulate automation results using historical ticker data
-- provide a streaming summary of portfolio positions
-
-### Requirements
-- a [Coinbase Pro][1] account
-- a working installation of [GO][2]
-- a running instance of [Docker][3]
-
-### Configuration
-
-#### Coinbase
+## Configuration
+A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
+### Coinbase
 ```shell
 # Create a Coinbase Pro API and export the values
 export COINBASE_PRO_KEY="your_coinbase_pro_api_key"
@@ -31,7 +15,7 @@ export COINBASE_PRO_PASSPHRASE="your_coinbase_pro_api_passphrase"
 export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
 ```
 
-#### GO
+### GO
 ```shell
 # Add the go bin directory to your system path
 export PATH=${PATH}:/Users/${USER}/go/bin
@@ -40,7 +24,7 @@ export PATH=${PATH}:/Users/${USER}/go/bin
 go get github.com/nelsw/nuchal
 ```
 
-#### Docker
+### Docker
 ```shell
 # Start the nuchal docker composition (database)
 docker compose -p nuchal -f build/docker-compose.yml up -d
@@ -49,64 +33,70 @@ docker compose -p nuchal -f build/docker-compose.yml up -d
 docker compose -f build/docker-compose.yml down
 ```
 
-### Use
-nuchal can simulate trades from historical rates, execute live trades with limit orders, and report on positions.
+### Products & Patterns
+Products AKA cryptocurrencies are from the Coinbase API, there is no configuration required to get available products. 
+Patterns are what define the parameters for making systematic trading decisions. If no pattern configuration is present, 
+nuchal will create a "default" pattern for each product available. To config product patterns, create a `config.yml` 
+similar to the following example and add it to the base project directory of nuchal.
 
-The scope of cryptocurrency "products" included in these commands can be modified by enabling or disabling a product
-"pattern" in `pkg/config/patterns.json`. Product patterns also define the criteria used to recognize opportunities.   
+```yaml
+# Coinbase Pro configuration 
+# with maker and taker fees
+cbp:
+  key:
+  pass:
+  secret:
+  fees:
+    maker:
+    taker:
 
-Currently, nuchal runs off of a single "Tweezer Bottom" pattern to recognize trading opportunities. When the pattern is
-recognized, the product is purchased at the market price. Once the order is complete, nuchal watches the product ticker 
-and waits to place a stop entry limit order until the goal price or better is reached.
+# define product patterns here
+patterns:
+  - id: SKL-USD
+    delta: .01
+  - id: NU-USD
+    gain: .0273
+  - id: OMG-USD
+    loss: .0473
+  - id: TRB-USD
+    size: 1.25
 
-#### Trade
-```shell
-# 💎👐🏻
-nuchal trade
+# you can also define a period of time related to the 
+# command this could be when start and end command
+# execution or a range of data to simulate
+period:
+  alpha: 2021-06-02T08:00:00+00:00
+  omega: 2022-06-03T22:00:00+00:00
 ```
 
-#### Simulate
-```shell
-# Run simulation and print results to console.
-nuchal sim
+## Commands
 
-# Run simulation, print results to console, and serve charts to localhost.
-nuchal sim --serve
-```
-
-#### Report
+### report
 ```shell
-# Print report report stats.
+# Prints USD, Cryptocurrency, and value of the configured Coinbase Pro Account.
 nuchal report
-
-# Print report report stats, every minute.
-nuchal report --recurring
-
-# Print report report stats, and place limit orders to hold the full balance.
-nuchal report --force-holds
 ```
 
-#### Multiple Users
-Place a `.json` file in the `pkg/config` directory:
-```json
-{
-  "users": [
-    {
-      "name": "your_name",
-      "key": "your_coinbase_pro_api_key",
-      "passphrase": "your_coinbase_pro_api_passphrase",
-      "secret": "your_coinbase_pro_api_secret",
-      "enable": true
-    },
-    {
-      "name": "their_name",
-      "key": "their_coinbase_pro_api_key",
-      "passphrase": "their_coinbase_pro_api_passphrase",
-      "secret": "their_coinbase_pro_api_secret",
-      "enable": false
-    }
-  ]
-}
+### trade
+```shell
+# Trade, that is buy and sell configured products.
+nuchal trade
+
+# Hold the available balance for all configured products.	
+nuchal trade --hold
+
+# Sell the available balance for all configured products.
+nuchal trade --sell
+
+# Exit the available balance for all configured products.
+nuchal trade --exit
+
+```
+
+### sim
+```shell
+# Prints a simulation result report and serves a local website for graphs of said simulation results.
+nuchal sim
 ```
 
 # License

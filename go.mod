@@ -11,6 +11,7 @@ require (
 	github.com/rs/zerolog v1.15.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.0
+	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/driver/postgres v1.0.8
 	gorm.io/gorm v1.21.9
 )
