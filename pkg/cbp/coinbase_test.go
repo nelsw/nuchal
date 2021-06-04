@@ -19,25 +19,18 @@
 package cbp
 
 import (
+	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
+	"github.com/nelsw/nuchal/test"
 	"testing"
 )
 
-func TestNewCoinbaseApiFromEnv(t *testing.T) {
-
-	if api, err := NewApi(); err != nil {
-		t.Error(err)
-	} else if err := api.validate(); err != nil {
-		t.Error(err)
-	}
-}
-
 func TestApi_GetProducts(t *testing.T) {
-	if api, err := NewApi(); err != nil {
-		t.Error(err)
-	} else if err := api.validate(); err != nil {
-		t.Error(err)
-	} else if p, err := api.GetActivePositions(); err != nil {
+	ses, err := config.NewSession(test.Usd, test.Size, test.Gain, test.Loss, test.Delta)
+	if err != nil {
+		panic(err)
+	}
+	if p, err := ses.GetActivePositions(); err != nil {
 		t.Error(err)
 	} else {
 		util.PrintlnPrettyJson(p)

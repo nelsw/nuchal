@@ -29,22 +29,21 @@ func init() {
 	var hold, sell, exit bool
 
 	c := new(cobra.Command)
-
 	c.Use = "trade"
 	c.Short = "Polls ticker data and executes buy & sell orders when conditions match product & pattern configuration"
 	c.Long = util.Banner
 	c.Example = `
-	# Trade buys & sells products at prices or at times that meet or exceed pattern criteria, for a specified duration.
-	nuchal trade
+  # Trade buys & sells products at prices or at times that meet or exceed pattern criteria, for a specified duration.
+  nuchal trade
 
-	# Hold creates a limit entry order at the goal price for every active trading position in your available balance.
-	nuchal trade --hold
+  # Hold creates a limit entry order at the goal price for every active trading position in your available balance.
+  nuchal trade --hold
 
-	# Sell all available positions (active trades) at prices or at times that meet or exceed pattern criteria.
-	nuchal trade --sell
+  # Sell all available positions (active trades) at prices or at times that meet or exceed pattern criteria.
+  nuchal trade --sell
 
-	# Sell all available positions (active trades) at the current market price. Will not sell holds.
-	nuchal trade --exit`
+  # Sell all available positions (active trades) at the current market price. Will not sell holds.
+  nuchal trade --exit`
 
 	c.Run = func(cmd *cobra.Command, args []string) {
 

@@ -27,38 +27,21 @@ import (
 	"time"
 )
 
-var usdRegex = regexp.MustCompile("^((\\w{3,5})(-USD))$")
+var usdRegex = regexp.MustCompile(`^((\w{3,5})(-USD))$`)
 
 type Api struct {
-	Key        string `envconfig:"COINBASE_PRO_KEY" json:"key" yaml:"key"`
-	Passphrase string `envconfig:"COINBASE_PRO_PASSPHRASE" json:"passphrase" yaml:"pass"`
-	Secret     string `envconfig:"COINBASE_PRO_SECRET" json:"secret" yaml:"secret"`
+	Key        string `envconfig:"COINBASE_PRO_KEY" yaml:"key"`
+	Passphrase string `envconfig:"COINBASE_PRO_PASSPHRASE" yaml:"pass"`
+	Secret     string `envconfig:"COINBASE_PRO_SECRET" yaml:"secret"`
 	Fees       `yaml:"fees"`
 }
 
 type Fees struct {
-	Maker float64 `envconfig:"COINBASE_PRO_MAKER_FEE" json:"maker_fee" yaml:"maker" default:"0.005"`
-	Taker float64 `envconfig:"COINBASE_PRO_TAKER_FEE" json:"taker_fee" yaml:"taker" default:"0.005"`
+	Maker float64 `envconfig:"COINBASE_PRO_MAKER_FEE" yaml:"maker"`
+	Taker float64 `envconfig:"COINBASE_PRO_TAKER_FEE" yaml:"taker"`
 }
 
-func NewApi() (*Api, error) {
-
-	c := new(Api)
-
-	if err := util.ConfigFromEnv(c); err != nil {
-		return nil, err
-	} else if err := c.validate(); err != nil {
-		if err := util.ConfigFromYml(c); err == nil {
-			if err := c.validate(); err == nil {
-				return c, nil
-			}
-		}
-	}
-
-	return c, nil
-}
-
-func (a *Api) validate() error {
+func (a *Api) Validate() error {
 	if a.Key == "" {
 		return errors.New("missing Coinbase Pro API key")
 	} else if a.Secret == "" {

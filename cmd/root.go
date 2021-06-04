@@ -34,7 +34,7 @@ var (
 		Long:  util.Banner,
 	}
 
-	// cfg is the where the configuration file is located.
+	// cfg is the where the configuration file is located. todo
 	cfg string
 
 	// usd represents the the USD Products to command
@@ -44,7 +44,7 @@ var (
 	// size is a factor applied to the minimum trade size, defining the actual trade size for creating orders.
 	// gain is a factor applied to the trade purchase price, defining the goal price for making a gain.
 	// loss is a factor applied to the trade purchase price, defining the limit price for taking a loss.
-	// delta is a factor applied to the product quote increment, defining the trend proximity for matching a pattern.
+	// delta is a value that defines the trend proximity for matching a pattern.
 	size, gain, loss, delta float64
 )
 
@@ -73,6 +73,6 @@ func init() {
 	rootCmd.PersistentFlags().StringArrayVar(&usd, "usd", nil, "scope of USD Products to command")
 	rootCmd.PersistentFlags().Float64VarP(&size, "size", "q", 1, "minimum trade size")
 	rootCmd.PersistentFlags().Float64VarP(&gain, "gain", "g", .0195, "trade gain goal")
-	rootCmd.PersistentFlags().Float64VarP(&loss, "loss", "l", .0495, "trade loss limit")
+	rootCmd.PersistentFlags().Float64VarP(&loss, "loss", "l", .195, "trade loss limit")
 	rootCmd.PersistentFlags().Float64VarP(&delta, "delta", "d", .001, "pattern similarity")
 }

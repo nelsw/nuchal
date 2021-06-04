@@ -113,6 +113,6 @@ func New(usd []string, size, gain, loss, delta float64) error {
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " .")
 
-		util.Sleep(time.Second * 15)
+		time.Sleep(time.Second * 15)
 	}
 }

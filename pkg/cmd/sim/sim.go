@@ -37,25 +37,49 @@ import (
 
 // New creates a new simulation, and boy is that an understatement.
 // Per usual, we start by getting program configurations.
-func New(usd []string, size, gain, loss, delta float64) error {
+func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bool) error {
 
-	cfg, err := config.NewSession(usd, size, gain, loss, delta)
+	ses, err := config.NewSession(usd, size, gain, loss, delta)
 	if err != nil {
 		return err
 	}
+
+	log.Info().Msg(util.Sim + " .")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Msg(util.Sim + " ...")
+	log.Info().Msg(util.Sim + " ... simulation")
+	log.Info().Msg(util.Sim + " ...")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Msg(util.Sim + " .")
+	log.Info().Msg(util.Sim + " ..")
 
 	var ether, winners, losers, even int
 	var won, lost, total, volume float64
 	simulations := map[string]Simulation{}
 
-	for productId, product := range cfg.Products {
+	var results []Simulation
+	for productId, product := range ses.Products {
 
-		rates, err := GetRates(cfg, productId)
+		rates, err := GetRates(ses, productId)
 		if err != nil {
 			return err
 		}
 
-		simulation := NewSimulation(rates, product, cfg.Maker, cfg.Taker, cfg.Period)
+		simulation := NewSimulation(rates, product, ses.Maker, ses.Taker, ses.Period)
+		if simulation.Volume() == 0 {
+			continue
+		}
+
+		if (noLosers || winnersOnly) && simulation.LostLen() > 0 {
+			continue
+		}
+
+		if winnersOnly && simulation.EtherLen() > 0 {
+			continue
+		}
+
+		results = append(results, *simulation)
+
 		winners += simulation.WonLen()
 		losers += simulation.LostLen()
 		ether += simulation.EtherLen()
@@ -65,23 +89,40 @@ func New(usd []string, size, gain, loss, delta float64) error {
 		volume += simulation.Volume()
 		even += len(simulation.Even)
 		simulations[productId] = *simulation
-
-		simulation.Log()
 	}
 
-	fmt.Println()
-	fmt.Println()
-	fmt.Println("  trading", ether)
-	fmt.Println("  winners", winners)
-	fmt.Println("   losers", losers)
-	fmt.Println("     even", even)
-	fmt.Println("      won", won)
-	fmt.Println("     lost", lost)
-	fmt.Println("    total", total)
-	fmt.Println("   volume", volume)
-	fmt.Println("        %", (total/volume)*100)
-	fmt.Println()
-	fmt.Println()
+	sort.SliceStable(results, func(i, j int) bool {
+		return results[i].Net() < results[j].Net()
+	})
+
+	for _, simulation := range results {
+
+		log.Info().Str("  product", simulation.Id).Msg(util.Sim + " ...")
+		log.Info().Int("  trading", simulation.EtherLen()).Msg(util.Sim + " ...")
+		log.Info().Int("  winners", simulation.WonLen()).Msg(util.Sim + " ...")
+		log.Info().Int("   losers", simulation.LostLen()).Msg(util.Sim + " ...")
+		log.Info().Int("     even", simulation.EvenLen()).Msg(util.Sim + " ...")
+		log.Info().Float64("      won", simulation.WonSum()).Msg(util.Sim + " ...")
+		log.Info().Float64("     lost", simulation.LostSum()).Msg(util.Sim + " ...")
+		log.Info().Float64("    total", simulation.Total()).Msg(util.Sim + " ...")
+		log.Info().Float64("   volume", simulation.Volume()).Msg(util.Sim + " ...")
+		log.Info().Float64("        %", simulation.Net()).Msg(util.Sim + " ...")
+		log.Info().Msg(util.Sim + " ..")
+	}
+
+	log.Info().Msg(util.Sim + " .")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Int("  trading", ether).Msg(util.Sim + " ...")
+	log.Info().Int("  winners", winners).Msg(util.Sim + " ...")
+	log.Info().Int("   losers", losers).Msg(util.Sim + " ...")
+	log.Info().Int("     even", even).Msg(util.Sim + " ...")
+	log.Info().Float64("      won", won).Msg(util.Sim + " ...")
+	log.Info().Float64("     lost", lost).Msg(util.Sim + " ...")
+	log.Info().Float64("    total", total).Msg(util.Sim + " ...")
+	log.Info().Float64("   volume", volume).Msg(util.Sim + " ...")
+	log.Info().Float64("        %", (total/volume)*100).Msg(util.Sim + " ...")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Msg(util.Sim + " .")
 
 	if err := makePath("html"); err != nil {
 		return err
@@ -106,12 +147,12 @@ func New(usd []string, size, gain, loss, delta float64) error {
 		}
 	}
 
-	return util.DoIndefinitely(func() {
-		fs := http.FileServer(http.Dir("html"))
-		log.Info().Msgf("Charts successfully served, visit them at http://%s", cfg.SimulationAddress())
-		util.LogBanner()
-		log.Print(http.ListenAndServe(cfg.SimulationAddress(), logRequest(fs)))
-	})
+	fs := http.FileServer(http.Dir("html"))
+	log.Info().Msgf("Charts successfully served, visit them at http://localhost:%d", ses.Port)
+	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", ses.Port), logRequest(fs)))
+
+	time.Sleep(ses.Duration)
+	return nil
 }
 
 func handlePage(productId, dir string, charts []Chart) error {
@@ -144,7 +185,7 @@ func handlePage(productId, dir string, charts []Chart) error {
 	return nil
 }
 
-func GetRates(c *config.Session, productId string) ([]cbp.Rate, error) {
+func GetRates(ses *config.Session, productId string) ([]cbp.Rate, error) {
 
 	log.Debug().Msg("get rates for " + productId)
 
@@ -152,7 +193,7 @@ func GetRates(c *config.Session, productId string) ([]cbp.Rate, error) {
 
 	var r cbp.Rate
 	if err := pg.AutoMigrate(r); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	pg.Where("product_id = ?", productId).
@@ -165,13 +206,13 @@ func GetRates(c *config.Session, productId string) ([]cbp.Rate, error) {
 		from = r.Time()
 	} else {
 		log.Debug().Msg("no previous rate found for " + productId)
-		from, _ = time.Parse(time.RFC3339, "2021-05-20T00:00:00+00:00")
+		from, _ = time.Parse(time.RFC3339, "2021-06-20T00:00:00+00:00")
 	}
 
 	to := from.Add(time.Hour * 4)
 	for {
 
-		rates, err := c.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
+		rates, err := ses.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +233,7 @@ func GetRates(c *config.Session, productId string) ([]cbp.Rate, error) {
 
 	var savedRates []cbp.Rate
 	pg.Where("product_id = ?", productId).
-		Where("unix >= ?", c.SimulationStart()).
+		Where("unix >= ?", ses.Alpha.UnixNano()).
 		Order("unix asc").
 		Find(&savedRates)
 
