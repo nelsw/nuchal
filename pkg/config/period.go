@@ -18,7 +18,11 @@
 
 package config
 
-import "time"
+import (
+	"fmt"
+	"strconv"
+	"time"
+)
 
 type Period struct {
 	Alpha time.Time `envconfig:"PERIOD_ALPHA" yaml:"alpha"`
@@ -28,11 +32,45 @@ type Period struct {
 	Duration time.Duration `envconfig:"PERIOD_DURATION" yaml:"duration"`
 }
 
-// InRange is an exclusive range function to determine if the given time is in greater than alpha and lesser than omega.
-func (p *Period) InRange(t time.Time) bool {
-	return p.Alpha.Before(t) && p.Omega.After(t)
+// InPeriod is an exclusive range function to determine if the given time falls within the defined period.
+func (p *Period) InPeriod(t time.Time) bool {
+	return p.Start().Before(t) && p.Stop().After(t)
 }
 
-func (p *Period) IsTimeToExit() bool {
-	return time.Now().After(p.Omega) || p.Alpha.Add(p.Duration).After(p.Omega)
+func (p *Period) Start() *time.Time {
+	then := p.Alpha
+	if then.Year() == 1 {
+		then, _ = time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT12:00:00+00:00", year(), month(), day()))
+	}
+	return &then
+}
+
+func (p *Period) Stop() *time.Time {
+	then := p.Omega
+	if then.Year() == 1 {
+		then, _ = time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT22:00:00+00:00", year(), month(), day()))
+	}
+	return &then
+}
+
+func year() int {
+	return time.Now().Year()
+}
+
+func month() string {
+	m := int(time.Now().Month())
+	s := strconv.Itoa(m)
+	if m < 10 {
+		return "0" + s
+	}
+	return s
+}
+
+func day() string {
+	d := time.Now().Day()
+	s := strconv.Itoa(d)
+	if d < 10 {
+		return "0" + s
+	}
+	return s
 }

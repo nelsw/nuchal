@@ -48,17 +48,19 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 	log.Info().Msg(util.Sim + " ..")
 	log.Info().Msg(util.Sim + " ...")
 	log.Info().Msg(util.Sim + " ... simulation")
-	log.Info().Msg(util.Sim + " ...")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Msg(util.Sim + " .")
+	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Sim + " ...")
+	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Sim + " ...")
+	log.Info().Strs(util.Currency, ses.ProductIds).Msg(util.Sim + " ...")
+
 	log.Info().Msg(util.Sim + " ..")
 
-	var ether, winners, losers, even int
-	var won, lost, total, volume float64
 	simulations := map[string]Simulation{}
-
 	var results []Simulation
-	for productId, product := range ses.Products {
+	for _, productId := range ses.ProductIds {
+
+		product := ses.Products[productId]
+
+		log.Info().Msg(util.Sim + " ... " + productId)
 
 		rates, err := GetRates(ses, productId)
 		if err != nil {
@@ -74,31 +76,26 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 			continue
 		}
 
-		if winnersOnly && simulation.EtherLen() > 0 {
+		if winnersOnly && simulation.TradingLen() > 0 {
 			continue
 		}
 
 		results = append(results, *simulation)
-
-		winners += simulation.WonLen()
-		losers += simulation.LostLen()
-		ether += simulation.EtherLen()
-		won += simulation.WonSum()
-		lost += simulation.LostSum()
-		total += simulation.Total()
-		volume += simulation.Volume()
-		even += len(simulation.Even)
 		simulations[productId] = *simulation
 	}
+
+	log.Info().Msg(util.Sim + " .. ")
 
 	sort.SliceStable(results, func(i, j int) bool {
 		return results[i].Net() < results[j].Net()
 	})
 
+	var ether, winners, losers, even int
+	var won, lost, total, volume float64
 	for _, simulation := range results {
 
 		log.Info().Str("  product", simulation.Id).Msg(util.Sim + " ...")
-		log.Info().Int("  trading", simulation.EtherLen()).Msg(util.Sim + " ...")
+		log.Info().Int("  trading", simulation.TradingLen()).Msg(util.Sim + " ...")
 		log.Info().Int("  winners", simulation.WonLen()).Msg(util.Sim + " ...")
 		log.Info().Int("   losers", simulation.LostLen()).Msg(util.Sim + " ...")
 		log.Info().Int("     even", simulation.EvenLen()).Msg(util.Sim + " ...")
@@ -107,7 +104,20 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 		log.Info().Float64("    total", simulation.Total()).Msg(util.Sim + " ...")
 		log.Info().Float64("   volume", simulation.Volume()).Msg(util.Sim + " ...")
 		log.Info().Float64("        %", simulation.Net()).Msg(util.Sim + " ...")
+		log.Info().Float64("        Δ", simulation.Delta).Msg(util.Sim + " ...")
+		log.Info().Float64("        ꜛ", simulation.Gain).Msg(util.Sim + " ...")
+		log.Info().Float64("        "+util.Quantity, simulation.Size).Msg(util.Sim + " ...")
 		log.Info().Msg(util.Sim + " ..")
+
+		winners += simulation.WonLen()
+		losers += simulation.LostLen()
+		ether += simulation.TradingLen()
+		won += simulation.WonSum()
+		lost += simulation.LostSum()
+		total += simulation.Total()
+		volume += simulation.Volume()
+		even += len(simulation.Even)
+
 	}
 
 	log.Info().Msg(util.Sim + " .")
@@ -140,8 +150,8 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 				return err
 			}
 		}
-		if simulation.EtherLen() > 0 {
-			if err := handlePage(productId, "ether", simulation.Ether); err != nil {
+		if simulation.TradingLen() > 0 {
+			if err := handlePage(productId, "ether", simulation.Trading); err != nil {
 				return err
 			}
 		}
