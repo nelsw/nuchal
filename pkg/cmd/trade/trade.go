@@ -43,7 +43,9 @@ func NewHolds(usd []string, size, gain, loss, delta float64) error {
 	}
 
 	for _, position := range *positions {
-
+		if position.Currency == "USD" {
+			continue
+		}
 		log.Info().Str(util.Currency, position.ProductId()).Msg("hold")
 		for _, trade := range position.GetActiveTrades() {
 
@@ -142,7 +144,15 @@ func New(usd []string, size, gain, loss, delta float64) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msg("trading")
+
+	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Trade + " ... trade")
+	log.Info().Msg(util.Trade + " ..")
+	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Trade + " ...")
+	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Trade + " ...")
+	log.Info().Strs(util.Currency, ses.ProductIds).Msg(util.Trade + " ...")
+	log.Info().Msg(util.Trade + " ..")
 
 	if util.IsEnvVarTrue("TEST") {
 		return nil

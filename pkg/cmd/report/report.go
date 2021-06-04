@@ -85,34 +85,40 @@ func New(usd []string, size, gain, loss, delta float64) error {
 				return err
 			}
 
-			for _, order := range *out {
-				log.Info().
-					Str(util.Dollar, util.Money(util.Float64(order.Price))).
-					Str(util.Quantity, fmt.Sprintf("%.0f", util.Float64(order.Size))).
-					Time("🗓", order.CreatedAt.Time()).
-					Msg(util.Report + " ... hold")
+			if len(*out) > 0 {
+				log.Info().Msg(util.Report + " ... held")
+				for _, order := range *out {
+					log.Info().
+						Str(util.Dollar, util.Money(util.Float64(order.Price))).
+						Str(util.Quantity, fmt.Sprintf("%.0f", util.Float64(order.Size))).
+						Time("🗓", order.CreatedAt.Time()).
+						Msg(util.Report + " ... ")
+				}
 			}
 
-			for _, trade := range position.GetActiveTrades() {
+			trades := position.GetActiveTrades()
+			if len(trades) > 0 {
+				log.Info().Msg(util.Report + " ... active")
+				for _, trade := range trades {
 
-				goal := position.GoalPrice(trade.Price())
-				net := (goal - (goal * ses.Maker)) * trade.Size()
+					goal := position.GoalPrice(trade.Price())
+					net := (goal - (goal * ses.Maker)) * trade.Size()
 
-				log.Warn().
-					Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
-					Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
-					Time("🗓", trade.CreatedAt.Time()).
-					Str("🎯", fmt.Sprintf("%.3f", goal)).
-					Str("💰", fmt.Sprintf("%.3f", net)).
-					Msg(util.Report + " ... sell")
+					log.Info().
+						Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
+						Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
+						Time("🗓", trade.CreatedAt.Time()).
+						Str("🎯", fmt.Sprintf("%.3f", goal)).
+						Str("💰", fmt.Sprintf("%.3f", net)).
+						Msg(util.Report + " ... ")
+				}
 			}
-
 			log.Info().Msg(util.Report + " ..")
 		}
 
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " .")
 
-		time.Sleep(time.Second * 15)
+		time.Sleep(time.Second * 30)
 	}
 }

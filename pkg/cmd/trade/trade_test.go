@@ -29,8 +29,9 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestNewHolds(t *testing.T) {
-	if err := NewHolds(test.Usd, test.Size, test.Gain, test.Loss, test.Delta); err != nil {
-		t.Error(err)
-	}
-}
+//
+//func TestNewHolds(t *testing.T) {
+//	if err := NewHolds(test.Usd, test.Size, test.Gain, test.Loss, test.Delta); err != nil {
+//		t.Error(err)
+//	}
+//}
