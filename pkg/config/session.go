@@ -1,3 +1,21 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package config
 
 import (
@@ -40,7 +58,7 @@ func init() {
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	if os.Getenv("DEBUG") == "true" {
+	if util.IsEnvVarTrue("DEBUG") {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -67,14 +85,15 @@ func (s *Session) User() string {
 }
 
 // NewSession reads configuration from environment variables and validates it
-func NewSession() (*Session, error) {
+func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error) {
 
 	util.PrintlnBanner()
 
 	c := new(Session)
 
-	log.Info().Msg(util.Fish + " ... hello " + c.User())
-	log.Info().Msg(util.Fish + " ... let's get configured")
+	log.Info().Msg(util.Fish + " . ")
+	log.Info().Msg(util.Fish + " .. ")
+	log.Info().Msg(util.Fish + " ... hello " + c.User() + ", let's setup.")
 	log.Debug().Msg("configure session")
 
 	err := util.ConfigFromYml(c)
@@ -90,12 +109,6 @@ func NewSession() (*Session, error) {
 		c.Port = 8080
 	}
 
-	if api, err := cbp.NewApi(); err != nil {
-		return nil, err
-	} else {
-		c.Api = api
-	}
-
 	// While trade and report commands do not requiring the database,
 	// simulations do, which should occur before trading & reporting.
 	if err := db.InitDb(); err != nil {
@@ -104,14 +117,23 @@ func NewSession() (*Session, error) {
 
 	// Initiating products will fetch the most recent list of
 	// cryptocurrencies and apply patterns to each product.
-
-	all, err := c.Api.GetUsdProducts()
+	allUsdProducts, err := c.Api.GetUsdProducts()
 	if err != nil {
 		return nil, err
 	}
-	m := map[string]cb.Product{}
-	for _, a := range *all {
-		m[a.ID] = a
+	allProductsMap := map[string]cb.Product{}
+	for _, a := range *allUsdProducts {
+		allProductsMap[a.ID] = a
+	}
+
+	productMap := map[string]cb.Product{}
+	if usd != nil {
+		for _, currency := range usd {
+			productId := currency + "-USD"
+			productMap[productId] = allProductsMap[productId]
+		}
+	} else {
+		productMap = allProductsMap
 	}
 
 	var wrapper struct {
@@ -123,7 +145,7 @@ func NewSession() (*Session, error) {
 	}
 
 	if len(wrapper.Patterns) < 1 {
-		for _, product := range *all {
+		for _, product := range *allUsdProducts {
 			pattern := new(cbp.Pattern)
 			pattern.Id = product.ID
 			wrapper.Patterns = append(wrapper.Patterns, *pattern)
@@ -132,30 +154,36 @@ func NewSession() (*Session, error) {
 
 	mm := map[string]cbp.Product{}
 	for _, pattern := range wrapper.Patterns {
-		product := m[pattern.Id]
+		product := productMap[pattern.Id]
+		if product.BaseMinSize == "" || product.QuoteIncrement == "" {
+			continue
+		}
 		if pattern.Size == 0 {
-			pattern.Size = util.Float64(product.BaseMinSize) * 10
+			pattern.Size = util.Float64(product.BaseMinSize) * size
 		}
 		if pattern.Gain == 0 {
-			pattern.Gain = c.Taker * 6
+			pattern.Gain = gain
 		}
 		if pattern.Loss == 0 {
-			pattern.Loss = c.Taker * 9
+			pattern.Loss = loss
 		}
 		if pattern.Delta == 0 {
-			pattern.Delta = util.Float64(product.QuoteIncrement) * 10
+			pattern.Delta = util.Float64(product.QuoteIncrement) * delta
 		}
 		mm[pattern.Id] = cbp.Product{product, pattern}
 	}
 	c.Products = mm
 
 	log.Debug().Interface("session", c).Msg("configure")
-	log.Info().Msg(util.Fish + " ... OKAY, we're all set")
+	log.Info().Msg(util.Fish + " ... everything seems to be in order ...")
+	log.Info().Msg(util.Fish + " .. ")
+	log.Info().Msg(util.Fish + " . ")
 
 	return c, nil
 }
 
 func (s *Session) GetTradingPositions() (*[]cbp.Position, error) {
+
 	positions, err := s.GetActivePositions()
 	if err != nil {
 		return nil, err

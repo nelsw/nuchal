@@ -40,8 +40,7 @@ nuchal will create a "default" pattern for each product available. To config pro
 similar to the following example and add it to the base project directory of nuchal.
 
 ```yaml
-# Coinbase Pro configuration 
-# with maker and taker fees
+# Coinbase Pro, with maker & taker fees
 cbp:
   key:
   pass:
@@ -50,7 +49,7 @@ cbp:
     maker:
     taker:
 
-# define product patterns here
+# Product selection and pattern criteria
 patterns:
   - id: SKL-USD
     delta: .01
@@ -61,12 +60,12 @@ patterns:
   - id: TRB-USD
     size: 1.25
 
-# you can also define a period of time related to the 
-# command this could be when start and end command
-# execution or a range of data to simulate
-period:
-  alpha: 2021-06-02T08:00:00+00:00
-  omega: 2022-06-03T22:00:00+00:00
+# A time frame for running the command 
+alpha: 2021-06-02T08:00:00+00:00
+omega: 2022-06-03T22:00:00+00:00
+
+# The amount of time to run the command
+duration: 24h0m0s
 ```
 
 ## Commands

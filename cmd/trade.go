@@ -1,71 +1,72 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package cmd
 
 import (
 	"github.com/nelsw/nuchal/pkg/cmd/trade"
+	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/spf13/cobra"
 )
 
-var (
-	tradeExample = `
-	
-	# Trade, that is buy and sell configured products.
-	# Trading creates active trading positions, AKA an available balance.
-	# This will run until it uses all cash available.
-	# This function is not perfect, not even graceful.
+func init() {
 
+	var hold, sell, exit bool
+
+	c := new(cobra.Command)
+
+	c.Use = "trade"
+	c.Short = "Polls ticker data and executes buy & sell orders when conditions match product & pattern configuration"
+	c.Long = util.Banner
+	c.Example = `
+	# Trade buys & sells products at prices or at times that meet or exceed pattern criteria, for a specified duration.
 	nuchal trade
 
-	# Hold the available balance for all configured products.	
-	# Holding means to place a limit entry order on every active trading position.
-	# This is best if you want to set stop gains and shut down.
-	# This is the safest function.
-
+	# Hold creates a limit entry order at the goal price for every active trading position in your available balance.
 	nuchal trade --hold
 
-	# Sell the available balance for all configured products.
-	# Selling means to place a limit loss order on on every active trading position that meet or exceeds the goal.
-	# Selling will also attempt to break even after 45 minutes of trading.
-	# This is an experimental function.
-
+	# Sell all available positions (active trades) at prices or at times that meet or exceed pattern criteria.
 	nuchal trade --sell
 
-	# Exit the available balance for all configured products.
-	# Exiting means to place a market entry order on ever active trading position.
-	# Exiting will effectively fire sale your open positions at the market price.
-	# This is a safe function.
-	
-	nuchal trade --exit
+	# Sell all available positions (active trades) at the current market price. Will not sell holds.
+	nuchal trade --exit`
 
-`
-	hold,
-	sell,
-	exit bool
-	tradeCmd = &cobra.Command{
-		Use:     "trade",
-		Example: tradeExample,
-		Run: func(cmd *cobra.Command, args []string) {
+	c.Run = func(cmd *cobra.Command, args []string) {
 
-			var err error
+		var err error
 
-			if hold {
-				err = trade.NewHolds()
-			} else if sell {
-				err = trade.NewSells()
-			} else if exit {
-				err = trade.NewExits()
-			} else {
-				err = trade.New()
-			}
+		if hold {
+			err = trade.NewHolds(usd, size, gain, loss, delta)
+		} else if sell {
+			err = trade.NewSells(usd, size, gain, loss, delta)
+		} else if exit {
+			err = trade.NewExits(usd, size, gain, loss, delta)
+		} else {
+			err = trade.New(usd, size, gain, loss, delta)
+		}
 
-			if err != nil {
-				panic(err)
-			}
-		}}
-)
+		if err != nil {
+			panic(err)
+		}
+	}
 
-func init() {
-	rootCmd.PersistentFlags().BoolVarP(&hold, "hold", "d", false, "Hold trades")
-	rootCmd.PersistentFlags().BoolVarP(&sell, "sell", "s", false, "Sell trades")
-	rootCmd.PersistentFlags().BoolVarP(&exit, "exit", "e", false, "Exit trades")
-	rootCmd.AddCommand(tradeCmd)
+	c.PersistentFlags().BoolVar(&hold, "hold", false, "Set a limit order for each trading position")
+	c.PersistentFlags().BoolVar(&sell, "sell", false, "Close positions at the goal price or higher")
+	c.PersistentFlags().BoolVar(&exit, "exit", false, "Liquidate all open positions at market price")
+	rootCmd.AddCommand(c)
 }

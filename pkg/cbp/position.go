@@ -1,10 +1,27 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package cbp
 
 import (
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
-	"github.com/rs/zerolog/log"
 	"sort"
 )
 
@@ -14,6 +31,10 @@ type Position struct {
 	cb.Ticker
 	buys,
 	sells []Trade
+}
+
+func (p *Position) IsHeld() bool {
+	return p.Balance() == p.Hold()
 }
 
 func (p Position) ProductId() string {
@@ -87,37 +108,4 @@ func (p *Position) GetActiveTrades() []Trade {
 	})
 
 	return trading
-}
-
-func (p *Position) Log() {
-
-	log.Info().
-		Str(util.Dollar, util.Money(p.Price())).
-		Str("bal", fmt.Sprintf(`%.3f`, p.Balance())).
-		Str("hld", fmt.Sprintf(`%.3f`, p.Hold())).
-		Str(util.Sigma, util.Usd(p.Value())).
-		Msg(p.Currency)
-
-	totalResult := 0.0
-	for i, trade := range p.GetActiveTrades() {
-
-		gain := p.Product.GoalPrice(trade.Price())
-		result := (gain - (gain * .005)) * trade.Size()
-
-		totalResult += result
-
-		log.Warn().
-			Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
-			Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
-			Str(util.Sigma, fmt.Sprintf("%.3f", trade.Total())).
-			Time("🗓", trade.CreatedAt.Time()).
-			Str("🎯", fmt.Sprintf("%.3f", gain)).
-			Str("💰", fmt.Sprintf("%.3f", result)).
-			Send()
-
-		if i == len(p.GetActiveTrades())-1 {
-			log.Warn().Str("💰", fmt.Sprintf("%.3f", totalResult)).Send()
-		}
-	}
-
 }

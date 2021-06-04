@@ -1,3 +1,21 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package cbp
 
 import (
@@ -5,9 +23,11 @@ import (
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"net/http"
-	"strings"
+	"regexp"
 	"time"
 )
+
+var usdRegex = regexp.MustCompile("^((\\w{3,5})(-USD))$")
 
 type Api struct {
 	Key        string `envconfig:"COINBASE_PRO_KEY" json:"key" yaml:"key"`
@@ -87,7 +107,7 @@ func (a *Api) GetUsdProducts() (*[]cb.Product, error) {
 
 	var res []cb.Product
 	for _, p := range all {
-		if strings.Contains(p.ID, "-USD") {
+		if usdRegex.MatchString(p.ID) {
 			res = append(res, p)
 		}
 	}
@@ -142,4 +162,23 @@ func (a *Api) GetActivePositions() (*[]Position, error) {
 	}
 
 	return &positions, nil
+}
+
+func (a Api) GetOrders(productId string) (*[]cb.Order, error) {
+
+	cursor := a.GetClient().ListOrders(cb.ListOrdersParams{ProductID: productId})
+
+	var newChunks, allChunks []cb.Order
+	for cursor.HasMore {
+
+		if err := cursor.NextPage(&newChunks); err != nil {
+			return nil, err
+		}
+
+		for _, chunk := range newChunks {
+			allChunks = append(allChunks, chunk)
+		}
+	}
+
+	return &allChunks, nil
 }

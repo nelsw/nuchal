@@ -1,3 +1,21 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package util
 
 import (
@@ -7,12 +25,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
 const (
+	Report   = `📊`
 	Fish     = `🐠`
 	Quantity = `꠹`
 	Dollar   = `$`
@@ -20,18 +40,24 @@ const (
 	Sigma    = `𝚺`
 	Banner   = `
 
-____________________________________________/\\\_________________________/\\\\\\____        
- ___________________________________________\/\\\________________________\////\\\____       
-  ___________________________________________\/\\\___________________________\/\\\____      
-   __/\\/\\\\\\____/\\\____/\\\_____/\\\\\\\\_\/\\\__________/\\\\\\\\\_______\/\\\____     
-    _\/\\\////\\\__\/\\\___\/\\\___/\\\//////__\/\\\\\\\\\\__\////////\\\______\/\\\____    
-     _\/\\\__\//\\\_\/\\\___\/\\\__/\\\_________\/\\\/////\\\___/\\\\\\\\\\_____\/\\\____   
-      _\/\\\___\/\\\_\/\\\___\/\\\_\//\\\________\/\\\___\/\\\__/\\\/////\\\_____\/\\\____  
-       _\/\\\___\/\\\_\//\\\\\\\\\___\///\\\\\\\\_\/\\\___\/\\\_\//\\\\\\\\/\\__/\\\\\\\\\_ 
-        _\///____\///___\/////////______\////////__\///____\///___\////////\//__\/////////__
+______________________________________________________/\\\_________________________/\\\\\\__________________________
+______________________________________________________\/\\\________________________\////\\\_________________________
+_______________________________________________________\/\\\___________________________\/\\\________________________
+_______________/\\/\\\\\\____/\\\____/\\\_____/\\\\\\\\_\/\\\__________/\\\\\\\\\_______\/\\\_______________________
+_______________\/\\\////\\\__\/\\\___\/\\\___/\\\//////__\/\\\\\\\\\\__\////////\\\______\/\\\______________________
+________________\/\\\__\//\\\_\/\\\___\/\\\__/\\\_________\/\\\/////\\\___/\\\\\\\\\\_____\/\\\_____________________
+_________________\/\\\___\/\\\_\/\\\___\/\\\_\//\\\________\/\\\___\/\\\__/\\\/////\\\_____\/\\\____________________
+__________________\/\\\___\/\\\_\//\\\\\\\\\___\///\\\\\\\\_\/\\\___\/\\\_\//\\\\\\\\/\\__/\\\\\\\\\________________
+___________________\///____\///___\/////////______\////////__\///____\///___\////////\//__\/////////________________
 
 `
 )
+
+var trueIgnoreCase = regexp.MustCompile("(?i)true\\b")
+
+func IsEnvVarTrue(key string) bool {
+	return trueIgnoreCase.MatchString(os.Getenv(key))
+}
 
 func Float64(s string) float64 {
 	if f, err := strconv.ParseFloat(s, 64); err != nil {
@@ -82,7 +108,7 @@ func Money(f float64) string {
 	places := len(dollars)
 
 	if places < 4 {
-		return fmt.Sprintf("$%s.%s", dollars, cents)
+		return fmt.Sprintf("%s.%s", dollars, cents)
 	}
 
 	pivot := places - 3
@@ -126,7 +152,6 @@ func IsZero(s string) bool {
 func Sleep(d time.Duration) {
 	exit := time.Now().Add(d)
 	for {
-		fmt.Println()
 		time.Sleep(d)
 		if time.Now().After(exit) {
 			break
