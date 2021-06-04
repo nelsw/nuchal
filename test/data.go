@@ -16,31 +16,15 @@
  * /
  */
 
-package cmd
+package test
 
-import (
-	"github.com/nelsw/nuchal/pkg/cmd/sim"
-	"github.com/spf13/cobra"
+const (
+	Size  = 1.0
+	Gain  = .0195
+	Loss  = .0495
+	Delta = 1.0
 )
 
-var simExample = `
-	# Prints a simulation result report and serve a local website to host graphical report analysis.
-
-	nuchal sim`
-
-func init() {
-
-	c := &cobra.Command{
-		Use:     "sim",
-		Short:   "Evaluates product & pattern configuration through a mock trading session and interactive chart results",
-		Example: simExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := sim.New(usd, size, gain, loss, delta); err != nil {
-				panic(err)
-			}
-		},
-	}
-
-	rootCmd.AddCommand(c)
-
-}
+var (
+	Usd = []string{"XLM", "XTZ"}
+)
