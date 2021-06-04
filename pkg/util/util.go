@@ -28,11 +28,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
-	Report   = `📊`
+	Sim      = `🐟`
+	Trade    = `🦈`
+	Report   = `🐡`
 	Fish     = `🐠`
 	Quantity = `꠹`
 	Dollar   = `$`
@@ -149,31 +150,12 @@ func IsZero(s string) bool {
 	return Float64(s) == 0.0
 }
 
-func Sleep(d time.Duration) {
-	exit := time.Now().Add(d)
-	for {
-		time.Sleep(d)
-		if time.Now().After(exit) {
-			break
-		}
-		d = time.Duration(d.Nanoseconds() / 2)
-	}
-}
-
 func LogBanner() {
 	fmt.Println(Banner)
 }
 
 func PrintlnBanner() {
 	fmt.Println(Banner)
-}
-
-func PrintCursor() {
-	fmt.Print("> ")
-}
-
-func PrintNewLine() {
-	fmt.Print("\n")
 }
 
 func PrintlnPrettyJson(v interface{}) {

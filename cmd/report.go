@@ -20,27 +20,24 @@ package cmd
 
 import (
 	"github.com/nelsw/nuchal/pkg/cmd/report"
+	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/spf13/cobra"
 )
 
-var reportExample = `
-	# Prints USD, Cryptocurrency, and total value of the configured Coinbase Pro account.
-	# Also prints position and trading information, namely size, value, balance and holds.
-
-	nuchal report
-`
-
 func init() {
 
-	c := &cobra.Command{
-		Use:     "report",
-		Short:   "Provides a summary of your available currencies, balances, holds, and status of open trading positions",
-		Example: reportExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := report.New(usd, size, gain, loss, delta); err != nil {
-				panic(err)
-			}
-		},
+	c := new(cobra.Command)
+	c.Use = "report"
+	c.Long = util.Banner
+	c.Short = "Provides a summary of your available currencies, balances, holds, and status of open trading positions"
+	c.Example = `
+	# Prints USD, Cryptocurrency, and total value of the configured Coinbase Pro account.
+	# Also prints position and trading information, namely size, value, balance and holds.
+	nuchal report`
+	c.Run = func(cmd *cobra.Command, args []string) {
+		if err := report.New(usd, size, gain, loss, delta); err != nil {
+			panic(err)
+		}
 	}
 
 	rootCmd.AddCommand(c)

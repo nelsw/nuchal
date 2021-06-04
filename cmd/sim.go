@@ -20,27 +20,36 @@ package cmd
 
 import (
 	"github.com/nelsw/nuchal/pkg/cmd/sim"
+	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/spf13/cobra"
 )
 
-var simExample = `
-	# Prints a simulation result report and serve a local website to host graphical report analysis.
-
-	nuchal sim`
-
 func init() {
 
-	c := &cobra.Command{
-		Use:     "sim",
-		Short:   "Evaluates product & pattern configuration through a mock trading session and interactive chart results",
-		Example: simExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := sim.New(usd, size, gain, loss, delta); err != nil {
-				panic(err)
-			}
-		},
+	var winnersOnly, noLosers bool
+
+	c := new(cobra.Command)
+	c.Use = "sim"
+	c.Short = "Evaluates product & pattern configuration through a mock trading session and interactive chart results"
+	c.Long = util.Banner
+	c.Example = `
+	# Prints a simulation result report and serves a local website to host graphical report analysis.
+	nuchal sim
+
+	# Prints a simulation result report where the net gain for each product simulation was greater than zero.
+	nuchal sim -t --no-losers
+
+	# Prints a simulation result report where the net gain for each product simulation was greater than zero and also 
+	# where the amount of positions trading are zero.	
+	nuchal sim -w --winners-only`
+
+	c.Run = func(cmd *cobra.Command, args []string) {
+		if err := sim.New(usd, size, gain, loss, delta, winnersOnly, noLosers); err != nil {
+			panic(err)
+		}
 	}
 
+	c.PersistentFlags().BoolVarP(&winnersOnly, "winners-only", "w", false, "")
+	c.PersistentFlags().BoolVarP(&noLosers, "no-losers", "t", false, "")
 	rootCmd.AddCommand(c)
-
 }

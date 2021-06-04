@@ -19,6 +19,7 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
@@ -43,15 +44,6 @@ type Session struct {
 	*cbp.Api `yaml:"cbp"`
 
 	Products map[string]cbp.Product
-}
-
-func (s *Session) SimulationStart() int64 {
-	start, _ := time.ParseDuration(s.Alpha)
-	return start.Nanoseconds()
-}
-
-func (s *Session) SimulationAddress() string {
-	return fmt.Sprintf("localhost:%d", s.Port)
 }
 
 func init() {
@@ -93,7 +85,8 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... hello " + c.User() + ", let's setup.")
+	log.Info().Msg(util.Fish + " ... hello " + c.User())
+	log.Info().Msg(util.Fish + " .. ")
 	log.Debug().Msg("configure session")
 
 	err := util.ConfigFromYml(c)
@@ -105,6 +98,12 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		}
 	}
 
+	// Lets confirm our API credentials are correct
+	if err := c.Api.Validate(); err != nil {
+		return nil, err
+	}
+
+	// No other place to reall put this
 	if c.Port == 0 {
 		c.Port = 8080
 	}
@@ -118,11 +117,15 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	// Initiating products will fetch the most recent list of
 	// cryptocurrencies and apply patterns to each product.
 	allUsdProducts, err := c.Api.GetUsdProducts()
+
 	if err != nil {
 		return nil, err
 	}
 	allProductsMap := map[string]cb.Product{}
 	for _, a := range *allUsdProducts {
+		if a.BaseCurrency == "DAI" || a.BaseCurrency == "USDT" {
+			continue
+		}
 		allProductsMap[a.ID] = a
 	}
 
@@ -168,18 +171,45 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 			pattern.Loss = loss
 		}
 		if pattern.Delta == 0 {
-			pattern.Delta = util.Float64(product.QuoteIncrement) * delta
+			pattern.Delta = delta
 		}
 		mm[pattern.Id] = cbp.Product{product, pattern}
 	}
 	c.Products = mm
 
 	log.Debug().Interface("session", c).Msg("configure")
-	log.Info().Msg(util.Fish + " ... everything seems to be in order ...")
+	log.Info().Msg(util.Fish + " ... everything seems to be in order")
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
 
+	scanner := bufio.NewScanner(os.Stdin)
+	go func() {
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "exit" {
+				exit()
+			} else {
+				log.Info().Msg(util.Fish + " ... I'm not familiar with ")
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			log.Error().Err(err).Send()
+			panic(err)
+		}
+	}()
+
 	return c, nil
+}
+
+func exit() {
+	log.Info().Msg(util.Fish + " .")
+	log.Info().Msg(util.Fish + " ..")
+	log.Info().Msg(util.Fish + " ...")
+	log.Info().Msg(util.Fish + " ... goodbye")
+	log.Info().Msg(util.Fish + " ...")
+	log.Info().Msg(util.Fish + " ..")
+	log.Info().Msg(util.Fish + " .")
+	os.Exit(0)
 }
 
 func (s *Session) GetTradingPositions() (*[]cbp.Position, error) {
