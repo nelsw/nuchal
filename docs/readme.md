@@ -94,8 +94,15 @@ nuchal trade --exit
 
 ### sim
 ```shell
-# Prints a simulation result report and serves a local website for graphs of said simulation results.
+# Prints a simulation result report and serves a local website to host graphical report analysis.
 nuchal sim
+
+# Prints a simulation result report where the net gain for each product simulation was greater than zero.
+nuchal sim -t --no-losers
+
+# Prints a simulation result report where the net gain for each product simulation was greater than zero and also 
+# where the amount of positions trading are zero.	
+nuchal sim -w --winners-only
 ```
 
 # License
