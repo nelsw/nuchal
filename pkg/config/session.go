@@ -28,6 +28,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -44,6 +45,10 @@ type Session struct {
 	*cbp.Api `yaml:"cbp"`
 
 	Products map[string]cbp.Product
+
+	ProductIds []string
+
+	Started time.Time
 }
 
 func init() {
@@ -82,7 +87,6 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	util.PrintlnBanner()
 
 	c := new(Session)
-
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " ... hello " + c.User())
@@ -103,7 +107,14 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		return nil, err
 	}
 
-	// No other place to reall put this
+	// Set a "start time" for the session
+	if tme, err := c.GetTime(); err != nil {
+		return nil, err
+	} else {
+		c.Started = *tme
+	}
+
+	// No other place to really put this
 	if c.Port == 0 {
 		c.Port = 8080
 	}
@@ -117,10 +128,10 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	// Initiating products will fetch the most recent list of
 	// cryptocurrencies and apply patterns to each product.
 	allUsdProducts, err := c.Api.GetUsdProducts()
-
 	if err != nil {
 		return nil, err
 	}
+
 	allProductsMap := map[string]cb.Product{}
 	for _, a := range *allUsdProducts {
 		if a.BaseCurrency == "DAI" || a.BaseCurrency == "USDT" {
@@ -130,7 +141,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	}
 
 	productMap := map[string]cb.Product{}
-	if usd != nil {
+	if usd != nil && len(usd) > 0 {
 		for _, currency := range usd {
 			productId := currency + "-USD"
 			productMap[productId] = allProductsMap[productId]
@@ -174,8 +185,10 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 			pattern.Delta = delta
 		}
 		mm[pattern.Id] = cbp.Product{product, pattern}
+		c.ProductIds = append(c.ProductIds, pattern.Id)
 	}
 	c.Products = mm
+	sort.Strings(c.ProductIds)
 
 	log.Debug().Interface("session", c).Msg("configure")
 	log.Info().Msg(util.Fish + " ... everything seems to be in order")

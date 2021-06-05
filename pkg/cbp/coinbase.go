@@ -65,6 +65,15 @@ func (a *Api) GetClient() *cb.Client {
 	}
 }
 
+func (a *Api) GetTime() (*time.Time, error) {
+	tme, err := a.GetClient().GetTime()
+	if err != nil {
+		return nil, err
+	}
+	t := time.Unix(int64(tme.Epoch), 0)
+	return &t, nil
+}
+
 func (a *Api) GetFills(productId string) (*[]cb.Fill, error) {
 
 	cursor := a.GetClient().ListFills(cb.ListFillsParams{ProductID: productId})

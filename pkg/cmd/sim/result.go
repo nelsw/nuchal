@@ -34,8 +34,8 @@ type Simulation struct {
 	// Lost are charts where we were not profitable.
 	Lost []Chart
 
-	// Ether are charts that never completed the simulation, these are bad.
-	Ether []Chart
+	// Trading are charts that never completed the simulation, they are still trading.
+	Trading []Chart
 
 	// Even are charts that broke even, not bad.
 	Even []Chart
@@ -49,7 +49,7 @@ func NewSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, 
 	var then, that cbp.Rate
 	for i, this := range rates {
 
-		if !period.InRange(this.Time()) {
+		if !period.InPeriod(this.Time()) {
 			continue
 		}
 
@@ -60,8 +60,8 @@ func NewSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, 
 				simulation.Won = append(simulation.Won, *chart)
 			} else if chart.IsLoser() {
 				simulation.Lost = append(simulation.Lost, *chart)
-			} else if chart.IsEther() {
-				simulation.Ether = append(simulation.Ether, *chart)
+			} else if chart.IsTrading() {
+				simulation.Trading = append(simulation.Trading, *chart)
 			} else if chart.IsEven() {
 				simulation.Even = append(simulation.Even, *chart)
 			}
@@ -80,8 +80,8 @@ func (s *Simulation) LostLen() int {
 	return len(s.Lost)
 }
 
-func (s *Simulation) EtherLen() int {
-	return len(s.Ether)
+func (s *Simulation) TradingLen() int {
+	return len(s.Trading)
 }
 
 func (s *Simulation) EvenLen() int {
@@ -107,13 +107,13 @@ func (s *Simulation) LostSum() float64 {
 func (s *Simulation) Volume() float64 {
 	sum := 0.0
 	for _, w := range s.Won {
-		sum += w.EntryPlusFee()
+		sum += w.Entry
 	}
 	for _, l := range s.Lost {
-		sum += l.EntryPlusFee()
+		sum += l.Entry
 	}
-	for _, e := range s.Ether {
-		sum += e.EntryPlusFee()
+	for _, e := range s.Trading {
+		sum += e.Entry
 	}
 	return sum * s.Size
 }

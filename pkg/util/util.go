@@ -31,6 +31,8 @@ import (
 )
 
 const (
+	Alpha    = `ɑ`
+	Omega    = `Ω`
 	Sim      = `🐟`
 	Trade    = `🦈`
 	Report   = `🐡`

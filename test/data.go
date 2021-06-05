@@ -22,9 +22,9 @@ const (
 	Size  = 1.0
 	Gain  = .0195
 	Loss  = .0495
-	Delta = 1.0
+	Delta = .001
 )
 
 var (
-	Usd = []string{"XLM", "XTZ"}
+	Usd = []string{}
 )
