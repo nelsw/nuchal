@@ -67,8 +67,9 @@ func (c *Chart) Symbol() string {
 		return "💩"
 	} else if c.IsEven() {
 		return "👊🏻"
+	} else {
+		return "💎"
 	}
-	return "💎"
 }
 
 func (c *Chart) IsWinner() bool {
