@@ -20,7 +20,6 @@ package config
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/cbp"
@@ -77,17 +76,14 @@ func init() {
 	}
 }
 
+// ProductIds returns a product ID array in alphabetical order.
 func (s Session) ProductIds() *[]string {
 	var productIds []string
-	for productId, _ := range s.Products {
-		productIds = append(productIds, productId)
+	for _, product := range s.Products {
+		productIds = append(productIds, product.ID)
 	}
 	sort.Strings(productIds)
 	return &productIds
-}
-
-func (s *Session) User() string {
-	return os.Getenv("USER")
 }
 
 // NewSession reads configuration from environment variables and validates it
@@ -99,7 +95,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... hello " + session.User())
+	log.Info().Msg(util.Fish + " ... hello " + os.Getenv("USER"))
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
 
@@ -118,11 +114,11 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	}
 
 	// Set a "start time" for the session
-	if tme, err := session.GetTime(); err != nil {
+	tme, err := session.GetTime()
+	if err != nil {
 		return nil, err
-	} else {
-		session.Started = *tme
 	}
+	session.Started = *tme
 
 	// No other place to really put this
 	if session.Port == 0 {
@@ -220,6 +216,7 @@ func exit() {
 	os.Exit(0)
 }
 
+// GetTradingPositions returns a map of trading positions.
 func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 
 	positions, err := s.GetActivePositions()
@@ -238,6 +235,7 @@ func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 	return result, nil
 }
 
+// GetActivePositions returns an array of cbp.Position structs.
 func (s *Session) GetActivePositions() (*[]cbp.Position, error) {
 
 	positions, err := s.Api.GetActivePositions()
@@ -256,31 +254,22 @@ func (s *Session) GetActivePositions() (*[]cbp.Position, error) {
 	return &result, nil
 }
 
-func (s *Session) GetCurrentPrice(productId string) (*float64, error) {
-	ticker, err := s.GetClient().GetTicker(productId)
-	if err != nil {
-		return nil, err
-	}
-	price := util.Float64(ticker.Price)
-	return &price, nil
-}
-
 // GetPrice gets the latest ticker price for the given productId. This method does not perform logging as it is executed
 // thousands of times per second.
-func (s *Session) GetPrice(wsConn *ws.Conn, productId string) (*float64, error) {
+func (s *Session) GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
 
 	if err := wsConn.WriteJSON(&cb.Message{
 		Type:     "subscribe",
-		Channels: []cb.MessageChannel{{"ticker", []string{productId}}},
+		Channels: []cb.MessageChannel{{"ticker", []string{productID}}},
 	}); err != nil {
-		log.Error().Err(err).Str(util.Currency, productId).Msg(util.Fish + " ... subscribing to websocket")
+		log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... subscribing to websocket")
 		return nil, err
 	}
 
 	var receivedMessage cb.Message
 	for {
 		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
-			log.Error().Err(err).Str(util.Currency, productId).Msg(util.Fish + " ... reading from websocket")
+			log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... reading from websocket")
 			return nil, err
 		}
 		if receivedMessage.Type != "subscriptions" {
@@ -289,8 +278,8 @@ func (s *Session) GetPrice(wsConn *ws.Conn, productId string) (*float64, error) 
 	}
 
 	if receivedMessage.Type != "ticker" {
-		err := errors.New(fmt.Sprintf("message type != ticker, %v", receivedMessage))
-		log.Error().Err(err).Str(util.Currency, productId).Msg("getting ticker message from websocket")
+		err := fmt.Errorf("message type != ticker, %v", receivedMessage)
+		log.Error().Err(err).Str(util.Currency, productID).Msg("getting ticker message from websocket")
 		return nil, err
 	}
 

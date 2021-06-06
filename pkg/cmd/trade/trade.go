@@ -41,7 +41,7 @@ func New(usd []string, size, gain, loss, delta float64) error {
 	log.Info().Msg(util.Trade + " ... trade")
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Trade + " ...")
-	log.Info().Time(util.Omega, *ses.Cease()).Msg(util.Trade + " ...")
+	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Trade + " ...")
 	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Trade + " ...")
 	log.Info().Msg(util.Trade + " ..")
 
