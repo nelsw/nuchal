@@ -24,6 +24,7 @@ import (
 	"time"
 )
 
+// Period handles time.
 type Period struct {
 
 	// Alpha defines when command functionality should start.
@@ -40,9 +41,10 @@ type Period struct {
 
 // InPeriod is an exclusive range function to determine if the given time falls within the defined period.
 func (p *Period) InPeriod(t time.Time) bool {
-	return p.Start().Before(t) && p.Cease().After(t)
+	return p.Start().Before(t) && p.Stop().After(t)
 }
 
+// Start returns the configured Start time. If no time is configured, Start returns today at noon UTC.
 func (p *Period) Start() *time.Time {
 	then := p.Alpha
 	if then.Year() == 1 {
@@ -51,7 +53,8 @@ func (p *Period) Start() *time.Time {
 	return &then
 }
 
-func (p *Period) Cease() *time.Time {
+// Stop returns the configured Stop time. If no time is configured, Stop returns today at 10pm UTC.
+func (p *Period) Stop() *time.Time {
 	then := p.Omega
 	if then.Year() == 1 {
 		then, _ = time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT22:00:00+00:00", year(), month(), day()))

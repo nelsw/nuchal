@@ -49,7 +49,7 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 	log.Info().Msg(util.Sim + " ... simulation")
 	log.Info().Msg(util.Sim + " ..")
 	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Sim + " ...")
-	log.Info().Time(util.Omega, *ses.Cease()).Msg(util.Sim + " ...")
+	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Sim + " ...")
 	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Sim + " ...")
 	log.Info().Msg(util.Sim + " ..")
 
