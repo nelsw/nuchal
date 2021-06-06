@@ -24,6 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// NewDrops cancels active orders.
 func NewDrops(session *config.Session) error {
 
 	log.Info().Msg(util.Trade + " .")
@@ -31,11 +32,11 @@ func NewDrops(session *config.Session) error {
 	log.Info().Msg(util.Trade + " ... trade --drop")
 	log.Info().Msg(util.Trade + " ..")
 
-	for _, productId := range *session.ProductIds() {
+	for _, productID := range *session.ProductIds() {
 
-		log.Info().Msg(util.Trade + " ... " + productId)
+		log.Info().Msg(util.Trade + " ... " + productID)
 
-		orders, err := session.GetOrders(productId)
+		orders, err := session.GetOrders(productID)
 		if err != nil {
 			return err
 		}

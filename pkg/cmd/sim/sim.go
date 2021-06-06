@@ -53,18 +53,18 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Sim + " ...")
 	log.Info().Msg(util.Sim + " ..")
 
-	simulations := map[string]Simulation{}
-	var results []Simulation
-	for _, productId := range *ses.ProductIds() {
+	simulations := map[string]simulation{}
+	var results []simulation
+	for _, productID := range *ses.ProductIds() {
 
-		product := ses.Products[productId]
+		product := ses.Products[productID]
 
-		rates, err := GetRates(ses, productId)
+		rates, err := getRates(ses, productID)
 		if err != nil {
 			return err
 		}
 
-		simulation := NewSimulation(rates, product, ses.Maker, ses.Taker, ses.Period)
+		simulation := newSimulation(rates, product, ses.Maker, ses.Taker, ses.Period)
 		if simulation.Volume() == 0 {
 			continue
 		}
@@ -78,7 +78,7 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 		}
 
 		results = append(results, *simulation)
-		simulations[productId] = *simulation
+		simulations[productID] = *simulation
 	}
 
 	log.Info().Msg(util.Sim + " .. ")
@@ -135,20 +135,20 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 		return err
 	}
 
-	for productId, simulation := range simulations {
+	for productID, simulation := range simulations {
 
 		if simulation.WonLen() > 0 {
-			if err := handlePage(productId, "won", simulation.Won); err != nil {
+			if err := handlePage(productID, "won", simulation.Won); err != nil {
 				return err
 			}
 		}
 		if simulation.LostLen() > 0 {
-			if err := handlePage(productId, "lost", simulation.Lost); err != nil {
+			if err := handlePage(productID, "lost", simulation.Lost); err != nil {
 				return err
 			}
 		}
 		if simulation.TradingLen() > 0 {
-			if err := handlePage(productId, "ether", simulation.Trading); err != nil {
+			if err := handlePage(productID, "ether", simulation.Trading); err != nil {
 				return err
 			}
 		}
@@ -162,7 +162,7 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 	return nil
 }
 
-func handlePage(productId, dir string, charts []Chart) error {
+func handlePage(productID, dir string, charts []Chart) error {
 
 	page := &components.Page{}
 	page.Assets.InitAssets()
@@ -171,18 +171,18 @@ func handlePage(productId, dir string, charts []Chart) error {
 	page.PageTitle = "nuchal | simulation"
 
 	sort.SliceStable(charts, func(i, j int) bool {
-		return charts[i].Result() > charts[j].Result()
+		return charts[i].result() > charts[j].result()
 	})
 
 	for _, s := range charts {
-		page.AddCharts(s.Kline())
+		page.AddCharts(s.kline())
 	}
 
-	if err := makePath("html/" + productId); err != nil {
+	if err := makePath("html/" + productID); err != nil {
 		return err
 	}
 
-	fileName := fmt.Sprintf("./html/%s/%s.html", productId, dir)
+	fileName := fmt.Sprintf("./html/%s/%s.html", productID, dir)
 
 	if f, err := os.Create(fileName); err != nil {
 		return err
@@ -192,9 +192,9 @@ func handlePage(productId, dir string, charts []Chart) error {
 	return nil
 }
 
-func GetRates(ses *config.Session, productId string) ([]cbp.Rate, error) {
+func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
 
-	log.Debug().Msg("get rates for " + productId)
+	log.Debug().Msg("get rates for " + productID)
 
 	pg := db.NewDB()
 
@@ -203,29 +203,29 @@ func GetRates(ses *config.Session, productId string) ([]cbp.Rate, error) {
 		return nil, err
 	}
 
-	pg.Where("product_id = ?", productId).
+	pg.Where("product_id = ?", productID).
 		Order("unix desc").
 		First(&r)
 
 	var from time.Time
 	if r != (cbp.Rate{}) {
-		log.Debug().Msg("found previous rate found for " + productId)
+		log.Debug().Msg("found previous rate found for " + productID)
 		from = r.Time()
 	} else {
-		log.Debug().Msg("no previous rate found for " + productId)
+		log.Debug().Msg("no previous rate found for " + productID)
 		from, _ = time.Parse(time.RFC3339, "2021-06-20T00:00:00+00:00")
 	}
 
 	to := from.Add(time.Hour * 4)
 	for {
 
-		rates, err := ses.GetClient().GetHistoricRates(productId, cb.GetHistoricRatesParams{from, to, 60})
+		rates, err := ses.GetClient().GetHistoricRates(productID, cb.GetHistoricRatesParams{from, to, 60})
 		if err != nil {
 			return nil, err
 		}
 
 		for _, r := range rates {
-			rc := cbp.NewRate(productId, r)
+			rc := cbp.NewRate(productID, r)
 			pg.Create(&rc)
 		}
 
@@ -239,12 +239,12 @@ func GetRates(ses *config.Session, productId string) ([]cbp.Rate, error) {
 	}
 
 	var savedRates []cbp.Rate
-	pg.Where("product_id = ?", productId).
+	pg.Where("product_id = ?", productID).
 		Where("unix >= ?", ses.Alpha.UnixNano()).
 		Order("unix asc").
 		Find(&savedRates)
 
-	log.Debug().Msgf("got [%d] rates for [%s]", len(savedRates), productId)
+	log.Debug().Msgf("got [%d] rates for [%s]", len(savedRates), productID)
 
 	return savedRates, nil
 }

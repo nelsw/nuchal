@@ -28,6 +28,7 @@ import (
 	"time"
 )
 
+// New will attempt to buy and sell automagically.
 func New(usd []string, size, gain, loss, delta float64) error {
 
 	ses, err := config.NewSession(usd, size, gain, loss, delta)
@@ -84,13 +85,13 @@ func buy(session *config.Session, product cbp.Product) {
 	order, err := session.CreateOrder(product.NewMarketBuyOrder())
 	if err == nil {
 
-		productId := product.ID
+		productID := product.ID
 		size := order.Size
 		entryPrice := util.Float64(order.ExecutedValue) / util.Float64(size)
 		goalPrice := product.GoalPrice(entryPrice)
 		entryTime := order.CreatedAt.Time()
 
-		if _, err := NewSell(session, order.ID, productId, size, entryPrice, goalPrice, entryTime); err != nil {
+		if _, err := NewSell(session, order.ID, productID, size, entryPrice, goalPrice, entryTime); err != nil {
 			log.Error().Err(err).Msg("while selling")
 		}
 		return
@@ -107,14 +108,14 @@ func buy(session *config.Session, product cbp.Product) {
 	log.Error().Send()
 }
 
-func getRate(session *config.Session, productId string) (*cbp.Rate, error) {
+func getRate(session *config.Session, productID string) (*cbp.Rate, error) {
 
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
 	if err != nil {
 		log.Error().
 			Err(err).
-			Str("productId", productId).
+			Str("productID", productID).
 			Msg("error while opening websocket connection")
 		return nil, err
 	}
@@ -123,7 +124,7 @@ func getRate(session *config.Session, productId string) (*cbp.Rate, error) {
 		if err := wsConn.Close(); err != nil {
 			log.Error().
 				Err(err).
-				Str("productId", productId).
+				Str("productID", productID).
 				Msg("error closing websocket connection")
 		}
 	}(wsConn)
@@ -133,11 +134,11 @@ func getRate(session *config.Session, productId string) (*cbp.Rate, error) {
 	var low, high, open, vol float64
 	for {
 
-		price, err := session.GetPrice(wsConn, productId)
+		price, err := session.GetPrice(wsConn, productID)
 		if err != nil {
 			log.Error().
 				Err(err).
-				Str("productId", productId).
+				Str("productID", productID).
 				Msg("error getting price")
 			return nil, err
 		}
@@ -156,10 +157,10 @@ func getRate(session *config.Session, productId string) (*cbp.Rate, error) {
 
 		now := time.Now()
 		if now.After(end) {
-			log.Debug().Str("product", productId).Msg("rate")
+			log.Debug().Str("product", productID).Msg("rate")
 			return &cbp.Rate{
 				now.UnixNano(),
-				productId,
+				productID,
 				cb.HistoricRate{now, low, high, open, *price, vol},
 			}, nil
 		}
