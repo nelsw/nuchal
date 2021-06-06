@@ -27,6 +27,7 @@ import (
 	"time"
 )
 
+// New creates a new report.
 func New(session *config.Session) error {
 
 	for {
@@ -109,7 +110,7 @@ func New(session *config.Session) error {
 							break
 						}
 
-						productId := order.ProductID
+						productID := order.ProductID
 
 						t := order.CreatedAt.Time()
 						from := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, t.Location())
@@ -117,7 +118,7 @@ func New(session *config.Session) error {
 
 						params := cb.GetHistoricRatesParams{from, to, 60}
 
-						rates, err := session.GetClient().GetHistoricRates(productId, params)
+						rates, err := session.GetClient().GetHistoricRates(productID, params)
 						if err != nil {
 							return err
 						}

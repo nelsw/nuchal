@@ -25,6 +25,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// NewHolds will create a limit sell entry order for every trade that does not already meet or exceed the goal price.
 func NewHolds(session *config.Session) error {
 
 	log.Info().Msg(util.Trade + " .")

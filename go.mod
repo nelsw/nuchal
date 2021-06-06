@@ -11,6 +11,8 @@ require (
 	github.com/rs/zerolog v1.15.0
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/viper v1.7.0
+	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/driver/postgres v1.0.8
 	gorm.io/gorm v1.21.9

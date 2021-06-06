@@ -23,7 +23,7 @@ import (
 	"github.com/nelsw/nuchal/pkg/config"
 )
 
-type Simulation struct {
+type simulation struct {
 
 	// Product is an aggregate of the product to trade, and the pattern which used to trade.
 	cbp.Product
@@ -41,9 +41,9 @@ type Simulation struct {
 	Even []Chart
 }
 
-func NewSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, period config.Period) *Simulation {
+func newSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, period config.Period) *simulation {
 
-	simulation := new(Simulation)
+	simulation := new(simulation)
 	simulation.Product = product
 
 	var then, that cbp.Rate
@@ -55,14 +55,14 @@ func NewSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, 
 
 		if product.MatchesTweezerBottomPattern(then, that, this) {
 
-			chart := NewChart(maker, taker, rates[i-2:], product)
-			if chart.IsWinner() {
+			chart := newChart(maker, taker, rates[i-2:], product)
+			if chart.isWinner() {
 				simulation.Won = append(simulation.Won, *chart)
-			} else if chart.IsLoser() {
+			} else if chart.isLoser() {
 				simulation.Lost = append(simulation.Lost, *chart)
-			} else if chart.IsTrading() {
+			} else if chart.isTrading() {
 				simulation.Trading = append(simulation.Trading, *chart)
-			} else if chart.IsEven() {
+			} else if chart.isEven() {
 				simulation.Even = append(simulation.Even, *chart)
 			}
 		}
@@ -72,39 +72,39 @@ func NewSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, 
 	return simulation
 }
 
-func (s *Simulation) WonLen() int {
+func (s *simulation) WonLen() int {
 	return len(s.Won)
 }
 
-func (s *Simulation) LostLen() int {
+func (s *simulation) LostLen() int {
 	return len(s.Lost)
 }
 
-func (s *Simulation) TradingLen() int {
+func (s *simulation) TradingLen() int {
 	return len(s.Trading)
 }
 
-func (s *Simulation) EvenLen() int {
+func (s *simulation) EvenLen() int {
 	return len(s.Even)
 }
 
-func (s *Simulation) WonSum() float64 {
+func (s *simulation) WonSum() float64 {
 	sum := 0.0
 	for _, w := range s.Won {
-		sum += w.Result()
+		sum += w.result()
 	}
 	return sum
 }
 
-func (s *Simulation) LostSum() float64 {
+func (s *simulation) LostSum() float64 {
 	sum := 0.0
 	for _, l := range s.Lost {
-		sum += l.Result()
+		sum += l.result()
 	}
 	return sum
 }
 
-func (s *Simulation) Volume() float64 {
+func (s *simulation) Volume() float64 {
 	sum := 0.0
 	for _, w := range s.Won {
 		sum += w.Entry
@@ -118,10 +118,10 @@ func (s *Simulation) Volume() float64 {
 	return sum * s.Size
 }
 
-func (s *Simulation) Total() float64 {
+func (s *simulation) Total() float64 {
 	return s.WonSum() + s.LostSum()
 }
 
-func (s *Simulation) Net() float64 {
+func (s *simulation) Net() float64 {
 	return s.Total() / s.Volume() * 100
 }

@@ -59,48 +59,48 @@ type Chart struct {
 	TakerFee float64
 }
 
-// Symbol returns an emoji correlated the the status of the chart
-func (c *Chart) Symbol() string {
-	if c.IsTrading() {
+// symbol returns an emoji correlated the the status of the chart
+func (c *Chart) symbol() string {
+	if c.isTrading() {
 		return "🌌"
-	} else if c.IsLoser() {
+	} else if c.isLoser() {
 		return "💩"
-	} else if c.IsEven() {
+	} else if c.isEven() {
 		return "👊🏻"
 	} else {
 		return "💎"
 	}
 }
 
-func (c *Chart) IsWinner() bool {
-	return c.Exit != 0 && c.Result() > 0
+func (c *Chart) isWinner() bool {
+	return c.Exit != 0 && c.result() > 0
 }
 
-func (c *Chart) IsLoser() bool {
-	return c.Exit != 0 && c.Result() < 0
+func (c *Chart) isLoser() bool {
+	return c.Exit != 0 && c.result() < 0
 }
 
-func (c *Chart) IsTrading() bool {
+func (c *Chart) isTrading() bool {
 	return c.Exit == 0
 }
 
-func (c *Chart) IsEven() bool {
-	return c.EntryPlusFee() == c.ExitPlusFee()
+func (c *Chart) isEven() bool {
+	return c.entryPlusFee() == c.exitPlusFee()
 }
 
-func (c *Chart) Result() float64 {
-	return (c.ExitPlusFee() - c.EntryPlusFee()) * c.Size
+func (c *Chart) result() float64 {
+	return (c.exitPlusFee() - c.entryPlusFee()) * c.Size
 }
 
-func (c *Chart) EntryPlusFee() float64 {
+func (c *Chart) entryPlusFee() float64 {
 	return c.Entry + (c.Entry * c.TakerFee)
 }
 
-func (c *Chart) ExitPlusFee() float64 {
+func (c *Chart) exitPlusFee() float64 {
 	return c.Exit + (c.Exit * c.MakerFee)
 }
 
-func NewChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product) *Chart {
+func newChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product) *Chart {
 
 	c := new(Chart)
 
@@ -162,8 +162,8 @@ func NewChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product)
 			continue
 		}
 
-		if c.Exit == 0 && iterableRates[j-1].Time().Sub(firstRateTime) > time.Minute*45 && rate.High >= c.EntryPlusFee() {
-			c.Exit = c.EntryPlusFee()
+		if c.Exit == 0 && iterableRates[j-1].Time().Sub(firstRateTime) > time.Minute*45 && rate.High >= c.entryPlusFee() {
+			c.Exit = c.entryPlusFee()
 			break
 		}
 	}
@@ -173,7 +173,7 @@ func NewChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product)
 	return c
 }
 
-func (c *Chart) Kline() *charts.Kline {
+func (c *Chart) kline() *charts.Kline {
 
 	kline := charts.NewKLine()
 
@@ -232,18 +232,18 @@ func (c *Chart) title() string {
 		k[i] = k[i] + " %s"
 	}
 
-	v1 := c.ExitPlusFee()
-	if c.Result() < 0 {
-		v1 = c.EntryPlusFee()
+	v1 := c.exitPlusFee()
+	if c.result() < 0 {
+		v1 = c.entryPlusFee()
 	}
-	f := c.Symbol() + "\t" + strings.Join(k, "\t\t\t\t")
+	f := c.symbol() + "\t" + strings.Join(k, "\t\t\t\t")
 
 	return fmt.Sprintf(f,
 		round(c.Entry),
 		round(c.Goal),
 		round(c.Exit),
 		round(v1),
-		round(c.Result()),
+		round(c.result()),
 	)
 }
 

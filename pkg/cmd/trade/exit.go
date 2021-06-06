@@ -24,6 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// NewExits sells every active trading position.
 func NewExits(session *config.Session) error {
 
 	log.Info().Msg(util.Trade + " .")
@@ -37,7 +38,7 @@ func NewExits(session *config.Session) error {
 		return err
 	}
 
-	for _, position := range positions {
+	for productID, position := range positions {
 
 		if len(positions) < 1 {
 			log.Info().Msg(util.Trade + " ..")
@@ -49,7 +50,7 @@ func NewExits(session *config.Session) error {
 			return nil
 		}
 
-		log.Info().Msg(util.Trade + " ... " + position.ProductId())
+		log.Info().Msg(util.Trade + " ... " + productID)
 		for _, trade := range position.GetActiveTrades() {
 			if _, err := session.CreateOrder(position.NewMarketSellOrder(trade.Fill.Size)); err != nil {
 				return err
