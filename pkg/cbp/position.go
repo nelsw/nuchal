@@ -37,7 +37,7 @@ func (p *Position) IsHeld() bool {
 	return p.Balance() == p.Hold()
 }
 
-func (p Position) ProductId() string {
+func (p *Position) ProductId() string {
 	return p.Currency + "-USD"
 }
 

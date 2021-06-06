@@ -16,32 +16,40 @@
  * /
  */
 
-package cmd
+package trade
 
 import (
-	"github.com/nelsw/nuchal/pkg/cmd/report"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
-	"github.com/spf13/cobra"
+	"github.com/rs/zerolog/log"
 )
 
-func init() {
+func NewDrops(session *config.Session) error {
 
-	c := new(cobra.Command)
-	c.Use = "report"
-	c.Long = util.Banner
-	c.Short = "Provides a summary of your available currencies, balances, holds, and status of open trading positions"
-	c.Example = `
-	# Prints USD, Cryptocurrency, and total value of the configured Coinbase Pro account.
-	# Also prints position and trading information, namely size, value, balance and holds.
-	nuchal report`
-	c.Run = func(cmd *cobra.Command, args []string) {
-		if session, err := config.NewSession(usd, size, gain, loss, delta); err != nil {
-			panic(err)
-		} else if err := report.New(session); err != nil {
-			panic(err)
+	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Trade + " ... trade --drop")
+	log.Info().Msg(util.Trade + " ..")
+
+	for _, productId := range *session.ProductIds() {
+
+		log.Info().Msg(util.Trade + " ... " + productId)
+
+		orders, err := session.GetOrders(productId)
+		if err != nil {
+			return err
 		}
-	}
 
-	rootCmd.AddCommand(c)
+		for _, order := range *orders {
+			if err := session.CancelOrder(order.ID); err != nil {
+				return err
+			}
+			log.Info().Msg(util.Trade + " ... dropped")
+		}
+		log.Info().Msg(util.Trade + " ..")
+	}
+	log.Info().Msg(util.Trade + " .")
+
+	return nil
+
 }

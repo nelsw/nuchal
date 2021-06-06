@@ -22,16 +22,12 @@ import (
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
+	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"time"
 )
 
-func New(usd []string, size, gain, loss, delta float64) error {
-
-	ses, err := config.NewSession(usd, size, gain, loss, delta)
-	if err != nil {
-		return err
-	}
+func New(session *config.Session) error {
 
 	for {
 
@@ -43,7 +39,7 @@ func New(usd []string, size, gain, loss, delta float64) error {
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " .")
 
-		positions, err := ses.GetActivePositions()
+		positions, err := session.GetActivePositions()
 		if err != nil {
 			return err
 		}
@@ -57,13 +53,15 @@ func New(usd []string, size, gain, loss, delta float64) error {
 			coin += position.Value()
 		}
 
+		dollar := util.Money(cash)
+		currency := util.Money(coin)
+		sigma := util.Usd(cash + coin)
+
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " ... portfolio")
-		log.Info().
-			Str(util.Dollar, util.Money(cash)).
-			Str(util.Currency, util.Money(coin)).
-			Str(util.Sigma, util.Usd(cash+coin)).
-			Msg(util.Report + " ...")
+		log.Info().Str(util.Dollar, dollar).Str(util.Currency, currency).Str(util.Sigma, sigma).Msg(util.Report + " ...")
+		log.Info().Msg(util.Report + " ..")
+		log.Info().Msg(util.Report + " .")
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " ... positions")
 		log.Info().Msg(util.Report + " ..")
@@ -74,25 +72,65 @@ func New(usd []string, size, gain, loss, delta float64) error {
 				continue
 			}
 
-			log.Info().
-				Str(util.Dollar, util.Money(position.Price())).
-				Str(util.Sigma, util.Usd(position.Value())).
-				Float64(util.Quantity, position.Balance()).
-				Msg(util.Report + " ... " + position.Currency)
+			dollar = util.Money(position.Price())
+			sigma = util.Usd(position.Value())
+			qty := position.Balance()
+			msg := util.Report + " ... " + position.Currency
 
-			out, err := ses.GetOrders(position.ProductId())
+			log.Info().Str(util.Dollar, dollar).Str(util.Sigma, sigma).Float64(util.Balance, qty).Msg(msg)
+
+			orders, err := session.GetOrders(position.ProductId())
 			if err != nil {
 				return err
 			}
 
-			if len(*out) > 0 {
-				log.Info().Msg(util.Report + " ... held")
-				for _, order := range *out {
+			if len(*orders) > 0 {
+
+				fills, err := session.GetFills(position.ProductId())
+				if err != nil {
+					return err
+				}
+
+				for orderIdx, order := range *orders {
+
+					if order.Side == "buy" {
+						continue
+					}
+
+					var entryPrice float64
+					for fillIdx, fill := range *fills {
+
+						if fill.Side != "buy" {
+							continue
+						}
+
+						if orderIdx == fillIdx { // direct match?
+							entryPrice = util.Float64(fill.Price)
+							break
+						}
+
+						productId := order.ProductID
+
+						t := order.CreatedAt.Time()
+						from := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, t.Location())
+						to := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 59, 0, t.Location())
+
+						params := cb.GetHistoricRatesParams{from, to, 60}
+
+						rates, err := session.GetClient().GetHistoricRates(productId, params)
+						if err != nil {
+							return err
+						}
+						entryPrice = rates[0].Open
+						break
+					}
+
 					log.Info().
-						Str(util.Dollar, util.Money(util.Float64(order.Price))).
-						Str(util.Quantity, fmt.Sprintf("%.0f", util.Float64(order.Size))).
-						Time("🗓", order.CreatedAt.Time()).
-						Msg(util.Report + " ... ")
+						Str(util.Dollar, util.Money(entryPrice)).
+						Str(util.Target, util.Money(util.Float64(order.Price))).
+						Str(util.Balance, fmt.Sprintf("%.0f", util.Float64(order.Size))).
+						Time(util.Time, order.CreatedAt.Time()).
+						Msg(util.Report + " ... hold")
 				}
 			}
 
@@ -102,14 +140,14 @@ func New(usd []string, size, gain, loss, delta float64) error {
 				for _, trade := range trades {
 
 					goal := position.GoalPrice(trade.Price())
-					net := (goal - (goal * ses.Maker)) * trade.Size()
+					net := (goal - (goal * session.Maker)) * trade.Size()
 
 					log.Info().
 						Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
-						Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
-						Time("🗓", trade.CreatedAt.Time()).
-						Str("🎯", fmt.Sprintf("%.3f", goal)).
-						Str("💰", fmt.Sprintf("%.3f", net)).
+						Str(util.Balance, fmt.Sprintf("%.0f", trade.Size())).
+						Time(util.Time, trade.CreatedAt.Time()).
+						Str(util.Target, fmt.Sprintf("%.3f", goal)).
+						Str(util.Profit, fmt.Sprintf("%.3f", net)).
 						Msg(util.Report + " ... ")
 				}
 			}

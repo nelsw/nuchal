@@ -25,16 +25,22 @@ import (
 )
 
 type Period struct {
+
+	// Alpha defines when command functionality should start.
 	Alpha time.Time `envconfig:"PERIOD_ALPHA" yaml:"alpha"`
 
+	// Omega defines when command functionality should cease.
 	Omega time.Time `envconfig:"PERIOD_OMEGA" yaml:"omega"`
 
+	// Duration is the amount of time the command should be available.
+	// sim uses this as the amount of time to host result pages.
+	// trade uses this to override Alpha and Omega values.
 	Duration time.Duration `envconfig:"PERIOD_DURATION" yaml:"duration"`
 }
 
 // InPeriod is an exclusive range function to determine if the given time falls within the defined period.
 func (p *Period) InPeriod(t time.Time) bool {
-	return p.Start().Before(t) && p.Stop().After(t)
+	return p.Start().Before(t) && p.Cease().After(t)
 }
 
 func (p *Period) Start() *time.Time {
@@ -45,7 +51,7 @@ func (p *Period) Start() *time.Time {
 	return &then
 }
 
-func (p *Period) Stop() *time.Time {
+func (p *Period) Cease() *time.Time {
 	then := p.Omega
 	if then.Year() == 1 {
 		then, _ = time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT22:00:00+00:00", year(), month(), day()))
