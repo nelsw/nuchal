@@ -19,27 +19,47 @@
 package trade
 
 import (
+	"fmt"
 	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
 func NewSells(session *config.Session) error {
-
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --sell")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " .")
 
 	positions, err := session.GetTradingPositions()
 	if err != nil {
 		return err
 	}
 
+	var positionIds []string
+	for productId, _ := range positions {
+		positionIds = append(positionIds, productId)
+	}
+	sort.Strings(positionIds)
+
+	var tradeIds []int
+	for _, position := range positions {
+		for _, trade := range position.GetActiveTrades() {
+			tradeIds = append(tradeIds, trade.TradeID)
+		}
+	}
+
+	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Trade + " ... trade --sell")
+	log.Info().Strs(" products", *session.ProductIds()).Msg(util.Trade + " ...")
+	log.Info().Strs("positions", positionIds).Msg(util.Trade + " ...")
+	log.Info().Ints("   trades", tradeIds).Msg(util.Trade + " ...")
+	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Trade + " .")
 	log.Info().Msg(util.Trade + " ..")
 
 	if len(positions) < 1 {
@@ -51,51 +71,54 @@ func NewSells(session *config.Session) error {
 		return nil
 	}
 
-	fail := make(chan error)
-	done := make(chan bool)
-	go func() {
+	done := make(chan error)
 
-		for productId, position := range positions {
-
-			log.Info().Msg(util.Trade + " ... " + productId)
+	for _, position := range positions {
+		go func(position cbp.Position) {
 
 			for _, trade := range position.GetActiveTrades() {
+				go func(trade cbp.Trade) {
 
-				size := trade.Fill.Size
-				entryPrice := trade.Price()
-				goalPrice := position.GoalPrice(entryPrice)
-				entryTime := trade.CreatedAt.Time()
+					tradeId := strconv.Itoa(trade.TradeID)
+					productId := trade.ProductID
+					size := trade.Fill.Size
+					entryPrice := trade.Price()
+					entryTime := trade.CreatedAt.Time()
+					goalPrice := position.GoalPrice(entryPrice)
 
-				log.Info().Msg(util.Trade + " ... sell")
-				log.Info().Int("#", trade.TradeID).Msg(util.Trade + " ...")
-				log.Info().Str(util.Currency, productId).Msg(util.Trade + " ...")
-				log.Info().Float64(util.Dollar, entryPrice).Msg(util.Trade + " ...")
-				log.Info().Float64(util.Target, goalPrice).Msg(util.Trade + " ...")
-
-				exitPrice, err := NewSell(session, productId, size, entryPrice, goalPrice, entryTime)
-				if err != nil {
-					fail <- err
-					continue
-				}
-
-				log.Info().Msg(util.Trade + " ... sold")
-				log.Info().Int("#", trade.TradeID).Msg(util.Trade + " ...")
-				log.Info().Str(util.Currency, productId).Msg(util.Trade + " ...")
-				log.Info().Float64(util.Dollar, *exitPrice).Msg(util.Trade + " ...")
-				log.Info().Float64(util.Target, goalPrice).Msg(util.Trade + " ...")
+					prt(zerolog.InfoLevel, tradeId, productId, entryPrice, goalPrice, "sell")
+					if exitPrice, err := NewSell(session, tradeId, productId, size, entryPrice, goalPrice, entryTime); err != nil {
+						prt(zerolog.InfoLevel, tradeId, productId, entryPrice, goalPrice, err.Error())
+						done <- err
+					} else {
+						prt(zerolog.InfoLevel, tradeId, productId, *exitPrice, goalPrice, "sold")
+						done <- nil
+					}
+					return
+				}(trade)
 			}
-			log.Info().Msg(util.Trade + " ..")
-		}
-		log.Info().Msg(util.Trade + " .")
-		done <- true
-	}()
+		}(position)
+	}
 
+	completions := 0
 	for {
 		select {
-		case err := <-fail:
-			log.Error().Err(err).Send()
-		case _ = <-done:
-			return nil
+		case err := <-done:
+
+			completions++
+
+			if err != nil {
+				log.Error().Err(err).Msg(util.Trade + " ...")
+			}
+
+			if completions == len(tradeIds) {
+				log.Info().Msg(util.Trade + " ...")
+				log.Info().Msg(util.Trade + " ... available balance sold, go party.")
+				log.Info().Msg(util.Trade + " ...")
+				log.Info().Msg(util.Trade + " ..")
+				log.Info().Msg(util.Trade + " .")
+				return nil
+			}
 		}
 	}
 }
@@ -103,6 +126,7 @@ func NewSells(session *config.Session) error {
 // NewSell is responsible for selling an available product balance at a goal price or better.
 func NewSell(
 	session *config.Session,
+	tradeId,
 	productId,
 	size string,
 	entryPrice,
@@ -135,6 +159,7 @@ func NewSell(
 	/*
 		loop infinitely until we sell
 	*/
+	var i int
 	for {
 
 		// get the last known price for this product
@@ -154,30 +179,26 @@ func NewSell(
 				// if we can get our money back, with fees
 				*lastPrice >= entryPrice+(entryPrice*session.Maker)) {
 			// then anchor and climb.
-			return anchor(session, goalPrice, size, product)
+			return anchor(session, tradeId, size, productId, goalPrice, *lastPrice)
 		}
 
 		// else, get the next price and keep the dream alive that it meets or exceeds our goal price.
+		i++
+		if i%15 == 0 {
+			prt(zerolog.InfoLevel, tradeId, productId, *lastPrice, goalPrice, "rate")
+		}
 	}
 }
 
 // anchor attempts to create a new limit loss order for the given balance return climb.
-func anchor(session *config.Session, goalPrice float64, size string, product cbp.Product) (*float64, error) {
-	log.Info().
-		Float64(util.Target, goalPrice).
-		Str(util.Balance, size).
-		Str(util.Currency, product.ID).
-		Msg(util.Trade + " ... anchor")
-	if order, err := session.CreateOrder(product.NewLimitLossOrder(goalPrice, size)); err != nil {
+func anchor(session *config.Session, id, size, productId string, goalPrice, betterPrice float64) (*float64, error) {
+	prt(zerolog.InfoLevel, id, productId, goalPrice, betterPrice, "nchr")
+	product := session.Products[productId]
+	if order, err := session.CreateOrder(product.NewLimitLossOrder(betterPrice, size)); err != nil {
+		prt(zerolog.ErrorLevel, id, productId, goalPrice, betterPrice, err.Error())
 		return nil, err
 	} else {
-		log.Info().
-			Str("#", order.ID).
-			Float64(util.Target, goalPrice).
-			Str(util.Balance, size).
-			Str(util.Currency, product.ID).
-			Msg(util.Trade + " ... ")
-		return climb(session, goalPrice, size, order.ID, product)
+		return climb(session, id, size, order.ID, productId, goalPrice, betterPrice)
 	}
 }
 
@@ -185,57 +206,45 @@ func anchor(session *config.Session, goalPrice float64, size string, product cbp
 // climb polls live ticker rates and looks for a rate that closes higher than the given goal price.
 // climb recognizes limit loss order executions through rates with a low that is less than the given goal price.
 // climb attempts to cancel the given limit loss order when a higher goal price has been found, and returns anchor.
-func climb(session *config.Session, goalPrice float64, size, orderId string, product cbp.Product) (*float64, error) {
-
-	log.Info().
-		Str("#", orderId).
-		Float64(util.Target, goalPrice).
-		Str(util.Balance, size).
-		Str(util.Currency, product.ID).
-		Msg(util.Trade + " ... climb")
+func climb(session *config.Session, tradeId, size, orderId, productId string, goalPrice, betterPrice float64) (*float64, error) {
 
 	for {
 
-		rate, err := getRate(session, product.ID)
+		prt(zerolog.InfoLevel, tradeId, productId, goalPrice, betterPrice, "climb")
+
+		rate, err := getRate(session, productId)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Str("#", orderId).
-				Float64(util.Target, goalPrice).
-				Str(util.Balance, size).
-				Str(util.Currency, product.ID).
-				Msg(util.Trade + " ...")
+			prt(zerolog.ErrorLevel, tradeId, productId, goalPrice, betterPrice, err.Error())
 			return nil, err
 		}
 
 		if rate.Low <= goalPrice { // already sold
-			log.Info().
-				Str("#", orderId).
-				Float64(util.Target, goalPrice).
-				Str(util.Balance, size).
-				Str(util.Currency, product.ID).
-				Msg(util.Trade + " ... fell")
+			prt(zerolog.InfoLevel, tradeId, productId, goalPrice, betterPrice, "fell")
 			return &goalPrice, nil
 		}
 
 		if rate.Close > goalPrice {
-			log.Info().
-				Str("#", orderId).
-				Float64(util.Target, goalPrice).
-				Str(util.Balance, size).
-				Str(util.Currency, product.ID).
-				Msg(util.Trade + " ... camp")
+			prt(zerolog.WarnLevel, tradeId, productId, goalPrice, betterPrice, "camp")
 			if err := session.CancelOrder(orderId); err != nil {
+				prt(zerolog.ErrorLevel, tradeId, productId, goalPrice, betterPrice, err.Error())
 				return nil, err
 			}
-			return anchor(session, goalPrice, size, product)
+			return anchor(session, tradeId, size, productId, goalPrice, rate.Close)
 		}
-
-		log.Info().
-			Str("#", orderId).
-			Float64(util.Target, goalPrice).
-			Str(util.Balance, size).
-			Str(util.Currency, product.ID).
-			Msg(util.Trade + " ...")
 	}
+}
+
+func prt(level zerolog.Level, id, productId string, dollar, target float64, args ...string) {
+
+	currency := strings.ReplaceAll(productId, "-USD", "")
+
+	msg := util.Trade + " ... " + fmt.Sprintf("%5s", currency)
+	if args != nil && len(args) > 0 {
+		msg = msg + " ... " + args[0]
+	}
+	log.WithLevel(level).
+		Str("#", id).
+		Str(util.Dollar, fmt.Sprintf("%.3f", dollar)).
+		Str(util.Target, fmt.Sprintf("%.3f", target)).
+		Msg(msg)
 }

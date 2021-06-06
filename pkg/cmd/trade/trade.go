@@ -90,7 +90,7 @@ func buy(session *config.Session, product cbp.Product) {
 		goalPrice := product.GoalPrice(entryPrice)
 		entryTime := order.CreatedAt.Time()
 
-		if _, err := NewSell(session, productId, size, entryPrice, goalPrice, entryTime); err != nil {
+		if _, err := NewSell(session, order.ID, productId, size, entryPrice, goalPrice, entryTime); err != nil {
 			log.Error().Err(err).Msg("while selling")
 		}
 		return

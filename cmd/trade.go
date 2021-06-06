@@ -56,7 +56,7 @@ func init() {
 		if hold {
 			err = trade.NewHolds(session)
 		} else if sell {
-			err = trade.NewSells(usd, size, gain, loss, delta)
+			err = trade.NewSells(session)
 		} else if exit {
 			err = trade.NewExits(session)
 		} else {

@@ -200,7 +200,7 @@ func (a *Api) CreateOrder(order *cb.Order, attempt ...int) (*cb.Order, error) {
 	}
 
 	i := util.FirstIntOrZero(attempt)
-	if util.IsInsufficientFunds(err) || i > 10 {
+	if util.IsInsufficientFunds(err) || i > 2 {
 		return nil, err
 	}
 

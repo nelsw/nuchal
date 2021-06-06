@@ -150,16 +150,6 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		allProductsMap[a.ID] = a
 	}
 
-	productMap := map[string]cb.Product{}
-	if usd != nil && len(usd) > 0 {
-		for _, currency := range usd {
-			productId := currency + "-USD"
-			productMap[productId] = allProductsMap[productId]
-		}
-	} else {
-		productMap = allProductsMap
-	}
-
 	var wrapper struct {
 		Patterns []cbp.Pattern `yaml:"patterns"`
 	}
@@ -178,7 +168,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 
 	mm := map[string]cbp.Product{}
 	for _, pattern := range wrapper.Patterns {
-		product := productMap[pattern.Id]
+		product := allProductsMap[pattern.Id]
 		if product.BaseMinSize == "" || product.QuoteIncrement == "" {
 			continue
 		}
