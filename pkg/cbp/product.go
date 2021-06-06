@@ -30,6 +30,10 @@ type Product struct {
 	Pattern
 }
 
+func (p *Product) Url() string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ID)
+}
+
 func (p *Product) NewMarketBuyOrder() *cb.Order {
 	o := new(cb.Order)
 	o.ProductID = p.Id
