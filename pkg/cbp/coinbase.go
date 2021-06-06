@@ -20,8 +20,11 @@ package cbp
 
 import (
 	"errors"
+	"fmt"
+	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"github.com/rs/zerolog/log"
 	"net/http"
 	"regexp"
 	"time"
@@ -251,4 +254,37 @@ func (a *Api) CancelOrder(id string, attempt ...int) error {
 	i++
 	time.Sleep(time.Duration(i*3) * time.Second)
 	return a.CancelOrder(id, i)
+}
+
+// GetPrice gets the latest ticker price for the given productId. This method does not perform logging as it is executed
+// thousands of times per second.
+func (a *Api) GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
+
+	if err := wsConn.WriteJSON(&cb.Message{
+		Type:     "subscribe",
+		Channels: []cb.MessageChannel{{"ticker", []string{productID}}},
+	}); err != nil {
+		log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... subscribing to websocket")
+		return nil, err
+	}
+
+	var receivedMessage cb.Message
+	for {
+		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
+			log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... reading from websocket")
+			return nil, err
+		}
+		if receivedMessage.Type != "subscriptions" {
+			break
+		}
+	}
+
+	if receivedMessage.Type != "ticker" {
+		err := fmt.Errorf("message type != ticker, %v", receivedMessage)
+		log.Error().Err(err).Str(util.Currency, productID).Msg("getting ticker message from websocket")
+		return nil, err
+	}
+
+	f := util.Float64(receivedMessage.Price)
+	return &f, nil
 }

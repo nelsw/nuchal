@@ -24,7 +24,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	if err := New(test.Usd, test.Size, test.Gain, test.Loss, test.Delta); err != nil {
+	if err := New(test.Session()); err != nil {
 		t.Error(err)
 	}
 }

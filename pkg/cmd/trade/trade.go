@@ -29,12 +29,7 @@ import (
 )
 
 // New will attempt to buy and sell automagically.
-func New(usd []string, size, gain, loss, delta float64) error {
-
-	ses, err := config.NewSession(usd, size, gain, loss, delta)
-	if err != nil {
-		return err
-	}
+func New(ses *config.Session) error {
 
 	log.Info().Msg(util.Trade + " .")
 	log.Info().Msg(util.Trade + " ..")

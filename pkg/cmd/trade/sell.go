@@ -211,7 +211,7 @@ func climb(session *config.Session, tradeID, size, orderID, productID string, go
 
 	for {
 
-		prt(zerolog.InfoLevel, tradeID, productID, goalPrice, betterPrice, "climb")
+		prt(zerolog.InfoLevel, tradeID, productID, goalPrice, betterPrice, "clmb")
 
 		rate, err := getRate(session, productID)
 		if err != nil {

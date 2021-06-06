@@ -21,7 +21,6 @@ package config
 import (
 	"bufio"
 	"fmt"
-	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/util"
@@ -47,7 +46,9 @@ type Session struct {
 
 	Products map[string]cbp.Product
 
-	Started time.Time
+	Patterns []cbp.Pattern `yaml:"patterns"`
+
+	*time.Time
 }
 
 func init() {
@@ -86,24 +87,26 @@ func (s Session) ProductIds() *[]string {
 	return &productIds
 }
 
-// NewSession reads configuration from environment variables and validates it
-func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error) {
-
-	util.PrintlnBanner()
-
-	session := new(Session)
-
+func hello() {
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " ... hello " + os.Getenv("USER"))
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
+}
 
-	err := util.ConfigFromYml(session)
-	if err != nil {
+// NewSession reads configuration from environment variables and validates it
+func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Session, error) {
+
+	util.PrintlnBanner()
+
+	session := new(Session)
+
+	hello()
+
+	if err := util.ConfigFromYml(session, cfg); err != nil {
 		// either the file didn't exist or wasn't properly formatted
-		err = util.ConfigFromEnv(session)
-		if err != nil {
+		if err = util.ConfigFromEnv(session); err != nil {
 			return nil, err
 		}
 	}
@@ -113,22 +116,22 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		return nil, err
 	}
 
+	// While trade and report commands do not requiring the database,
+	// simulations do, which should occur before trading & reporting.
+	if err := db.InitDb(); err != nil {
+		return nil, err
+	}
+
 	// Set a "start time" for the session
 	tme, err := session.GetTime()
 	if err != nil {
 		return nil, err
 	}
-	session.Started = *tme
+	session.Time = tme
 
 	// No other place to really put this
 	if session.Port == 0 {
 		session.Port = 8080
-	}
-
-	// While trade and report commands do not requiring the database,
-	// simulations do, which should occur before trading & reporting.
-	if err := db.InitDb(); err != nil {
-		return nil, err
 	}
 
 	// Initiating products will fetch the most recent list of
@@ -139,31 +142,21 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	}
 
 	allProductsMap := map[string]cb.Product{}
-	for _, a := range *allUsdProducts {
-		if a.BaseCurrency == "DAI" || a.BaseCurrency == "USDT" {
+	for _, product := range *allUsdProducts {
+		if product.BaseCurrency == "DAI" || product.BaseCurrency == "USDT" {
 			continue
 		}
-		allProductsMap[a.ID] = a
+		allProductsMap[product.ID] = product
 	}
 
-	var wrapper struct {
-		Patterns []cbp.Pattern `yaml:"patterns"`
-	}
-
-	if err := util.ConfigFromYml(&wrapper); err != nil {
-		return nil, err
-	}
-
-	if len(wrapper.Patterns) < 1 {
-		for _, product := range *allUsdProducts {
-			pattern := new(cbp.Pattern)
-			pattern.Id = product.ID
-			wrapper.Patterns = append(wrapper.Patterns, *pattern)
+	session.Products = map[string]cbp.Product{}
+	if len(session.Patterns) < 1 {
+		for productID, product := range allProductsMap {
+			session.Products[productID] = cbp.Product{product, *cbp.NewPattern(size, gain, loss, delta)}
 		}
 	}
 
-	mm := map[string]cbp.Product{}
-	for _, pattern := range wrapper.Patterns {
+	for _, pattern := range session.Patterns {
 		product := allProductsMap[pattern.Id]
 		if product.BaseMinSize == "" || product.QuoteIncrement == "" {
 			continue
@@ -180,9 +173,8 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		if pattern.Delta == 0 {
 			pattern.Delta = delta
 		}
-		mm[pattern.Id] = cbp.Product{product, pattern}
+		session.Products[pattern.Id] = cbp.Product{product, pattern}
 	}
-	session.Products = mm
 
 	log.Debug().Interface("session", session).Send()
 
@@ -191,7 +183,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "exit" {
-				exit()
+				goodbye()
 			} else {
 				log.Info().Msg(util.Fish + " ... I'm not familiar with ")
 			}
@@ -205,7 +197,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 	return session, nil
 }
 
-func exit() {
+func goodbye() {
 	log.Info().Msg(util.Fish + " .")
 	log.Info().Msg(util.Fish + " ..")
 	log.Info().Msg(util.Fish + " ...")
@@ -252,37 +244,4 @@ func (s *Session) GetActivePositions() (*[]cbp.Position, error) {
 	}
 
 	return &result, nil
-}
-
-// GetPrice gets the latest ticker price for the given productId. This method does not perform logging as it is executed
-// thousands of times per second.
-func (s *Session) GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
-
-	if err := wsConn.WriteJSON(&cb.Message{
-		Type:     "subscribe",
-		Channels: []cb.MessageChannel{{"ticker", []string{productID}}},
-	}); err != nil {
-		log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... subscribing to websocket")
-		return nil, err
-	}
-
-	var receivedMessage cb.Message
-	for {
-		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
-			log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... reading from websocket")
-			return nil, err
-		}
-		if receivedMessage.Type != "subscriptions" {
-			break
-		}
-	}
-
-	if receivedMessage.Type != "ticker" {
-		err := fmt.Errorf("message type != ticker, %v", receivedMessage)
-		log.Error().Err(err).Str(util.Currency, productID).Msg("getting ticker message from websocket")
-		return nil, err
-	}
-
-	f := util.Float64(receivedMessage.Price)
-	return &f, nil
 }

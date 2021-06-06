@@ -29,6 +29,7 @@ const (
 	gain  = .0195
 	loss  = .0495
 	delta = .001
+	cfg   = "config.yml"
 )
 
 var (
@@ -37,7 +38,7 @@ var (
 )
 
 func Session() *config.Session {
-	session, err := config.NewSession(usd, size, gain, loss, delta)
+	session, err := config.NewSession(cfg, usd, size, gain, loss, delta)
 	if err != nil {
 		panic(err)
 	}

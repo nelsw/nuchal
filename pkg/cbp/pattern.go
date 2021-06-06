@@ -1,3 +1,21 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package cbp
 
 import (
@@ -22,6 +40,15 @@ type Pattern struct {
 
 	// Delta is the size of an acceptable difference between tweezer bottom candlesticks.
 	Delta float64 `yaml:"delta"`
+}
+
+func NewPattern(size, gain, loss, delta float64) *Pattern {
+	pattern := new(Pattern)
+	pattern.Size = size
+	pattern.Gain = gain
+	pattern.Loss = loss
+	pattern.Delta = delta
+	return pattern
 }
 
 func (p *Pattern) GoalPrice(price float64) float64 {
