@@ -49,13 +49,13 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 	log.Info().Msg(util.Sim + " ... simulation")
 	log.Info().Msg(util.Sim + " ..")
 	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Sim + " ...")
-	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Sim + " ...")
-	log.Info().Strs(util.Currency, ses.ProductIds).Msg(util.Sim + " ...")
+	log.Info().Time(util.Omega, *ses.Cease()).Msg(util.Sim + " ...")
+	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Sim + " ...")
 	log.Info().Msg(util.Sim + " ..")
 
 	simulations := map[string]Simulation{}
 	var results []Simulation
-	for _, productId := range ses.ProductIds {
+	for _, productId := range *ses.ProductIds() {
 
 		product := ses.Products[productId]
 
@@ -103,7 +103,7 @@ func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bo
 		log.Info().Float64("        %", simulation.Net()).Msg(util.Sim + " ...")
 		log.Info().Float64("        Δ", simulation.Delta).Msg(util.Sim + " ...")
 		log.Info().Float64("        ꜛ", simulation.Gain).Msg(util.Sim + " ...")
-		log.Info().Float64("        "+util.Quantity, simulation.Size).Msg(util.Sim + " ...")
+		log.Info().Float64("        "+util.Balance, simulation.Size).Msg(util.Sim + " ...")
 		log.Info().Msg(util.Sim + " ..")
 
 		winners += simulation.WonLen()

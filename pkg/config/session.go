@@ -20,7 +20,9 @@ package config
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/util"
@@ -45,8 +47,6 @@ type Session struct {
 	*cbp.Api `yaml:"cbp"`
 
 	Products map[string]cbp.Product
-
-	ProductIds []string
 
 	Started time.Time
 }
@@ -77,6 +77,15 @@ func init() {
 	}
 }
 
+func (s Session) ProductIds() *[]string {
+	var productIds []string
+	for productId, _ := range s.Products {
+		productIds = append(productIds, productId)
+	}
+	sort.Strings(productIds)
+	return &productIds
+}
+
 func (s *Session) User() string {
 	return os.Getenv("USER")
 }
@@ -86,37 +95,38 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 
 	util.PrintlnBanner()
 
-	c := new(Session)
+	session := new(Session)
+
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... hello " + c.User())
+	log.Info().Msg(util.Fish + " ... hello " + session.User())
 	log.Info().Msg(util.Fish + " .. ")
-	log.Debug().Msg("configure session")
+	log.Info().Msg(util.Fish + " . ")
 
-	err := util.ConfigFromYml(c)
+	err := util.ConfigFromYml(session)
 	if err != nil {
 		// either the file didn't exist or wasn't properly formatted
-		err = util.ConfigFromEnv(c)
+		err = util.ConfigFromEnv(session)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Lets confirm our API credentials are correct
-	if err := c.Api.Validate(); err != nil {
+	if err := session.Api.Validate(); err != nil {
 		return nil, err
 	}
 
 	// Set a "start time" for the session
-	if tme, err := c.GetTime(); err != nil {
+	if tme, err := session.GetTime(); err != nil {
 		return nil, err
 	} else {
-		c.Started = *tme
+		session.Started = *tme
 	}
 
 	// No other place to really put this
-	if c.Port == 0 {
-		c.Port = 8080
+	if session.Port == 0 {
+		session.Port = 8080
 	}
 
 	// While trade and report commands do not requiring the database,
@@ -127,7 +137,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 
 	// Initiating products will fetch the most recent list of
 	// cryptocurrencies and apply patterns to each product.
-	allUsdProducts, err := c.Api.GetUsdProducts()
+	allUsdProducts, err := session.Api.GetUsdProducts()
 	if err != nil {
 		return nil, err
 	}
@@ -185,15 +195,10 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 			pattern.Delta = delta
 		}
 		mm[pattern.Id] = cbp.Product{product, pattern}
-		c.ProductIds = append(c.ProductIds, pattern.Id)
 	}
-	c.Products = mm
-	sort.Strings(c.ProductIds)
+	session.Products = mm
 
-	log.Debug().Interface("session", c).Msg("configure")
-	log.Info().Msg(util.Fish + " ... everything seems to be in order")
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " . ")
+	log.Debug().Interface("session", session).Send()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	go func() {
@@ -211,7 +216,7 @@ func NewSession(usd []string, size, gain, loss, delta float64) (*Session, error)
 		}
 	}()
 
-	return c, nil
+	return session, nil
 }
 
 func exit() {
@@ -225,22 +230,22 @@ func exit() {
 	os.Exit(0)
 }
 
-func (s *Session) GetTradingPositions() (*[]cbp.Position, error) {
+func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 
 	positions, err := s.GetActivePositions()
 	if err != nil {
 		return nil, err
 	}
 
-	var result []cbp.Position
+	result := map[string]cbp.Position{}
 	for _, position := range *positions {
-		if position.Currency == "USD-USD" || position.Balance() == position.Hold() {
+		if position.Currency == "USD" || position.Balance() == position.Hold() {
 			continue
 		}
-		result = append(result, position)
+		result[position.ProductId()] = position
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 func (s *Session) GetActivePositions() (*[]cbp.Position, error) {
@@ -259,4 +264,46 @@ func (s *Session) GetActivePositions() (*[]cbp.Position, error) {
 	}
 
 	return &result, nil
+}
+
+func (s *Session) GetCurrentPrice(productId string) (*float64, error) {
+	ticker, err := s.GetClient().GetTicker(productId)
+	if err != nil {
+		return nil, err
+	}
+	price := util.Float64(ticker.Price)
+	return &price, nil
+}
+
+// GetPrice gets the latest ticker price for the given productId. This method does not perform logging as it is executed
+// thousands of times per second.
+func (s *Session) GetPrice(wsConn *ws.Conn, productId string) (*float64, error) {
+
+	if err := wsConn.WriteJSON(&cb.Message{
+		Type:     "subscribe",
+		Channels: []cb.MessageChannel{{"ticker", []string{productId}}},
+	}); err != nil {
+		log.Error().Err(err).Str(util.Currency, productId).Msg(util.Fish + " ... subscribing to websocket")
+		return nil, err
+	}
+
+	var receivedMessage cb.Message
+	for {
+		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
+			log.Error().Err(err).Str(util.Currency, productId).Msg(util.Fish + " ... reading from websocket")
+			return nil, err
+		}
+		if receivedMessage.Type != "subscriptions" {
+			break
+		}
+	}
+
+	if receivedMessage.Type != "ticker" {
+		err := errors.New(fmt.Sprintf("message type != ticker, %v", receivedMessage))
+		log.Error().Err(err).Str(util.Currency, productId).Msg("getting ticker message from websocket")
+		return nil, err
+	}
+
+	f := util.Float64(receivedMessage.Price)
+	return &f, nil
 }

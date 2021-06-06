@@ -74,6 +74,20 @@ func (a *Api) GetTime() (*time.Time, error) {
 	return &t, nil
 }
 
+func (a *Api) GetFillsByOrderId(id string) (*[]cb.Fill, error) {
+	var newChunks, allChunks []cb.Fill
+	cursor := a.GetClient().ListFills(cb.ListFillsParams{OrderID: id})
+	for cursor.HasMore {
+		if err := cursor.NextPage(&newChunks); err != nil {
+			return nil, err
+		}
+		for _, chunk := range newChunks {
+			allChunks = append(allChunks, chunk)
+		}
+	}
+	return &allChunks, nil
+}
+
 func (a *Api) GetFills(productId string) (*[]cb.Fill, error) {
 
 	cursor := a.GetClient().ListFills(cb.ListFillsParams{ProductID: productId})
@@ -173,4 +187,68 @@ func (a Api) GetOrders(productId string) (*[]cb.Order, error) {
 	}
 
 	return &allChunks, nil
+}
+
+// CreateOrder creates an order on Coinbase and returns the order once it is no longer pending and has settled.
+// Given that there are many different types of orders that can be created in many different scenarios, it is the
+// responsibility of the method calling this function to perform logging.
+func (a *Api) CreateOrder(order *cb.Order, attempt ...int) (*cb.Order, error) {
+
+	r, err := a.GetClient().CreateOrder(order)
+	if err == nil {
+		return a.GetOrder(r.ID)
+	}
+
+	i := util.FirstIntOrZero(attempt)
+	if util.IsInsufficientFunds(err) || i > 10 {
+		return nil, err
+	}
+
+	i++
+	time.Sleep(time.Duration(i*3) * time.Second)
+	return a.CreateOrder(order, i)
+}
+
+// GetOrder is a recursive function that returns an order equal to the given id once it is settled and not pending.
+// This function also performs extensive logging given its variable and seriously critical nature.
+func (a *Api) GetOrder(id string, attempt ...int) (*cb.Order, error) {
+
+	order, err := a.GetClient().GetOrder(id)
+
+	if err == nil && order.Status != "pending" {
+		return &order, nil
+	}
+
+	if err != nil {
+
+		i := util.FirstIntOrZero(attempt)
+		if i > 10 {
+			return nil, err
+		}
+
+		i++
+		time.Sleep(time.Duration(i*3) * time.Second)
+		return a.GetOrder(id, i)
+	}
+
+	time.Sleep(1 * time.Second)
+	return a.GetOrder(id)
+}
+
+// CancelOrder is a recursive function that cancels an order equal to the given id.
+func (a *Api) CancelOrder(id string, attempt ...int) error {
+
+	err := a.GetClient().CancelOrder(id)
+	if err == nil {
+		return nil
+	}
+
+	i := util.FirstIntOrZero(attempt)
+	if i > 10 {
+		return err
+	}
+
+	i++
+	time.Sleep(time.Duration(i*3) * time.Second)
+	return a.CancelOrder(id, i)
 }

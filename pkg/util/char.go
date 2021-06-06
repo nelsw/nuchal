@@ -16,30 +16,26 @@
  * /
  */
 
-package test
-
-import "github.com/nelsw/nuchal/pkg/config"
+package util
 
 const (
-	Size  = 1.0
-	Gain  = .0195
-	Loss  = .0495
-	Delta = .001
-	size  = 1.0
-	gain  = .0195
-	loss  = .0495
-	delta = .001
-)
 
-var (
-	Usd = []string{}
-	usd = []string{}
-)
+	// Alpha is the character used to represent the beginning of a time period.
+	Alpha = `ɑ`
 
-func Session() *config.Session {
-	session, err := config.NewSession(usd, size, gain, loss, delta)
-	if err != nil {
-		panic(err)
-	}
-	return session
-}
+	// Balance is the character used to represent the quantity of product increments in a position.
+	// It is formally known as the North Indic Quantity Mark.
+	Balance = `꠹`
+
+	// Currency is the character used to represent cryptocurrency products.
+	Currency = `¤`
+
+	// Dollar is the character used to represent USD increments.
+	Dollar = `$`
+
+	// Omega is the character used to represent the end of a time period.
+	Omega = `Ω`
+
+	// Sigma is the character used to represent the sum and/or total value of a portfolio or position.
+	Sigma = `𝚺`
+)

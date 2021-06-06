@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"github.com/nelsw/nuchal/pkg/cmd/trade"
+	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -47,14 +48,17 @@ func init() {
 
 	c.Run = func(cmd *cobra.Command, args []string) {
 
-		var err error
+		session, err := config.NewSession(usd, size, gain, loss, delta)
+		if err != nil {
+			panic(err)
+		}
 
 		if hold {
-			err = trade.NewHolds(usd, size, gain, loss, delta)
+			err = trade.NewHolds(session)
 		} else if sell {
 			err = trade.NewSells(usd, size, gain, loss, delta)
 		} else if exit {
-			err = trade.NewExits(usd, size, gain, loss, delta)
+			err = trade.NewExits(session)
 		} else {
 			err = trade.New(usd, size, gain, loss, delta)
 		}
