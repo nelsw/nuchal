@@ -1,5 +1,7 @@
-# nuchal
-**nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* is an application for evaluating and executing cryptocurrency trades 
+
+
+# nuchal [![Go Report Card][5]][4]
+**nuchal**, *new⋅kull, /ˈn(y)o͞ok(ə)l/,* is an application for evaluating and executing cryptocurrency trades 
 from based statistical pattern recognition on technical analysis using multiple timeframes. 
 
 The goal of **nuchal** was to create a trading extension capable of simulating trades from historical rates, executing 
@@ -111,3 +113,5 @@ This code is Copyright Connor Ross Van Elswyk and licensed under Apache License 
 [1]: https://pro.coinbase.com
 [2]: https://golang.org/
 [3]: https://www.docker.com/
+[4]: https://goreportcard.com/report/github.com/nelsw/nuchal
+[5]: https://goreportcard.com/badge/github.com/nelsw/nuchal?style=flat-square
