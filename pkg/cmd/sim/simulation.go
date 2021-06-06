@@ -21,6 +21,7 @@ package sim
 import (
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
+	"github.com/nelsw/nuchal/pkg/util"
 )
 
 type simulation struct {
@@ -41,7 +42,18 @@ type simulation struct {
 	Even []Chart
 }
 
-func newSimulation(rates []cbp.Rate, product cbp.Product, maker, taker float64, period config.Period) *simulation {
+func (s *simulation) symbol() string {
+	if s.Total() > 0 {
+		return util.Won
+	} else if s.Total() == 0 {
+		return util.Even
+	} else {
+		return util.Lost
+	}
+}
+
+func newSimulation(
+	rates []cbp.Rate, product cbp.Product, maker, taker float64, period config.Period) *simulation {
 
 	simulation := new(simulation)
 	simulation.Product = product
@@ -104,6 +116,14 @@ func (s *simulation) LostSum() float64 {
 	return sum
 }
 
+func (s *simulation) TradingSum() float64 {
+	sum := 0.0
+	for _, l := range s.Trading {
+		sum += l.result()
+	}
+	return sum
+}
+
 func (s *simulation) Volume() float64 {
 	sum := 0.0
 	for _, w := range s.Won {
@@ -119,7 +139,7 @@ func (s *simulation) Volume() float64 {
 }
 
 func (s *simulation) Total() float64 {
-	return s.WonSum() + s.LostSum()
+	return s.WonSum() + s.LostSum() + s.TradingSum()
 }
 
 func (s *simulation) Net() float64 {

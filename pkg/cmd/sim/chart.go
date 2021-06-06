@@ -23,6 +23,7 @@ import (
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
 	"github.com/nelsw/nuchal/pkg/cbp"
+	"github.com/nelsw/nuchal/pkg/util"
 	"math"
 	"strings"
 	"time"
@@ -57,6 +58,8 @@ type Chart struct {
 
 	// TakerFee is a fee for placing a market order.
 	TakerFee float64
+
+	Last float64
 }
 
 // symbol returns an emoji correlated the the status of the chart
@@ -97,7 +100,11 @@ func (c *Chart) entryPlusFee() float64 {
 }
 
 func (c *Chart) exitPlusFee() float64 {
-	return c.Exit + (c.Exit * c.MakerFee)
+	exit := c.Exit
+	if exit == 0 {
+		exit = c.Last
+	}
+	return exit + (exit * c.MakerFee)
 }
 
 func newChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product) *Chart {
@@ -162,13 +169,15 @@ func newChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product)
 			continue
 		}
 
-		if c.Exit == 0 && iterableRates[j-1].Time().Sub(firstRateTime) > time.Minute*45 && rate.High >= c.entryPlusFee() {
+		if c.Exit == 0 && iterableRates[j-1].Time().Sub(firstRateTime) > time.Minute*75 && rate.High >= c.entryPlusFee() {
 			c.Exit = c.entryPlusFee()
 			break
 		}
 	}
 
-	f := math.Min(float64(j+4), float64(len(iterableRates)))
+	c.Last = rate.Close
+
+	f := math.Min(float64(j+6), float64(len(iterableRates)))
 	c.Rates = rates[:int(f)]
 	return c
 }
@@ -227,22 +236,17 @@ func (c *Chart) kline() *charts.Kline {
 
 func (c *Chart) title() string {
 
-	k := []string{"⊣", "≥", "⊢", "≈", "="}
+	k := []string{"⊣", util.Target, "⊢", util.Sigma}
 	for i := 0; i < len(k); i++ {
 		k[i] = k[i] + " %s"
 	}
 
-	v1 := c.exitPlusFee()
-	if c.result() < 0 {
-		v1 = c.entryPlusFee()
-	}
 	f := c.symbol() + "\t" + strings.Join(k, "\t\t\t\t")
 
 	return fmt.Sprintf(f,
 		round(c.Entry),
 		round(c.Goal),
 		round(c.Exit),
-		round(v1),
 		round(c.result()),
 	)
 }

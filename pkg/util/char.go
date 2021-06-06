@@ -23,9 +23,9 @@ const (
 	// Alpha is the character used to represent the beginning of a time period.
 	Alpha = `ɑ`
 
-	// Balance is the character used to represent the quantity of product increments in a position.
+	// Quantity is the character used to represent the quantity of product increments in a position.
 	// It is formally known as the North Indic Quantity Mark.
-	Balance = `꠹`
+	Quantity = `꠹`
 
 	// Currency is the character used to represent cryptocurrency products.
 	Currency = `¤`
@@ -38,4 +38,10 @@ const (
 
 	// Sigma is the character used to represent the sum and/or total value of a portfolio or position.
 	Sigma = `𝚺`
+
+	Delta = `Δ`
+
+	UpArrow = `ꜛ`
+
+	Break = ` ... `
 )

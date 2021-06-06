@@ -78,7 +78,7 @@ func New(session *config.Session) error {
 			qty := position.Balance()
 			msg := util.Report + " ... " + position.Currency
 
-			log.Info().Str(util.Dollar, dollar).Str(util.Sigma, sigma).Float64(util.Balance, qty).Msg(msg)
+			log.Info().Str(util.Dollar, dollar).Str(util.Sigma, sigma).Float64(util.Quantity, qty).Msg(msg)
 
 			orders, err := session.GetOrders(position.ProductId())
 			if err != nil {
@@ -134,7 +134,7 @@ func New(session *config.Session) error {
 					log.Info().
 						Str(util.Dollar, util.Money(entryPrice)).
 						Str(util.Target, util.Money(util.Float64(order.Price))).
-						Str(util.Balance, fmt.Sprintf("%.0f", util.Float64(order.Size))).
+						Str(util.Quantity, fmt.Sprintf("%.0f", util.Float64(order.Size))).
 						Time(util.Time, order.CreatedAt.Time()).
 						Msg(util.Report + " ... hold")
 				}
@@ -150,7 +150,7 @@ func New(session *config.Session) error {
 
 					log.Info().
 						Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
-						Str(util.Balance, fmt.Sprintf("%.0f", trade.Size())).
+						Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
 						Time(util.Time, trade.CreatedAt.Time()).
 						Str(util.Target, fmt.Sprintf("%.3f", goal)).
 						Str(util.Profit, fmt.Sprintf("%.3f", net)).

@@ -47,6 +47,7 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Sim + " ...")
 	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Sim + " ...")
 	log.Info().Msg(util.Sim + " ..")
+	log.Info().Msg(util.Sim + " .")
 
 	simulations := map[string]simulation{}
 	var results []simulation
@@ -86,20 +87,55 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 	var won, lost, total, volume float64
 	for _, simulation := range results {
 
-		log.Info().Msg(util.Sim + " ... " + simulation.ID)
-		log.Info().Str("      url", simulation.Url()).Msg(util.Sim + " ...")
-		log.Info().Int("  trading", simulation.TradingLen()).Msg(util.Sim + " ...")
-		log.Info().Int("  winners", simulation.WonLen()).Msg(util.Sim + " ...")
-		log.Info().Int("   losers", simulation.LostLen()).Msg(util.Sim + " ...")
-		log.Info().Int("     even", simulation.EvenLen()).Msg(util.Sim + " ...")
-		log.Info().Float64("      won", simulation.WonSum()).Msg(util.Sim + " ...")
-		log.Info().Float64("     lost", simulation.LostSum()).Msg(util.Sim + " ...")
-		log.Info().Float64("    total", simulation.Total()).Msg(util.Sim + " ...")
-		log.Info().Float64("   volume", simulation.Volume()).Msg(util.Sim + " ...")
-		log.Info().Float64("        %", simulation.Net()).Msg(util.Sim + " ...")
-		log.Info().Float64("        Δ", simulation.Delta).Msg(util.Sim + " ...")
-		log.Info().Float64("        ꜛ", simulation.Gain).Msg(util.Sim + " ...")
-		log.Info().Float64("        "+util.Balance, simulation.Size).Msg(util.Sim + " ...")
+		log.Info().
+			Float64(util.Delta, simulation.Delta).
+			Float64(util.UpArrow, simulation.Gain).
+			Float64(util.Quantity, simulation.Size).
+			Str(util.Hyperlink, simulation.Url()).
+			Msg(util.Sim + util.Break + simulation.ID)
+
+		if simulation.WonLen() > 0 {
+			log.Info().
+				Int(util.Quantity, simulation.WonLen()).
+				Str(util.Sigma, util.Usd(simulation.WonSum())).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "won", ses.Port)).
+				Msg(util.Sim + " ... " + util.ThumbsUp)
+		}
+
+		if simulation.LostLen() > 0 {
+			log.Info().
+				Int(util.Quantity, simulation.LostLen()).
+				Str(util.Sigma, util.Usd(simulation.LostSum())).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "lst", ses.Port)).
+				Msg(util.Sim + " ... " + util.ThumbsDn)
+		}
+
+		if simulation.EvenLen() > 0 {
+			log.Info().
+				Int(util.Quantity, simulation.EvenLen()).
+				Str(util.Sigma, "$0.000").
+				Str(util.Hyperlink, resultUrl(simulation.ID, "evn", ses.Port)).
+				Msg(util.Sim + " ... " + util.NoTrend)
+		}
+
+		if simulation.TradingLen() > 0 {
+			symbol := util.UpTrend
+			if simulation.TradingSum() < 0 {
+				symbol = util.DnTrend
+			}
+			log.Info().
+				Int(util.Quantity, simulation.TradingLen()).
+				Str(util.Sigma, util.Usd(simulation.TradingSum())).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "dnf", ses.Port)).
+				Msg(util.Sim + " ... " + symbol)
+		}
+
+		log.Info().
+			Str(util.Sigma, util.Usd(simulation.Total())).
+			Str(util.Quantity, util.Usd(simulation.Volume())).
+			Str("%", util.Money(simulation.Net())).
+			Msg(util.Sim + util.Break + simulation.symbol())
+
 		log.Info().Msg(util.Sim + " ..")
 
 		winners += simulation.WonLen()
@@ -110,7 +146,6 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 		total += simulation.Total()
 		volume += simulation.Volume()
 		even += len(simulation.Even)
-
 	}
 
 	log.Info().Msg(util.Sim + " .")
@@ -139,12 +174,12 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 			}
 		}
 		if simulation.LostLen() > 0 {
-			if err := handlePage(productID, "lost", simulation.Lost); err != nil {
+			if err := handlePage(productID, "lst", simulation.Lost); err != nil {
 				return err
 			}
 		}
 		if simulation.TradingLen() > 0 {
-			if err := handlePage(productID, "ether", simulation.Trading); err != nil {
+			if err := handlePage(productID, "dnf", simulation.Trading); err != nil {
 				return err
 			}
 		}
@@ -186,6 +221,10 @@ func handlePage(productID, dir string, charts []Chart) error {
 		return err
 	}
 	return nil
+}
+
+func resultUrl(productID, dir string, port int) string {
+	return fmt.Sprintf("http://localhost:%d/%s/%s.html", port, productID, dir)
 }
 
 func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
