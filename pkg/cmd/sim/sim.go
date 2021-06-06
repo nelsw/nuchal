@@ -86,7 +86,8 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 	var won, lost, total, volume float64
 	for _, simulation := range results {
 
-		log.Info().Msg(util.Sim + " ... " + simulation.Id)
+		log.Info().Msg(util.Sim + " ... " + simulation.ID)
+		log.Info().Str("      url", simulation.Url()).Msg(util.Sim + " ...")
 		log.Info().Int("  trading", simulation.TradingLen()).Msg(util.Sim + " ...")
 		log.Info().Int("  winners", simulation.WonLen()).Msg(util.Sim + " ...")
 		log.Info().Int("   losers", simulation.LostLen()).Msg(util.Sim + " ...")
