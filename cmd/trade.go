@@ -48,7 +48,7 @@ func init() {
 
 	c.Run = func(cmd *cobra.Command, args []string) {
 
-		session, err := config.NewSession(usd, size, gain, loss, delta)
+		session, err := config.NewSession(cfg, usd, size, gain, loss, delta)
 		if err != nil {
 			panic(err)
 		}
@@ -60,7 +60,7 @@ func init() {
 		} else if exit {
 			err = trade.NewExits(session)
 		} else {
-			err = trade.New(usd, size, gain, loss, delta)
+			err = trade.New(session)
 		}
 
 		if err != nil {

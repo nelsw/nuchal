@@ -37,12 +37,7 @@ import (
 
 // New creates a new simulation, and boy is that an understatement.
 // Per usual, we start by getting program configurations.
-func New(usd []string, size, gain, loss, delta float64, winnersOnly, noLosers bool) error {
-
-	ses, err := config.NewSession(usd, size, gain, loss, delta)
-	if err != nil {
-		return err
-	}
+func New(ses *config.Session, winnersOnly, noLosers bool) error {
 
 	log.Info().Msg(util.Sim + " .")
 	log.Info().Msg(util.Sim + " ..")

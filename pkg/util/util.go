@@ -126,10 +126,6 @@ func IsZero(s string) bool {
 	return Float64(s) == 0.0
 }
 
-func LogBanner() {
-	fmt.Println(Banner)
-}
-
 func PrintlnBanner() {
 	fmt.Println(Banner)
 }
@@ -143,11 +139,11 @@ func PrettyJson(v interface{}) string {
 	return string(b)
 }
 
-func ConfigFromYml(v interface{}) error {
+func ConfigFromYml(v interface{}, name string) error {
 
 	log.Debug().Interface("ConfigFromYml", v).Send()
 
-	f, err := os.Open("config.yml")
+	f, err := os.Open(name)
 	if err != nil {
 		log.Debug().Err(err).Send()
 		return err

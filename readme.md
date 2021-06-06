@@ -60,12 +60,12 @@ patterns:
   - id: TRB-USD
     size: 1.25
 
-# A time frame for running the command 
-alpha: 2021-06-02T08:00:00+00:00
-omega: 2022-06-03T22:00:00+00:00
-
-# The amount of time to run the command
-duration: 24h0m0s
+period:
+    # A time frame for running the command 
+    alpha: 2021-06-02T08:00:00+00:00
+    omega: 2022-06-03T22:00:00+00:00
+    # The amount of time to run the command
+    duration: 24h0m0s
 ```
 
 ## Commands
@@ -112,6 +112,6 @@ This code is Copyright Connor Ross Van Elswyk and licensed under Apache License 
 [2]: https://golang.org/
 [3]: https://www.docker.com/
 [4]: https://goreportcard.com/report/github.com/nelsw/nuchal
-[5]: https://goreportcard.com/badge/github.com/nelsw/nuchal?style=flat-square
+[5]: https://goreportcard.com/badge/github.com/nelsw/nuchal
 [6]: https://pkg.go.dev/mod/github.com/nelsw/nuchal
 [7]: https://pkg.go.dev/badge/mod/github.com/nelsw/nuchal

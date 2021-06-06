@@ -20,6 +20,7 @@ package cmd
 
 import (
 	"github.com/nelsw/nuchal/pkg/cmd/sim"
+	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +45,13 @@ func init() {
 	nuchal sim -w --winners-only`
 
 	c.Run = func(cmd *cobra.Command, args []string) {
-		if err := sim.New(usd, size, gain, loss, delta, winnersOnly, noLosers); err != nil {
+
+		session, err := config.NewSession(cfg, usd, size, gain, loss, delta)
+		if err != nil {
+			panic(err)
+		}
+
+		if err := sim.New(session, winnersOnly, noLosers); err != nil {
 			panic(err)
 		}
 	}

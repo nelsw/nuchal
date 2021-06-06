@@ -122,7 +122,12 @@ func New(session *config.Session) error {
 						if err != nil {
 							return err
 						}
-						entryPrice = rates[0].Open
+						if rates == nil || len(rates) < 1 {
+							entryPrice = -1
+						} else {
+							entryPrice = rates[0].Open
+						}
+
 						break
 					}
 
