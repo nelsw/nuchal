@@ -124,6 +124,9 @@ nuchal trade --sell
 
 # Sell all available positions (active trades) at the current market price. Will not sell holds.
 nuchal trade --exit
+
+# Drop will cancel every hold order, allowing the resulting products to be sold or converted.
+nuchal trade --drop
 ```
 
 ![trade example][11]
@@ -143,7 +146,7 @@ exit
 > "How do stop the docker composition?"
 ```shell
 # To stop container orchestration
-docker compose -f /Users/connorvanelswyk/go/src/github.com/nelsw/nuchal/build/docker-compose.yml down
+docker compose -f /Users/${USER}/go/src/github.com/nelsw/nuchal/build/docker-compose.yml down
 ```
 
 > "What does nuchal mean?" 
