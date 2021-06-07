@@ -143,7 +143,7 @@ exit
 > "How do stop the docker composition?"
 ```shell
 # To stop container orchestration
-docker compose -f build/docker-compose.yml down
+docker compose -f /Users/connorvanelswyk/go/src/github.com/nelsw/nuchal/build/docker-compose.yml down
 ```
 
 > "What does nuchal mean?" 

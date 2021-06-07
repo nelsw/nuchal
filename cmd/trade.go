@@ -44,7 +44,10 @@ func init() {
   nuchal trade --sell
 
   # Sell all available positions (active trades) at the current market price. Will not sell holds.
-  nuchal trade --exit`
+  nuchal trade --exit
+
+  # Drop will cancel every hold order, allowing the resulting products to be sold or converted.
+  nuchal trade --drop`
 
 	c.Run = func(cmd *cobra.Command, args []string) {
 
@@ -71,5 +74,6 @@ func init() {
 	c.PersistentFlags().BoolVar(&hold, "hold", false, "Set a limit order for each trading position")
 	c.PersistentFlags().BoolVar(&sell, "sell", false, "Close positions at the goal price or higher")
 	c.PersistentFlags().BoolVar(&exit, "exit", false, "Liquidate all open positions at market price")
+	c.PersistentFlags().BoolVar(&exit, "drop", false, "Cancel all hold orders to sell and convert")
 	rootCmd.AddCommand(c)
 }
