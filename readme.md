@@ -1,11 +1,4 @@
-<span>
-    <img src="https://pyrch.com/img/logo.b03538c1.png" alt="nuchal" style="width:48px;float: right;margin-top: 26px"/>
-</span>
-
 # nuchal [![Go Report Card][5]][4] [![PkgGoDev][7]][6]
-
-
-
 
 **nuchal**, *new⋅kull, /ˈn(y)o͞ok(ə)l/,* is an application for evaluating and executing cryptocurrency trades 
 from based statistical pattern recognition on technical analysis using multiple timeframes. 
