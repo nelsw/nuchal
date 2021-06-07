@@ -21,7 +21,6 @@ package config
 import (
 	"bufio"
 	"fmt"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/util"
@@ -47,7 +46,7 @@ type Session struct {
 
 	Patterns []cbp.Pattern `yaml:"patterns"`
 
-	usdSelections map[string]string
+	UsdSelections map[string]string
 }
 
 func (s Session) GetProduct(productID string) cbp.Product {
@@ -100,7 +99,7 @@ func init() {
 func (s *Session) ProductIDs() *[]string {
 	var productIDs []string
 	for productID, product := range s.products {
-		if _, ok := s.usdSelections[productID]; ok {
+		if _, ok := s.UsdSelections[productID]; ok {
 			productIDs = append(productIDs, product.ID)
 		}
 	}
@@ -111,103 +110,81 @@ func (s *Session) ProductIDs() *[]string {
 // NewSession reads configuration from environment variables and validates it
 func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug ...bool) (*Session, error) {
 
-	if debug != nil && len(debug) > 0 && debug[0] {
-		if err := os.Setenv("DEBUG", "true"); err != nil {
-			return nil, err
-		}
-	}
-
 	fmt.Println(util.Banner)
-
-	session := new(Session)
-
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " ... hello " + os.Getenv("USER"))
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
 
-	// If a config file is available, load it
-	if f, err := os.Open(cfg); err == nil {
-		d := yaml.NewDecoder(f)
-		if err = d.Decode(session); err != nil {
+	if debug != nil && len(debug) > 0 && debug[0] {
+		if err := os.Setenv("DEBUG", "true"); err != nil {
 			return nil, err
 		}
 	}
 
-	// If env vars are available, allow them to override config file values
-	_ = envconfig.Process("", session)
+	session := new(Session)
 
-	// Lets confirm our API credentials are correct
-	if err := session.Api.Validate(); err != nil {
+	// can we connect to coinbase?
+	if now, err := cbp.Init(cfg); err != nil {
 		return nil, err
+	} else {
+		session.started = now
+		log.Info().Msg(util.Fish + " ... coinbase validated")
+		log.Info().Msgf("%s ... cryptocurrency products found [%d]", util.Fish, len(cbp.GetAllProductIDs()))
 	}
 
-	log.Info().Msg(util.Fish + " ... coinbase validated")
-
-	// While trade and report commands do not requiring the database,
-	// simulations do, which should occur before trading & reporting.
-	if err := db.InitDb(); err != nil {
+	// is the database established?
+	if err := db.Init(); err != nil {
 		return nil, err
 	}
-
 	log.Info().Msg(util.Fish + " ... database connected")
 
-	// Set a "start time" for the session
-	tme, err := session.GetTime()
-	if err != nil {
-		return nil, err
+	if f, err := os.Open(cfg); err == nil {
+		if err = yaml.NewDecoder(f).Decode(session); err != nil {
+			return nil, err
+		}
 	}
-	session.started = tme
-
-	log.Info().Msgf("%s ... time synchronized [%s]", util.Fish, tme.Format(time.RFC3339))
-
-	// Map all desirable coinbase products by ID
-	products, err := session.GetUsdProductMap()
-	if err != nil {
-		return nil, err
-	}
-
-	log.Info().Msgf("%s ... cryptocurrencies found [%d]", util.Fish, len(products))
 
 	// Map all patterns by product ID
 	patterns := map[string]cbp.Pattern{}
 	for _, pattern := range session.Patterns {
 		patterns[pattern.Id] = pattern
 	}
+	log.Info().Msgf("%s ... patterns configurations found [%d]", util.Fish, len(session.products))
 
 	// If no product patterns have been configured
 	if len(patterns) < 1 {
 		// create new patterns for every Usd product
-		for productID, _ := range products {
+		for _, productID := range cbp.GetAllProductIDs() {
 			patterns[productID] = *cbp.NewPattern(productID, size, gain, loss, delta)
 		}
 	}
 
-	log.Info().Msgf("%s ... patterns initialized [%d]", util.Fish, len(patterns))
-
 	// now we have a map of coinbase products and nuchal patterns, make the session products map
 	session.products = map[string]cbp.Product{}
 	for productID, pattern := range patterns {
-		product := products[productID]
+		product := cbp.GetProduct(productID)
 		pattern.InitPattern(size, gain, loss, delta)
 		session.products[productID] = cbp.Product{product, pattern}
 	}
+	log.Info().Msgf("%s ... product patterns configured [%d]", util.Fish, len(session.products))
 
-	log.Info().Msgf("%s ... products configured [%d]", util.Fish, len(session.products))
-
-	session.usdSelections = map[string]string{}
+	session.UsdSelections = map[string]string{}
 	if len(usd) > 0 {
-		for _, selection := range usd {
-			productID := selection + "-USD"
+		for _, currency := range usd {
+			productID := currency + "-USD"
 			if _, ok := session.products[productID]; ok {
-				session.usdSelections[selection] = selection
+				session.UsdSelections[productID] = fmt.Sprintf("%5s", currency)
 			}
 		}
+		log.Info().Msgf("%s ... USD product selections [%d]", util.Fish, len(usd))
 	} else {
-		for productID, _ := range session.products {
-			session.usdSelections[productID] = productID
+		for productID := range session.products {
+			currency := strings.Split(productID, "-")[0]
+			session.UsdSelections[productID] = fmt.Sprintf("%5s", currency)
 		}
+		log.Info().Msgf("%s ... USD product selections [%d]", util.Fish, len(session.products))
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)

@@ -20,21 +20,25 @@ package db
 
 import (
 	"fmt"
+	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	reggol "gorm.io/gorm/logger"
 	gol "log"
 	"os"
+	"os/exec"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Config struct {
-	Host string `yml:"host" envconfig:"POSTGRES_HOST"`
-	User string `yml:"user" envconfig:"POSTGRES_USER"`
-	Pass string `yml:"pass" envconfig:"POSTGRES_PASSWORD"`
-	Name string `yml:"name" envconfig:"POSTGRES_DB"`
-	Port int    `yml:"port" envconfig:"POSTGRES_PORT"`
+	Host string `envconfig:"POSTGRES_HOST"`
+	User string `envconfig:"POSTGRES_USER"`
+	Pass string `envconfig:"POSTGRES_PASSWORD"`
+	Name string `envconfig:"POSTGRES_DB"`
+	Port int    `envconfig:"POSTGRES_PORT"`
 }
 
 func (c *Config) dsn() string {
@@ -43,20 +47,45 @@ func (c *Config) dsn() string {
 
 var cfg *Config
 
-func InitDb() error {
+func Init() error {
+
+	if bytes, err := exec.Command("/bin/sh", "-c", "docker ps --format '{{.Names}}'").Output(); err != nil {
+		return err
+	} else {
+		name := strings.TrimSpace(string(bytes))
+		if name != "nuchal_db" {
+			if _, err := exec.Command("/bin/sh", "-c", "docker compose -p nuchal up -d").Output(); err != nil {
+				return err
+			}
+			time.Sleep(time.Second * 5) // wait a few seconds to allow the docker composition to spin up
+		}
+	}
 
 	cfg = new(Config)
 
-	err := envconfig.Process("", cfg)
-	if err != nil || cfg.Port == 0 {
-		cfg.Host = "localhost"
-		cfg.User = "postgres"
-		cfg.Name = "nuchal"
-		cfg.Pass = "somePassword"
-		cfg.Port = 5432
+	_ = envconfig.Process("", cfg)
+	if err := cfg.validate(); err == nil {
+		return nil
 	}
 
-	if pg, err := openDB(cfg.dsn()); err != nil {
+	if envs, err := godotenv.Read(".env"); err != nil {
+		return err
+	} else if port, err := strconv.Atoi(envs["POSTGRES_PORT"]); err != nil {
+		return err
+	} else {
+		cfg.Host = envs["POSTGRES_HOST"]
+		cfg.User = envs["POSTGRES_USER"]
+		cfg.Name = envs["POSTGRES_DB"]
+		cfg.Pass = envs["POSTGRES_PASSWORD"]
+		cfg.Port = port
+	}
+
+	return cfg.validate()
+}
+
+func (c Config) validate() error {
+
+	if pg, err := openDB(c.dsn()); err != nil {
 		return err
 	} else if sql, err := pg.DB(); err != nil {
 		return err

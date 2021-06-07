@@ -44,7 +44,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	simulations := map[string]simulation{}
 
 	var results []simulation
-	for _, productID := range *session.ProductIDs() {
+	for productID, currency := range session.UsdSelections {
 
 		product := session.GetProduct(productID)
 
@@ -54,6 +54,8 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 		}
 
 		simulation := newSimulation(rates, product, session.Maker, session.Taker, session.Period)
+		log.Info().Msg(util.Sim + util.Break + currency + util.Break + "complete")
+
 		if simulation.Volume() == 0 {
 			continue
 		}
@@ -253,7 +255,7 @@ func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
 		from = r.Time()
 	} else {
 		log.Debug().Msg("no previous rate found for " + productID)
-		from, _ = time.Parse(time.RFC3339, "2021-06-20T00:00:00+00:00")
+		from = ses.Alpha
 	}
 
 	to := from.Add(time.Hour * 4)

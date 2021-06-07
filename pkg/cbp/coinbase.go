@@ -69,15 +69,6 @@ func (a *Api) GetClient() *cb.Client {
 	}
 }
 
-func (a *Api) GetTime() (*time.Time, error) {
-	tme, err := a.GetClient().GetTime()
-	if err != nil {
-		return nil, err
-	}
-	t := time.Unix(int64(tme.Epoch), 0)
-	return &t, nil
-}
-
 func (a *Api) GetFillsByOrderId(id string) (*[]cb.Fill, error) {
 	var newChunks, allChunks []cb.Fill
 	cursor := a.GetClient().ListFills(cb.ListFillsParams{OrderID: id})
@@ -109,27 +100,6 @@ func (a *Api) GetFills(productId string) (*[]cb.Fill, error) {
 	}
 
 	return &allChunks, nil
-}
-
-func (a *Api) GetUsdProductMap() (map[string]cb.Product, error) {
-
-	allUsdProducts, err := a.GetClient().GetProducts()
-	if err != nil {
-		return nil, err
-	}
-
-	products := map[string]cb.Product{}
-	for _, product := range allUsdProducts {
-		if product.BaseCurrency == "DAI" ||
-			product.BaseCurrency == "USDT" ||
-			product.BaseMinSize == "" ||
-			product.QuoteIncrement == "" ||
-			!usdRegex.MatchString(product.ID) {
-			continue
-		}
-		products[product.ID] = product
-	}
-	return products, nil
 }
 
 func (a *Api) GetActiveAccounts() (*[]cb.Account, error) {
