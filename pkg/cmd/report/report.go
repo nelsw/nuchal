@@ -19,7 +19,6 @@
 package report
 
 import (
-	"fmt"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
@@ -73,12 +72,11 @@ func New(session *config.Session) error {
 				continue
 			}
 
-			dollar = util.Money(position.Price())
-			sigma = util.Usd(position.Value())
-			qty := position.Balance()
-			msg := util.Report + " ... " + position.Currency
-
-			log.Info().Str(util.Dollar, dollar).Str(util.Sigma, sigma).Float64(util.Quantity, qty).Msg(msg)
+			log.Info().
+				Str(util.Sigma, util.Usd(position.Value())).
+				Float64(util.Quantity, position.Balance()).
+				Str(util.Hyperlink, position.Url()).
+				Msg(util.Report + util.Break + position.Currency)
 
 			orders, err := session.GetOrders(position.ProductId())
 			if err != nil {
@@ -86,7 +84,7 @@ func New(session *config.Session) error {
 			}
 
 			if len(*orders) > 0 {
-
+				log.Info().Msg(util.Report + " ... held")
 				fills, err := session.GetFills(position.ProductId())
 				if err != nil {
 					return err
@@ -132,11 +130,12 @@ func New(session *config.Session) error {
 					}
 
 					log.Info().
-						Str(util.Dollar, util.Money(entryPrice)).
-						Str(util.Target, util.Money(util.Float64(order.Price))).
-						Str(util.Quantity, fmt.Sprintf("%.0f", util.Float64(order.Size))).
-						Time(util.Time, order.CreatedAt.Time()).
-						Msg(util.Report + " ... hold")
+						Time("", order.CreatedAt.Time()).
+						Str("1.", util.Usd(entryPrice)).
+						Str("2.", util.Usd(position.Price())).
+						Str("3.", util.Usd(util.Float64(order.Price))).
+						Str(util.Quantity, order.Size).
+						Msg(util.Report + " ... ")
 				}
 			}
 
@@ -144,25 +143,19 @@ func New(session *config.Session) error {
 			if len(trades) > 0 {
 				log.Info().Msg(util.Report + " ... active")
 				for _, trade := range trades {
-
-					goal := position.GoalPrice(trade.Price())
-					net := (goal - (goal * session.Maker)) * trade.Size()
-
 					log.Info().
-						Str(util.Dollar, fmt.Sprintf("%.3f", trade.Price())).
-						Str(util.Quantity, fmt.Sprintf("%.0f", trade.Size())).
-						Time(util.Time, trade.CreatedAt.Time()).
-						Str(util.Target, fmt.Sprintf("%.3f", goal)).
-						Str(util.Profit, fmt.Sprintf("%.3f", net)).
+						Time("", trade.CreatedAt.Time()).
+						Str("1.", util.Usd(trade.Price())).
+						Str("2.", util.Usd(position.Price())).
+						Str("3.", util.Usd(position.GoalPrice(trade.Price()))).
+						Float64(util.Quantity, trade.Size()).
 						Msg(util.Report + " ... ")
 				}
 			}
 			log.Info().Msg(util.Report + " ..")
 		}
 
-		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " .")
-
 		time.Sleep(time.Second * 30)
 	}
 }
