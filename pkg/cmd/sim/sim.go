@@ -37,30 +37,23 @@ import (
 
 // New creates a new simulation, and boy is that an understatement.
 // Per usual, we start by getting program configurations.
-func New(ses *config.Session, winnersOnly, noLosers bool) error {
+func New(session *config.Session, winnersOnly, noLosers bool) error {
 
-	log.Info().Msg(util.Sim + " .")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Msg(util.Sim + " ... simulation")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Sim + " ...")
-	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Sim + " ...")
-	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Sim + " ...")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Msg(util.Sim + " .")
+	intro(session)
 
 	simulations := map[string]simulation{}
+
 	var results []simulation
-	for _, productID := range *ses.ProductIds() {
+	for _, productID := range *session.ProductIDs() {
 
-		product := ses.Products[productID]
+		product := session.Products[productID]
 
-		rates, err := getRates(ses, productID)
+		rates, err := getRates(session, productID)
 		if err != nil {
 			return err
 		}
 
-		simulation := newSimulation(rates, product, ses.Maker, ses.Taker, ses.Period)
+		simulation := newSimulation(rates, product, session.Maker, session.Taker, session.Period)
 		if simulation.Volume() == 0 {
 			continue
 		}
@@ -98,7 +91,7 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.WonLen()).
 				Str(util.Sigma, util.Usd(simulation.WonSum())).
-				Str(util.Hyperlink, resultUrl(simulation.ID, "won", ses.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "won", session.Port)).
 				Msg(util.Sim + " ... " + util.ThumbsUp)
 		}
 
@@ -106,7 +99,7 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.LostLen()).
 				Str(util.Sigma, util.Usd(simulation.LostSum())).
-				Str(util.Hyperlink, resultUrl(simulation.ID, "lst", ses.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "lst", session.Port)).
 				Msg(util.Sim + " ... " + util.ThumbsDn)
 		}
 
@@ -114,7 +107,7 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.EvenLen()).
 				Str(util.Sigma, "$0.000").
-				Str(util.Hyperlink, resultUrl(simulation.ID, "evn", ses.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "evn", session.Port)).
 				Msg(util.Sim + " ... " + util.NoTrend)
 		}
 
@@ -126,7 +119,7 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.TradingLen()).
 				Str(util.Sigma, util.Usd(simulation.TradingSum())).
-				Str(util.Hyperlink, resultUrl(simulation.ID, "dnf", ses.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "dnf", session.Port)).
 				Msg(util.Sim + " ... " + symbol)
 		}
 
@@ -186,11 +179,23 @@ func New(ses *config.Session, winnersOnly, noLosers bool) error {
 	}
 
 	fs := http.FileServer(http.Dir("html"))
-	log.Info().Msgf("Charts successfully served, visit them at http://localhost:%d", ses.Port)
-	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", ses.Port), logRequest(fs)))
+	log.Info().Msgf("Charts successfully served, visit them at http://localhost:%d", session.Port)
+	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", session.Port), logRequest(fs)))
 
-	time.Sleep(ses.Duration)
+	time.Sleep(session.Duration)
 	return nil
+}
+
+func intro(ses *config.Session) {
+	log.Info().Msg(util.Sim + " .")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Msg(util.Sim + " ... simulation")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Sim + " ...")
+	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Sim + " ...")
+	log.Info().Strs(util.Currency, *ses.ProductIDs()).Msg(util.Sim + " ...")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Msg(util.Sim + " .")
 }
 
 func handlePage(productID, dir string, charts []Chart) error {

@@ -99,7 +99,7 @@ func (p *Position) GetActiveTrades() []Trade {
 	}
 
 	sort.SliceStable(trading, func(i, j int) bool {
-		return trading[i].Price() > trading[j].Price()
+		return trading[i].CreatedAt.Time().Before(trading[j].CreatedAt.Time())
 	})
 
 	return trading

@@ -48,6 +48,8 @@ type Session struct {
 
 	Patterns []cbp.Pattern `yaml:"patterns"`
 
+	usdSelections map[string]string
+
 	*time.Time
 }
 
@@ -77,14 +79,16 @@ func init() {
 	}
 }
 
-// ProductIds returns a product ID array in alphabetical order.
-func (s Session) ProductIds() *[]string {
-	var productIds []string
-	for _, product := range s.Products {
-		productIds = append(productIds, product.ID)
+// ProductIDs returns a product ID array in alphabetical order.
+func (s *Session) ProductIDs() *[]string {
+	var productIDs []string
+	for productID, product := range s.Products {
+		if _, ok := s.usdSelections[productID]; ok {
+			productIDs = append(productIDs, product.ID)
+		}
 	}
-	sort.Strings(productIds)
-	return &productIds
+	sort.Strings(productIDs)
+	return &productIDs
 }
 
 func hello() {
@@ -141,42 +145,50 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Ses
 		return nil, err
 	}
 
-	allProductsMap := map[string]cb.Product{}
+	// Map all desirable coinbase products by ID
+	products := map[string]cb.Product{}
 	for _, product := range *allUsdProducts {
-		if product.BaseCurrency == "DAI" || product.BaseCurrency == "USDT" {
+		if product.BaseCurrency == "DAI" ||
+			product.BaseCurrency == "USDT" ||
+			product.BaseMinSize == "" ||
+			product.QuoteIncrement == "" {
 			continue
 		}
-		allProductsMap[product.ID] = product
+		products[product.ID] = product
 	}
 
-	session.Products = map[string]cbp.Product{}
-	if len(session.Patterns) < 1 {
-		for productID, product := range allProductsMap {
-			session.Products[productID] = cbp.Product{product, *cbp.NewPattern(size, gain, loss, delta)}
-		}
-	}
-
+	// Map all patterns by product ID
+	patterns := map[string]cbp.Pattern{}
 	for _, pattern := range session.Patterns {
-		product := allProductsMap[pattern.Id]
-		if product.BaseMinSize == "" || product.QuoteIncrement == "" {
-			continue
-		}
-		if pattern.Size == 0 {
-			pattern.Size = util.Float64(product.BaseMinSize) * size
-		}
-		if pattern.Gain == 0 {
-			pattern.Gain = gain
-		}
-		if pattern.Loss == 0 {
-			pattern.Loss = loss
-		}
-		if pattern.Delta == 0 {
-			pattern.Delta = delta
-		}
-		session.Products[pattern.Id] = cbp.Product{product, pattern}
+		patterns[pattern.Id] = pattern
 	}
 
-	log.Debug().Interface("session", session).Send()
+	// If no product patterns have been configured
+	if len(patterns) < 1 {
+		// create new patterns for every usd product
+		for productID, _ := range products {
+			patterns[productID] = *cbp.NewPattern(productID, size, gain, loss, delta)
+		}
+	}
+
+	// now we have a map of coinbase products and nuchal patterns, make the session products map
+	session.Products = map[string]cbp.Product{}
+	for productID, pattern := range patterns {
+		product := products[productID]
+		pattern.InitPattern(size, gain, loss, delta)
+		session.Products[productID] = cbp.Product{product, pattern}
+	}
+
+	session.usdSelections = map[string]string{}
+	if len(usd) > 0 {
+		for _, selection := range usd {
+			session.usdSelections[selection] = selection
+		}
+	} else {
+		for productID, _ := range session.Products {
+			session.usdSelections[productID] = productID
+		}
+	}
 
 	scanner := bufio.NewScanner(os.Stdin)
 	go func() {
@@ -228,19 +240,23 @@ func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 }
 
 // GetActivePositions returns an array of cbp.Position structs.
-func (s *Session) GetActivePositions() (*[]cbp.Position, error) {
+func (s *Session) GetActivePositions() (*map[string]cbp.Position, error) {
 
 	positions, err := s.Api.GetActivePositions()
 	if err != nil {
 		return nil, err
 	}
 
-	var result []cbp.Position
-	for _, position := range *positions {
-		if position.Currency != "USD" {
-			position.Pattern = s.Products[position.ProductId()].Pattern
+	result := map[string]cbp.Position{}
+	for productID, position := range *positions {
+		product := s.Products[productID]
+		if position.Product == (cbp.Product{}) {
+			position.Product = product
 		}
-		result = append(result, position)
+		if position.Currency != "USD" {
+			position.Pattern = product.Pattern
+		}
+		result[productID] = position
 	}
 
 	return &result, nil
