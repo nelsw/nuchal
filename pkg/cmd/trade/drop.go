@@ -32,7 +32,7 @@ func NewDrops(session *config.Session) error {
 	log.Info().Msg(util.Trade + " ... trade --drop")
 	log.Info().Msg(util.Trade + " ..")
 
-	for _, productID := range *session.ProductIds() {
+	for _, productID := range *session.ProductIDs() {
 
 		log.Info().Msg(util.Trade + " ... " + productID)
 

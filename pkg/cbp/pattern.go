@@ -42,13 +42,29 @@ type Pattern struct {
 	Delta float64 `yaml:"delta"`
 }
 
-func NewPattern(size, gain, loss, delta float64) *Pattern {
+func NewPattern(productID string, size, gain, loss, delta float64) *Pattern {
 	pattern := new(Pattern)
+	pattern.Id = productID
 	pattern.Size = size
 	pattern.Gain = gain
 	pattern.Loss = loss
 	pattern.Delta = delta
 	return pattern
+}
+
+func (p *Pattern) InitPattern(size, gain, loss, delta float64) {
+	if p.Size == 0 {
+		p.Size = size
+	}
+	if p.Gain == 0 {
+		p.Gain = gain
+	}
+	if p.Loss == 0 {
+		p.Loss = loss
+	}
+	if p.Delta == 0 {
+		p.Delta = delta
+	}
 }
 
 func (p *Pattern) GoalPrice(price float64) float64 {

@@ -1,9 +1,26 @@
+/*
+ *
+ * Copyright © 2021 Connor Van Elswyk ConnorVanElswyk@gmail.com
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * /
+ */
+
 package db
 
 import (
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/util"
-	"gopkg.in/yaml.v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	reggol "gorm.io/gorm/logger"
@@ -32,17 +49,14 @@ func InitDb() error {
 
 	err := util.ConfigFromEnv(cfg)
 	if err != nil || cfg.Port == 0 {
-		f, err := os.Open("pkg/db/config.yml")
-		if err != nil {
-			return err
-		}
-		d := yaml.NewDecoder(f)
-		if err := d.Decode(cfg); err != nil {
-			return err
-		}
+		cfg.Host = "localhost"
+		cfg.User = "postgres"
+		cfg.Name = "nuchal"
+		cfg.Pass = "somePassword"
+		cfg.Port = 5432
 	}
 
-	if pg, err := OpenDB(cfg.dsn()); err != nil {
+	if pg, err := openDB(cfg.dsn()); err != nil {
 		return err
 	} else if sql, err := pg.DB(); err != nil {
 		return err
@@ -56,11 +70,11 @@ func InitDb() error {
 }
 
 func NewDB() *gorm.DB {
-	db, _ := OpenDB(cfg.dsn())
+	db, _ := openDB(cfg.dsn())
 	return db
 }
 
-func OpenDB(dsn string) (*gorm.DB, error) {
+func openDB(dsn string) (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: reggol.New(
 			gol.New(os.Stdout, "\r\n", gol.LstdFlags), // io writer

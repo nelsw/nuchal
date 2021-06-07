@@ -37,11 +37,11 @@ func New(ses *config.Session) error {
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Trade + " ...")
 	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Trade + " ...")
-	log.Info().Strs(util.Currency, *ses.ProductIds()).Msg(util.Trade + " ...")
+	log.Info().Strs(util.Currency, *ses.ProductIDs()).Msg(util.Trade + " ...")
 	log.Info().Msg(util.Trade + " ..")
 
 	if util.IsEnvVarTrue("TEST") {
-		return nil
+		//return nil
 	}
 
 	return util.DoIndefinitely(func() {
@@ -86,7 +86,7 @@ func buy(session *config.Session, product cbp.Product) {
 		goalPrice := product.GoalPrice(entryPrice)
 		entryTime := order.CreatedAt.Time()
 
-		if _, err := NewSell(session, order.ID, productID, size, entryPrice, goalPrice, entryTime); err != nil {
+		if _, err := NewSell(session, order.CreatedAt.Time(), productID, size, entryPrice, goalPrice, entryTime); err != nil {
 			log.Error().Err(err).Msg("while selling")
 		}
 		return
@@ -108,19 +108,13 @@ func getRate(session *config.Session, productID string) (*cbp.Rate, error) {
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("productID", productID).
-			Msg("error while opening websocket connection")
+		log.Error().Err(err).Msg("opening ws")
 		return nil, err
 	}
 
 	defer func(wsConn *ws.Conn) {
 		if err := wsConn.Close(); err != nil {
-			log.Error().
-				Err(err).
-				Str("productID", productID).
-				Msg("error closing websocket connection")
+			log.Error().Err(err).Msg("closing ws")
 		}
 	}(wsConn)
 
@@ -131,10 +125,6 @@ func getRate(session *config.Session, productID string) (*cbp.Rate, error) {
 
 		price, err := session.GetPrice(wsConn, productID)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Str("productID", productID).
-				Msg("error getting price")
 			return nil, err
 		}
 
@@ -152,7 +142,6 @@ func getRate(session *config.Session, productID string) (*cbp.Rate, error) {
 
 		now := time.Now()
 		if now.After(end) {
-			log.Debug().Str("product", productID).Msg("rate")
 			return &cbp.Rate{
 				now.UnixNano(),
 				productID,

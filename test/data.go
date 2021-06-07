@@ -21,19 +21,14 @@ package test
 import "github.com/nelsw/nuchal/pkg/config"
 
 const (
-	Size  = 1.0
-	Gain  = .0195
-	Loss  = .0495
-	Delta = .001
 	size  = 1.0
 	gain  = .0195
-	loss  = .0495
+	loss  = .495
 	delta = .001
 	cfg   = "config.yml"
 )
 
 var (
-	Usd = []string{}
 	usd = []string{}
 )
 

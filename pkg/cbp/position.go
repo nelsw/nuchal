@@ -19,7 +19,6 @@
 package cbp
 
 import (
-	"fmt"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"sort"
@@ -39,10 +38,6 @@ func (p *Position) IsHeld() bool {
 
 func (p *Position) ProductId() string {
 	return p.Currency + "-USD"
-}
-
-func (p Position) Url() string {
-	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId())
 }
 
 func (p Position) Balance() float64 {
@@ -104,7 +99,7 @@ func (p *Position) GetActiveTrades() []Trade {
 	}
 
 	sort.SliceStable(trading, func(i, j int) bool {
-		return trading[i].Price() > trading[j].Price()
+		return trading[i].CreatedAt.Time().Before(trading[j].CreatedAt.Time())
 	})
 
 	return trading

@@ -139,35 +139,35 @@ func (a *Api) GetActiveAccounts() (*[]cb.Account, error) {
 	return &actAccounts, nil
 }
 
-func (a *Api) GetActivePositions() (*[]Position, error) {
+func (a *Api) GetActivePositions() (*map[string]Position, error) {
 
 	accounts, err := a.GetActiveAccounts()
 	if err != nil {
 		return nil, err
 	}
 
-	var positions []Position
+	positions := map[string]Position{}
 
 	for _, account := range *accounts {
 
+		productID := account.Currency + "-USD"
+
 		if account.Currency == "USD" {
-			positions = append(positions, *NewUsdPosition(account))
+			positions[productID] = *NewUsdPosition(account)
 			continue
 		}
 
-		productId := account.Currency + "-USD"
-
-		fills, err := a.GetFills(productId)
+		fills, err := a.GetFills(productID)
 		if err != nil {
 			return nil, err
 		}
 
-		ticker, err := a.GetClient().GetTicker(productId)
+		ticker, err := a.GetClient().GetTicker(productID)
 		if err != nil {
 			return nil, err
 		}
 
-		positions = append(positions, *NewPosition(account, ticker, *fills))
+		positions[productID] = *NewPosition(account, ticker, *fills)
 	}
 
 	return &positions, nil

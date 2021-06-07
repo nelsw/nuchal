@@ -1,5 +1,0 @@
-host: localhost
-user: postgres
-name: nuchal
-pass: somePassword
-port: 5432
