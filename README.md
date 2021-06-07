@@ -97,8 +97,22 @@ You'll need to place this file in the nuchal project directory or define config 
 # Also prints position and trading information, namely size, value, balance and holds.
 nuchal report -c /Users/${USER}/config.yml
 ```
-
 ![report example][10]
+
+### sim
+```shell
+# Prints a simulation result report and serves a local website to host graphical report analysis.
+nuchal sim
+
+# Prints a simulation result report where the net gain for each product simulation was greater than zero.
+nuchal sim -t --no-losers
+
+# Prints a simulation result report where the net gain for each product simulation was greater than zero and also 
+# where the amount of positions trading are zero.	
+nuchal sim -w --winners-only
+```
+![sim example][12]
+![chart example][14]
 
 ### trade
 ```shell
@@ -116,22 +130,6 @@ nuchal trade --exit
 ```
 
 ![trade example][11]
-
-### sim
-```shell
-# Prints a simulation result report and serves a local website to host graphical report analysis.
-nuchal sim
-
-# Prints a simulation result report where the net gain for each product simulation was greater than zero.
-nuchal sim -t --no-losers
-
-# Prints a simulation result report where the net gain for each product simulation was greater than zero and also 
-# where the amount of positions trading are zero.	
-nuchal sim -w --winners-only
-```
-
-![sim example][12]
-![chart example][14]
 
 # Thanks
 **nuchal** is built largely on [a Go client for CoinBase Pro][8] formerly known as gdax, thank you [preichenberger][9].
@@ -155,8 +153,6 @@ docker compose -f build/docker-compose.yml down
 
 In marine biology, **nuchal**, *new⋅cull, nu⋅chal, /ˈn(y)o͞ok(ə)l/,* is defined as *"an exaggerated (craniofacial) trait, 
 responsible for defining the natural order among a species."*
-
-
 
 # License
 This code is Copyright Connor Ross Van Elswyk and licensed under Apache License 2.0

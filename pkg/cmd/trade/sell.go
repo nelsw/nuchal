@@ -55,9 +55,8 @@ func NewSells(session *config.Session) error {
 	log.Info().Msg(util.Trade + " .")
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Msg(util.Trade + " ... trade --sell")
-	log.Info().Strs(" products", *session.ProductIDs()).Msg(util.Trade + " ...")
-	log.Info().Strs("positions", positionIds).Msg(util.Trade + " ...")
-	log.Info().Ints("   trades", tradeIds).Msg(util.Trade + " ...")
+	log.Info().Int("positions", len(positionIds)).Msg(util.Trade + " ...")
+	log.Info().Int("   trades", len(tradeIds)).Msg(util.Trade + " ...")
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Msg(util.Trade + " .")
 	log.Info().Msg(util.Trade + " ..")
@@ -83,18 +82,14 @@ func NewSells(session *config.Session) error {
 
 				go func(trade cbp.Trade) {
 
-					var currentPrice float64
-					if rte, err := getRate(session, productID); err == nil {
-						currentPrice = rte.Close
-					}
-
 					tradeID := trade.CreatedAt.Time()
 					size := trade.Fill.Size
 					entryPrice := trade.Price()
 					entryTime := trade.CreatedAt.Time()
 					goalPrice := position.GoalPrice(entryPrice)
+					t, _ := session.GetClient().GetTicker(productID)
 
-					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, currentPrice, goalPrice, "sell")
+					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, util.Float64(t.Price), goalPrice, "sell")
 					if exitPrice, err := NewSell(session, tradeID, productID, size, entryPrice, goalPrice, entryTime); err == nil {
 						prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *exitPrice, goalPrice, "sold")
 					}
@@ -139,17 +134,19 @@ func NewSell(
 	goalPrice float64,
 	entryTime time.Time) (*float64, error) {
 
+	currency := strings.ReplaceAll(productID, "-USD", "")
+
 	// websocket connection
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
 	if err != nil {
-		log.Error().Err(err).Msg("opening ws")
+		log.Error().Err(err).Str("action", "open").Msgf("%s ... %5s ...", util.Trade, currency)
 		return nil, err
 	}
 
 	defer func(wsConn *ws.Conn) {
 		if err := wsConn.Close(); err != nil {
-			log.Error().Err(err).Msg("closing ws")
+			log.Error().Err(err).Str("action", "close").Msgf("%s ... %5s ...", util.Trade, currency)
 		}
 	}(wsConn)
 
@@ -158,8 +155,9 @@ func NewSell(
 	for {
 
 		// get the last known price for this product
-		currentPrice, err := session.GetPrice(wsConn, productID)
+		currentPrice, err := cbp.GetPrice(wsConn, productID)
 		if err != nil {
+			log.Error().Err(err).Str("action", "price").Msgf("%s ... %5s ...", util.Trade, currency)
 			return nil, err
 		}
 
@@ -183,8 +181,8 @@ func NewSell(
 
 // anchor attempts to create a new limit loss order for the given balance return climb.
 func anchor(session *config.Session, id time.Time, size, productID string, entryPrice, currentPrice, goalPrice float64) (*float64, error) {
-	prt(zerolog.InfoLevel, id, productID, entryPrice, currentPrice, goalPrice, "nchr")
-	product := session.Products[productID]
+	prt(zerolog.WarnLevel, id, productID, entryPrice, currentPrice, goalPrice, "nchr")
+	product := session.GetProduct(productID)
 	order, err := session.CreateOrder(product.NewLimitLossOrder(currentPrice, size))
 	if err != nil {
 		prt(zerolog.ErrorLevel, id, productID, entryPrice, goalPrice, currentPrice, err.Error())
@@ -201,16 +199,16 @@ func climb(session *config.Session, tradeID time.Time, size, orderID, productID 
 
 	for {
 
-		prt(zerolog.InfoLevel, tradeID, productID, entryPrice, currentPrice, goalPrice, "clmb")
+		prt(zerolog.WarnLevel, tradeID, productID, entryPrice, currentPrice, goalPrice, "clmb")
 
-		rate, err := getRate(session, productID)
+		rate, err := cbp.GetRate(productID)
 		if err != nil {
 			prt(zerolog.ErrorLevel, tradeID, productID, entryPrice, currentPrice, goalPrice, err.Error())
 			return nil, err
 		}
 
 		if rate.Low <= goalPrice { // already sold
-			prt(zerolog.InfoLevel, tradeID, productID, entryPrice, rate.Close, goalPrice, "fell")
+			prt(zerolog.WarnLevel, tradeID, productID, entryPrice, rate.Close, goalPrice, "fell")
 			return &goalPrice, nil
 		}
 

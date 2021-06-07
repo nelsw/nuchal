@@ -21,14 +21,16 @@ package config
 import (
 	"bufio"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/util"
-	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v2"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -36,21 +38,36 @@ import (
 // Session of the application - only active while the executable is run within the defined period range.
 type Session struct {
 
-	// Port is the port where nuchal will serve (simulation) html files.
-	Port int `envconfig:"PORT"`
-
 	// Period is a range of time representing when to start and stop executing the trade command.
 	Period `yaml:"period"`
 
 	*cbp.Api `yaml:"cbp"`
 
-	Products map[string]cbp.Product
+	products map[string]cbp.Product
 
 	Patterns []cbp.Pattern `yaml:"patterns"`
 
 	usdSelections map[string]string
+}
 
-	*time.Time
+func (s Session) GetProduct(productID string) cbp.Product {
+	return s.products[productID]
+}
+
+func (s Session) SimPort() int {
+
+	port := os.Getenv("PORT")
+	if len(port) < 4 {
+		port = "8080"
+	}
+
+	prt, err := strconv.Atoi(port)
+	if err != nil {
+		log.Error().Err(err).Send()
+		prt = 8080
+	}
+
+	return prt
 }
 
 func init() {
@@ -82,7 +99,7 @@ func init() {
 // ProductIDs returns a product ID array in alphabetical order.
 func (s *Session) ProductIDs() *[]string {
 	var productIDs []string
-	for productID, product := range s.Products {
+	for productID, product := range s.products {
 		if _, ok := s.usdSelections[productID]; ok {
 			productIDs = append(productIDs, product.ID)
 		}
@@ -91,34 +108,42 @@ func (s *Session) ProductIDs() *[]string {
 	return &productIDs
 }
 
-func hello() {
+// NewSession reads configuration from environment variables and validates it
+func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug ...bool) (*Session, error) {
+
+	if debug != nil && len(debug) > 0 && debug[0] {
+		if err := os.Setenv("DEBUG", "true"); err != nil {
+			return nil, err
+		}
+	}
+
+	fmt.Println(util.Banner)
+
+	session := new(Session)
+
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " ... hello " + os.Getenv("USER"))
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
-}
 
-// NewSession reads configuration from environment variables and validates it
-func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Session, error) {
-
-	util.PrintlnBanner()
-
-	session := new(Session)
-
-	hello()
-
-	if err := util.ConfigFromYml(session, cfg); err != nil {
-		// either the file didn't exist or wasn't properly formatted
-		if err = util.ConfigFromEnv(session); err != nil {
+	// If a config file is available, load it
+	if f, err := os.Open(cfg); err == nil {
+		d := yaml.NewDecoder(f)
+		if err = d.Decode(session); err != nil {
 			return nil, err
 		}
 	}
+
+	// If env vars are available, allow them to override config file values
+	_ = envconfig.Process("", session)
 
 	// Lets confirm our API credentials are correct
 	if err := session.Api.Validate(); err != nil {
 		return nil, err
 	}
+
+	log.Info().Msg(util.Fish + " ... coinbase validated")
 
 	// While trade and report commands do not requiring the database,
 	// simulations do, which should occur before trading & reporting.
@@ -126,36 +151,24 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Ses
 		return nil, err
 	}
 
+	log.Info().Msg(util.Fish + " ... database connected")
+
 	// Set a "start time" for the session
 	tme, err := session.GetTime()
 	if err != nil {
 		return nil, err
 	}
-	session.Time = tme
+	session.started = tme
 
-	// No other place to really put this
-	if session.Port == 0 {
-		session.Port = 8080
-	}
+	log.Info().Msgf("%s ... time synchronized [%s]", util.Fish, tme.Format(time.RFC3339))
 
-	// Initiating products will fetch the most recent list of
-	// cryptocurrencies and apply patterns to each product.
-	allUsdProducts, err := session.Api.GetUsdProducts()
+	// Map all desirable coinbase products by ID
+	products, err := session.GetUsdProductMap()
 	if err != nil {
 		return nil, err
 	}
 
-	// Map all desirable coinbase products by ID
-	products := map[string]cb.Product{}
-	for _, product := range *allUsdProducts {
-		if product.BaseCurrency == "DAI" ||
-			product.BaseCurrency == "USDT" ||
-			product.BaseMinSize == "" ||
-			product.QuoteIncrement == "" {
-			continue
-		}
-		products[product.ID] = product
-	}
+	log.Info().Msgf("%s ... cryptocurrencies found [%d]", util.Fish, len(products))
 
 	// Map all patterns by product ID
 	patterns := map[string]cbp.Pattern{}
@@ -165,27 +178,34 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Ses
 
 	// If no product patterns have been configured
 	if len(patterns) < 1 {
-		// create new patterns for every usd product
+		// create new patterns for every Usd product
 		for productID, _ := range products {
 			patterns[productID] = *cbp.NewPattern(productID, size, gain, loss, delta)
 		}
 	}
 
+	log.Info().Msgf("%s ... patterns initialized [%d]", util.Fish, len(patterns))
+
 	// now we have a map of coinbase products and nuchal patterns, make the session products map
-	session.Products = map[string]cbp.Product{}
+	session.products = map[string]cbp.Product{}
 	for productID, pattern := range patterns {
 		product := products[productID]
 		pattern.InitPattern(size, gain, loss, delta)
-		session.Products[productID] = cbp.Product{product, pattern}
+		session.products[productID] = cbp.Product{product, pattern}
 	}
+
+	log.Info().Msgf("%s ... products configured [%d]", util.Fish, len(session.products))
 
 	session.usdSelections = map[string]string{}
 	if len(usd) > 0 {
 		for _, selection := range usd {
-			session.usdSelections[selection] = selection
+			productID := selection + "-USD"
+			if _, ok := session.products[productID]; ok {
+				session.usdSelections[selection] = selection
+			}
 		}
 	} else {
-		for productID, _ := range session.Products {
+		for productID, _ := range session.products {
 			session.usdSelections[productID] = productID
 		}
 	}
@@ -195,9 +215,16 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Ses
 		for scanner.Scan() {
 			line := scanner.Text()
 			if line == "exit" {
-				goodbye()
+				log.Info().Msg(util.Fish + " .")
+				log.Info().Msg(util.Fish + " ..")
+				log.Info().Msg(util.Fish + " ...")
+				log.Info().Msg(util.Fish + " ... goodbye")
+				log.Info().Msg(util.Fish + " ...")
+				log.Info().Msg(util.Fish + " ..")
+				log.Info().Msg(util.Fish + " .")
+				os.Exit(0)
 			} else {
-				log.Info().Msg(util.Fish + " ... I'm not familiar with ")
+				log.Info().Msgf("%s %s I'm not familiar with \"%s\"", util.Fish, util.Break, line)
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -207,17 +234,6 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64) (*Ses
 	}()
 
 	return session, nil
-}
-
-func goodbye() {
-	log.Info().Msg(util.Fish + " .")
-	log.Info().Msg(util.Fish + " ..")
-	log.Info().Msg(util.Fish + " ...")
-	log.Info().Msg(util.Fish + " ... goodbye")
-	log.Info().Msg(util.Fish + " ...")
-	log.Info().Msg(util.Fish + " ..")
-	log.Info().Msg(util.Fish + " .")
-	os.Exit(0)
 }
 
 // GetTradingPositions returns a map of trading positions.
@@ -249,7 +265,7 @@ func (s *Session) GetActivePositions() (*map[string]cbp.Position, error) {
 
 	result := map[string]cbp.Position{}
 	for productID, position := range *positions {
-		product := s.Products[productID]
+		product := s.products[productID]
 		if position.Product == (cbp.Product{}) {
 			position.Product = product
 		}
