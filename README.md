@@ -8,17 +8,15 @@ Effectively tests patterns against historical rates, executes trades with optimi
 A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
 
 ## Installation
-
-### GO
 ```shell
-# Download and install nuchal 
-go get -u github.com/nelsw/nuchal
-```
+# Download and install the latest version of nuchal 
+go install github.com/nelsw/nuchal@latest
 
-### Docker
-```shell
-# Start the docker composition (postgres database)
-docker compose -p nuchal -f build/docker-compose.yml up -d
+# Add the go bin directory to your path
+export PATH=${PATH}:/Users/${USER}/go/bin
+
+# Confirm successful installation
+nuchal
 ```
 
 ## Configuration
@@ -37,7 +35,6 @@ Period is the window of time for command execution and data time frames. Default
 3. yml - .yml configuration file
 
 ### cli
-Start here.
 ```shell
 # Displays options for configuring global product pattern criteria, USD selections, and configuration file location.
 nuchal --help
