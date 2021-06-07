@@ -148,7 +148,7 @@ func New(session *config.Session) error {
 						Str("1.", util.Usd(trade.Price())).
 						Str("2.", util.Usd(position.Price())).
 						Str("3.", util.Usd(position.GoalPrice(trade.Price()))).
-						Float64(util.Quantity, trade.Size()).
+						Str(util.Quantity, trade.Fill.Size).
 						Msg(util.Report + " ... ")
 				}
 			}

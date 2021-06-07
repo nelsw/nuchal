@@ -20,7 +20,7 @@ package db
 
 import (
 	"fmt"
-	"github.com/nelsw/nuchal/pkg/util"
+	"github.com/kelseyhightower/envconfig"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	reggol "gorm.io/gorm/logger"
@@ -47,7 +47,7 @@ func InitDb() error {
 
 	cfg = new(Config)
 
-	err := util.ConfigFromEnv(cfg)
+	err := envconfig.Process("", cfg)
 	if err != nil || cfg.Port == 0 {
 		cfg.Host = "localhost"
 		cfg.User = "postgres"

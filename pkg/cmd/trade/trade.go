@@ -19,11 +19,9 @@
 package trade
 
 import (
-	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
-	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"time"
 )
@@ -41,30 +39,39 @@ func New(ses *config.Session) error {
 	log.Info().Msg(util.Trade + " ..")
 
 	if util.IsEnvVarTrue("TEST") {
-		//return nil
+		return nil
 	}
 
-	return util.DoIndefinitely(func() {
-		for _, p := range ses.Products {
-			go trade(ses, p)
+	exit := make(chan string)
+	go func() {
+		for _, productID := range *ses.ProductIDs() {
+			go trade(ses, productID)
 		}
-	})
+	}()
+	for {
+		select {
+		case <-exit:
+			return nil
+		}
+	}
 }
 
-func trade(session *config.Session, p cbp.Product) {
+func trade(session *config.Session, productID string) {
 
-	log.Info().Str("#", p.ID).Msg("trading")
+	log.Info().Time("", time.Now()).Msgf("%s ... %5s ... %s", util.Trade, productID, "poll")
+
+	product := session.GetProduct(productID)
 
 	var then, that cbp.Rate
 	for {
-		if this, err := getRate(session, p.ID); err != nil {
+		if this, err := cbp.GetRate(productID); err != nil {
 			then = cbp.Rate{}
 			that = cbp.Rate{}
-		} else if !p.MatchesTweezerBottomPattern(then, that, *this) {
+		} else if !product.MatchesTweezerBottomPattern(then, that, *this) {
 			then = that
 			that = *this
 		} else {
-			go buy(session, p)
+			go buy(session, product)
 			then = cbp.Rate{}
 			that = cbp.Rate{}
 		}
@@ -73,9 +80,7 @@ func trade(session *config.Session, p cbp.Product) {
 
 func buy(session *config.Session, product cbp.Product) {
 
-	log.Info().
-		Str("#", product.ID).
-		Msg("buying")
+	log.Info().Time("", time.Now()).Msgf("%s ... %5s ... %s", util.Trade, product.ID, "buy")
 
 	order, err := session.CreateOrder(product.NewMarketBuyOrder())
 	if err == nil {
@@ -86,7 +91,7 @@ func buy(session *config.Session, product cbp.Product) {
 		goalPrice := product.GoalPrice(entryPrice)
 		entryTime := order.CreatedAt.Time()
 
-		if _, err := NewSell(session, order.CreatedAt.Time(), productID, size, entryPrice, goalPrice, entryTime); err != nil {
+		if _, err := NewSell(session, entryTime, productID, size, entryPrice, goalPrice, entryTime); err != nil {
 			log.Error().Err(err).Msg("while selling")
 		}
 		return
@@ -101,52 +106,4 @@ func buy(session *config.Session, product cbp.Product) {
 	log.Error().Send()
 	log.Error().Err(err).Str(util.Currency, product.ID).Msg("buying")
 	log.Error().Send()
-}
-
-func getRate(session *config.Session, productID string) (*cbp.Rate, error) {
-
-	var wsDialer ws.Dialer
-	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
-	if err != nil {
-		log.Error().Err(err).Msg("opening ws")
-		return nil, err
-	}
-
-	defer func(wsConn *ws.Conn) {
-		if err := wsConn.Close(); err != nil {
-			log.Error().Err(err).Msg("closing ws")
-		}
-	}(wsConn)
-
-	end := time.Now().Add(time.Minute)
-
-	var low, high, open, vol float64
-	for {
-
-		price, err := session.GetPrice(wsConn, productID)
-		if err != nil {
-			return nil, err
-		}
-
-		vol++
-
-		if low == 0 {
-			low = *price
-			high = *price
-			open = *price
-		} else if high < *price {
-			high = *price
-		} else if low > *price {
-			low = *price
-		}
-
-		now := time.Now()
-		if now.After(end) {
-			return &cbp.Rate{
-				now.UnixNano(),
-				productID,
-				cb.HistoricRate{now, low, high, open, *price, vol},
-			}, nil
-		}
-	}
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -110,18 +111,25 @@ func (a *Api) GetFills(productId string) (*[]cb.Fill, error) {
 	return &allChunks, nil
 }
 
-func (a *Api) GetUsdProducts() (*[]cb.Product, error) {
+func (a *Api) GetUsdProductMap() (map[string]cb.Product, error) {
 
-	all, err := a.GetClient().GetProducts()
-
-	var res []cb.Product
-	for _, p := range all {
-		if usdRegex.MatchString(p.ID) {
-			res = append(res, p)
-		}
+	allUsdProducts, err := a.GetClient().GetProducts()
+	if err != nil {
+		return nil, err
 	}
 
-	return &res, err
+	products := map[string]cb.Product{}
+	for _, product := range allUsdProducts {
+		if product.BaseCurrency == "DAI" ||
+			product.BaseCurrency == "USDT" ||
+			product.BaseMinSize == "" ||
+			product.QuoteIncrement == "" ||
+			!usdRegex.MatchString(product.ID) {
+			continue
+		}
+		products[product.ID] = product
+	}
+	return products, nil
 }
 
 func (a *Api) GetActiveAccounts() (*[]cb.Account, error) {
@@ -258,20 +266,22 @@ func (a *Api) CancelOrder(id string, attempt ...int) error {
 
 // GetPrice gets the latest ticker price for the given productId. This method does not perform logging as it is executed
 // thousands of times per second.
-func (a *Api) GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
+func GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
+
+	currency := strings.ReplaceAll(productID, "-USD", "")
 
 	if err := wsConn.WriteJSON(&cb.Message{
 		Type:     "subscribe",
 		Channels: []cb.MessageChannel{{"ticker", []string{productID}}},
 	}); err != nil {
-		log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... subscribing to websocket")
+		log.Error().Err(err).Str("action", "subscribe").Msgf("%s ... %5s ...", util.Fish, currency)
 		return nil, err
 	}
 
 	var receivedMessage cb.Message
 	for {
 		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
-			log.Error().Err(err).Str(util.Currency, productID).Msg(util.Fish + " ... reading from websocket")
+			log.Error().Err(err).Str("action", "read").Msgf("%s ... %5s ...", util.Fish, currency)
 			return nil, err
 		}
 		if receivedMessage.Type != "subscriptions" {
@@ -281,10 +291,57 @@ func (a *Api) GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
 
 	if receivedMessage.Type != "ticker" {
 		err := fmt.Errorf("message type != ticker, %v", receivedMessage)
-		log.Error().Err(err).Str(util.Currency, productID).Msg("getting ticker message from websocket")
+		log.Error().Err(err).Str("action", "receipt").Msgf("%s ... %5s ...", util.Fish, currency)
 		return nil, err
 	}
 
 	f := util.Float64(receivedMessage.Price)
 	return &f, nil
+}
+
+func GetRate(productID string) (*Rate, error) {
+
+	var wsDialer ws.Dialer
+	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
+	if err != nil {
+		log.Error().Err(err).Msg("opening ws")
+		return nil, err
+	}
+
+	defer func(wsConn *ws.Conn) {
+		if err := wsConn.Close(); err != nil {
+			log.Error().Err(err).Msg("closing ws")
+		}
+	}(wsConn)
+
+	end := time.Now().Add(time.Minute)
+
+	var low, high, open, vol float64
+	for {
+
+		price, err := GetPrice(wsConn, productID)
+		if err != nil {
+			return nil, err
+		}
+
+		vol++
+
+		if low == 0 {
+			low = *price
+			high = *price
+			open = *price
+		} else if high < *price {
+			high = *price
+		} else if low > *price {
+			low = *price
+		}
+
+		if now := time.Now(); now.After(end) {
+			return &Rate{
+				now.UnixNano(),
+				productID,
+				cb.HistoricRate{now, low, high, open, *price, vol},
+			}, nil
+		}
+	}
 }

@@ -19,11 +19,8 @@
 package util
 
 import (
-	"encoding/json"
 	"fmt"
-	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v2"
 	"os"
 	"regexp"
 	"strconv"
@@ -111,63 +108,6 @@ func IsInsufficientFunds(err error) bool {
 	return err != nil && err.Error() == "Insufficient funds"
 }
 
-func DoIndefinitely(fun func()) error {
-	exit := make(chan string)
-	go fun()
-	for {
-		select {
-		case <-exit:
-			return nil
-		}
-	}
-}
-
 func IsZero(s string) bool {
 	return Float64(s) == 0.0
-}
-
-func PrintlnBanner() {
-	fmt.Println(Banner)
-}
-
-func PrintlnPrettyJson(v interface{}) {
-	fmt.Println(PrettyJson(v))
-}
-
-func PrettyJson(v interface{}) string {
-	b, _ := json.MarshalIndent(v, "", " ")
-	return string(b)
-}
-
-func ConfigFromYml(v interface{}, name string) error {
-
-	log.Debug().Interface("ConfigFromYml", v).Send()
-
-	f, err := os.Open(name)
-	if err != nil {
-		log.Debug().Err(err).Send()
-		return err
-	}
-
-	d := yaml.NewDecoder(f)
-	if err := d.Decode(v); err != nil {
-		log.Debug().Err(err).Send()
-		return err
-	}
-
-	log.Debug().Interface("ConfigFromYml", v).Send()
-	return nil
-}
-
-func ConfigFromEnv(v interface{}) error {
-
-	log.Debug().Interface("ConfigFromEnv", v).Send()
-
-	if err := envconfig.Process("", v); err != nil {
-		log.Debug().Err(err).Send()
-		return err
-	}
-
-	log.Debug().Interface("ConfigFromEnv", v).Send()
-	return nil
 }

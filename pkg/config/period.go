@@ -37,6 +37,8 @@ type Period struct {
 	// sim uses this as the amount of time to host result pages.
 	// trade uses this to override Alpha and Omega values.
 	Duration time.Duration `envconfig:"PERIOD_DURATION" yaml:"duration"`
+
+	started *time.Time
 }
 
 // InPeriod is an exclusive range function to determine if the given time falls within the defined period.

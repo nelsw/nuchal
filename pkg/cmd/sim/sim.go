@@ -46,7 +46,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	var results []simulation
 	for _, productID := range *session.ProductIDs() {
 
-		product := session.Products[productID]
+		product := session.GetProduct(productID)
 
 		rates, err := getRates(session, productID)
 		if err != nil {
@@ -91,7 +91,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.WonLen()).
 				Str(util.Sigma, util.Usd(simulation.WonSum())).
-				Str(util.Hyperlink, resultUrl(simulation.ID, "won", session.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "won", session.SimPort())).
 				Msg(util.Sim + " ... " + util.ThumbsUp)
 		}
 
@@ -99,7 +99,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.LostLen()).
 				Str(util.Sigma, util.Usd(simulation.LostSum())).
-				Str(util.Hyperlink, resultUrl(simulation.ID, "lst", session.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "lst", session.SimPort())).
 				Msg(util.Sim + " ... " + util.ThumbsDn)
 		}
 
@@ -107,7 +107,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.EvenLen()).
 				Str(util.Sigma, "$0.000").
-				Str(util.Hyperlink, resultUrl(simulation.ID, "evn", session.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "evn", session.SimPort())).
 				Msg(util.Sim + " ... " + util.NoTrend)
 		}
 
@@ -119,7 +119,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 			log.Info().
 				Int(util.Quantity, simulation.TradingLen()).
 				Str(util.Sigma, util.Usd(simulation.TradingSum())).
-				Str(util.Hyperlink, resultUrl(simulation.ID, "dnf", session.Port)).
+				Str(util.Hyperlink, resultUrl(simulation.ID, "dnf", session.SimPort())).
 				Msg(util.Sim + " ... " + symbol)
 		}
 
@@ -179,8 +179,8 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	}
 
 	fs := http.FileServer(http.Dir("html"))
-	log.Info().Msgf("Charts successfully served, visit them at http://localhost:%d", session.Port)
-	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", session.Port), logRequest(fs)))
+	log.Info().Msgf("Charts successfully served, visit them at http://localhost:%d", session.SimPort())
+	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", session.SimPort()), logRequest(fs)))
 
 	time.Sleep(session.Duration)
 	return nil
