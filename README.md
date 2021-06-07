@@ -1,8 +1,6 @@
 # nuchal [![Go Report Card][5]][4] [![PkgGoDev][7]][6]
 
-An application for evaluating and executing high frequency cryptocurrency trades using statistical pattern recognition. 
-
-Effectively tests patterns against historical rates, executes trades with optimized limits, and prints detailed reports.
+An app for evaluating and executing high frequency cryptocurrency trades using statistical pattern analysis. 
 
 ## Requirements
 A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
