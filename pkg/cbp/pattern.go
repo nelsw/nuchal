@@ -19,15 +19,18 @@
 package cbp
 
 import (
+	"fmt"
+	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"math"
+	"strconv"
 )
 
 // Pattern defines the criteria for matching rates and placing orders.
 type Pattern struct {
 
 	// Id is concatenation of two currencies. eg. BTC-USD
-	Id string `yaml:"id" json:"id"`
+	ID string `yaml:"id" json:"id"`
 
 	// Gain is a percentage used to produce the goal sell price from the entry buy price.
 	Gain float64 `yaml:"gain" json:"gain"`
@@ -44,7 +47,7 @@ type Pattern struct {
 
 func NewPattern(productID string, size, gain, loss, delta float64) *Pattern {
 	pattern := new(Pattern)
-	pattern.Id = productID
+	pattern.ID = productID
 	pattern.Size = size
 	pattern.Gain = gain
 	pattern.Loss = loss
@@ -73,6 +76,56 @@ func (p *Pattern) GoalPrice(price float64) float64 {
 
 func (p *Pattern) LossPrice(price float64) float64 {
 	return price - (price * p.Loss)
+}
+
+func (p *Pattern) Url() string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ID)
+}
+
+func (p *Pattern) NewMarketBuyOrder() *cb.Order {
+	o := new(cb.Order)
+	o.ProductID = p.ID
+	o.Side = "buy"
+	o.Size = strconv.FormatFloat(p.Size, 'f', -1, 64)
+	o.Type = "market"
+	return o
+}
+
+func (p *Pattern) NewMarketSellOrder(size string) *cb.Order {
+	o := new(cb.Order)
+	o.ProductID = p.ID
+	o.Side = "sell"
+	o.Size = size
+	o.Type = "market"
+	return o
+}
+
+func (p *Pattern) NewLimitSellEntryOrderAtGoalPrice(trade *Trade) *cb.Order {
+	return p.NewLimitSellEntryOrder(p.GoalPrice(trade.Price()), trade.Fill.Size)
+}
+
+func (p *Pattern) NewLimitSellEntryOrder(price float64, size string) *cb.Order {
+	o := new(cb.Order)
+	o.Price = fmt.Sprintf("%.3f", price)
+	o.ProductID = p.ID
+	o.Side = "sell"
+	o.Size = size
+	o.Stop = "entry"
+	o.StopPrice = fmt.Sprintf("%.3f", price)
+	o.Type = "limit"
+	return o
+}
+
+func (p *Pattern) NewLimitLossOrder(price float64, size string) *cb.Order {
+	o := new(cb.Order)
+	o.Price = fmt.Sprintf("%.3f", price)
+	o.ProductID = p.ID
+	o.Side = "sell"
+	o.Size = size
+	o.Stop = "loss"
+	o.StopPrice = fmt.Sprintf("%.3f", price)
+	o.Type = "limit"
+	return o
 }
 
 func (p *Pattern) MatchesTweezerBottomPattern(then, that, this Rate) bool {

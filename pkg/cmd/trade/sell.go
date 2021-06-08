@@ -72,7 +72,7 @@ func NewSells(session *config.Session) error {
 
 	done := make(chan error)
 
-	for productID := range session.UsdSelections {
+	for _, productID := range session.UsdSelectionProductIDs() {
 
 		go func(position cbp.Position) {
 
@@ -85,12 +85,11 @@ func NewSells(session *config.Session) error {
 					size := trade.Fill.Size
 					entryPrice := trade.Price()
 					entryTime := trade.CreatedAt.Time()
-					product := session.GetProduct(productID)
-					goalPrice := product.GoalPrice(entryPrice)
-					t, _ := session.GetClient().GetTicker(productID)
-					currentPrice := util.Float64(t.Price)
+					pattern := session.GetPattern(productID)
+					goalPrice := pattern.GoalPrice(entryPrice)
+					currentPrice, _ := cbp.GetTickerPrice(productID)
 
-					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, currentPrice, goalPrice, "sell")
+					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *currentPrice, goalPrice, "sell")
 
 					exitPrice, err := NewSell(session, tradeID, productID, size, entryPrice, goalPrice, entryTime)
 					if err == nil {
@@ -98,9 +97,7 @@ func NewSells(session *config.Session) error {
 					}
 
 					done <- err
-
 					return
-
 				}(trade)
 			}
 		}(positions[productID])
@@ -171,7 +168,7 @@ func NewSell(
 			// if we haven't met our goal, but it has been at least 45 minutes
 			(entryTime.Add(time.Minute*45).After(time.Now()) && // and
 				// if we can get our money back, with fees
-				*currentPrice >= entryPrice+(entryPrice*session.Maker)) {
+				*currentPrice >= entryPrice+(entryPrice*cbp.Maker())) {
 			// then anchor and climb.
 			return anchor(session, tradeID, size, productID, entryPrice, goalPrice, *currentPrice)
 		}
@@ -187,8 +184,7 @@ func NewSell(
 // anchor attempts to create a new limit loss order for the given balance return climb.
 func anchor(session *config.Session, id time.Time, size, productID string, entryPrice, currentPrice, goalPrice float64) (*float64, error) {
 	prt(zerolog.WarnLevel, id, productID, entryPrice, currentPrice, goalPrice, "nchr")
-	product := session.GetProduct(productID)
-	order, err := session.CreateOrder(product.NewLimitLossOrder(currentPrice, size))
+	order, err := cbp.CreateOrder(session.GetPattern(productID).NewLimitLossOrder(currentPrice, size))
 	if err != nil {
 		prt(zerolog.ErrorLevel, id, productID, entryPrice, goalPrice, currentPrice, err.Error())
 		return nil, err
@@ -219,7 +215,7 @@ func climb(session *config.Session, tradeID time.Time, size, orderID, productID 
 
 		if rate.Close > goalPrice {
 			prt(zerolog.WarnLevel, tradeID, productID, entryPrice, rate.Close, rate.Close, "camp")
-			if err := session.CancelOrder(orderID); err != nil {
+			if err := cbp.CancelOrder(orderID); err != nil {
 				prt(zerolog.ErrorLevel, tradeID, productID, entryPrice, rate.Close, rate.Close, err.Error())
 				return nil, err
 			}

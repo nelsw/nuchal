@@ -25,9 +25,7 @@ import (
 )
 
 type simulation struct {
-
-	// Product is an aggregate of the product to trade, and the pattern which used to trade.
-	cbp.Product
+	cbp.Pattern
 
 	// Won are charts where we were profitable or broke even.
 	Won []Chart
@@ -52,22 +50,23 @@ func (s *simulation) symbol() string {
 	}
 }
 
-func newSimulation(
-	rates []cbp.Rate, product cbp.Product, maker, taker float64, period config.Period) *simulation {
+func newSimulation(session *config.Session, productID string, rates []cbp.Rate) *simulation {
+
+	pattern := session.GetPattern(productID)
 
 	simulation := new(simulation)
-	simulation.Product = product
+	simulation.Pattern = *session.GetPattern(productID)
 
 	var then, that cbp.Rate
 	for i, this := range rates {
 
-		if !period.InPeriod(this.Time()) {
+		if !session.InPeriod(this.Time()) {
 			continue
 		}
 
-		if product.MatchesTweezerBottomPattern(then, that, this) {
+		if session.GetPattern(productID).MatchesTweezerBottomPattern(then, that, this) {
 
-			chart := newChart(maker, taker, rates[i-2:], product)
+			chart := newChart(rates[i-2:], *pattern)
 			if chart.isWinner() {
 				simulation.Won = append(simulation.Won, *chart)
 			} else if chart.isLoser() {

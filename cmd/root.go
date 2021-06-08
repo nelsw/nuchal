@@ -30,7 +30,7 @@ var (
 	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
 		Use:   "nuchal",
-		Short: "An application for evaluating and executing systematic cryptocurrency trades.",
+		Short: "Evaluates & executes high frequency cryptocurrency trades from configurable trend alignment patterns.",
 		Long:  util.Banner,
 	}
 

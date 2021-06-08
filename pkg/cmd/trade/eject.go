@@ -25,33 +25,51 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// NewDrops cancels active orders.
-func NewDrops(session *config.Session) error {
+// NewEject sells everything, full stop.
+// Conceived
+// Developed
+func NewEject(session *config.Session) error {
 
 	log.Info().Msg(util.Trade + " .")
 	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --drop")
+	log.Info().Msg(util.Trade + " ... trade --eject")
 	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Trade + " .")
+
+	positions, err := session.GetTradingPositions()
+	if err != nil {
+		return err
+	}
+
+	if len(positions) < 1 {
+		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Trade + " ...")
+		log.Info().Msg(util.Trade + " ... nothing found to sell")
+		log.Info().Msg(util.Trade + " ...")
+		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Trade + " .")
+		return nil
+	}
 
 	for _, productID := range session.UsdSelectionProductIDs() {
 
-		log.Info().Msg(util.Trade + " ... " + productID)
+		currency := session.GetCurrency(productID)
 
-		orders, err := cbp.GetOrders(productID)
-		if err != nil {
-			return err
-		}
+		log.Info().Msg(util.Trade + " ... " + *currency + util.Break + "exit")
 
-		for _, order := range *orders {
-			if err := cbp.CancelOrder(order.ID); err != nil {
+		position := positions[productID]
+
+		for _, trade := range position.GetActiveTrades() {
+
+			order := session.GetPattern(productID).NewMarketSellOrder(trade.Fill.Size)
+			if _, err := cbp.CreateOrder(order); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... dropped")
+			log.Info().Msg(util.Trade + " ... " + *currency + util.Break + "exited")
 		}
 		log.Info().Msg(util.Trade + " ..")
 	}
 	log.Info().Msg(util.Trade + " .")
 
 	return nil
-
 }

@@ -19,6 +19,7 @@
 package trade
 
 import (
+	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
@@ -51,26 +52,25 @@ func NewHolds(session *config.Session) error {
 
 	for productID, position := range positions {
 
-		product := session.GetProduct(productID)
+		pattern := session.GetPattern(productID)
 
-		log.Info().Msg(util.Trade + " ... " + position.ProductId())
+		log.Info().Msg(util.Trade + " ... " + productID)
 		for _, trade := range position.GetActiveTrades() {
 
-			ticker, err := session.GetClient().GetTicker(productID)
+			tickerPrice, err := cbp.GetTickerPrice(productID)
 			if err != nil {
 				return err
 			}
-			price := util.Float64(ticker.Price)
 
 			var order *cb.Order
-			goalPrice := product.GoalPrice(trade.Price())
-			if price >= goalPrice {
-				order = product.NewMarketSellOrder(trade.Fill.Size)
+			goalPrice := pattern.GoalPrice(trade.Price())
+			if *tickerPrice >= goalPrice {
+				order = pattern.NewMarketSellOrder(trade.Fill.Size)
 			} else {
-				order = product.NewLimitSellEntryOrder(goalPrice, trade.Fill.Size)
+				order = pattern.NewLimitSellEntryOrder(goalPrice, trade.Fill.Size)
 			}
 
-			if _, err := session.CreateOrder(order); err != nil {
+			if _, err := cbp.CreateOrder(order); err != nil {
 				return err
 			}
 
