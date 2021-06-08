@@ -60,7 +60,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 			return err
 		}
 
-		simulation := newSimulation(rates, product, session.Maker, session.Taker, session.Period)
+		simulation := newSimulation(rates, product, cbp.Maker(), cbp.Taker(), session.Period)
 		log.Info().Msg(util.Sim + util.Break + currency + util.Break + "complete")
 
 		if simulation.Volume() == 0 {
@@ -85,8 +85,8 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 		return results[i].Net() < results[j].Net()
 	})
 
-	var ether, winners, losers, even int
-	var won, lost, total, volume float64
+	var trading, winners, losers, even int
+	var sum, won, lost, net, volume float64
 	for _, simulation := range results {
 
 		currency := session.UsdSelections[simulation.ID]
@@ -111,7 +111,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 				Int(util.Quantity, simulation.LostLen()).
 				Str(util.Sigma, util.Usd(simulation.LostSum())).
 				Str(util.Hyperlink, resultUrl(simulation.ID, "lst", session.SimPort())).
-				Msg(util.Sim + " ... " + fmt.Sprintf("%4s", util.ThumbsDn))
+				Msg(util.Sim + " ... " + fmt.Sprintf("%5s", util.ThumbsDn))
 		}
 
 		if simulation.EvenLen() > 0 {
@@ -123,6 +123,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 		}
 
 		if simulation.TradingLen() > 0 {
+			sum += simulation.TradingSum()
 			symbol := util.UpTrend
 			if simulation.TradingSum() < 0 {
 				symbol = util.DnTrend
@@ -144,25 +145,32 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 
 		winners += simulation.WonLen()
 		losers += simulation.LostLen()
-		ether += simulation.TradingLen()
+		trading += simulation.TradingLen()
 		won += simulation.WonSum()
 		lost += simulation.LostSum()
-		total += simulation.Total()
+		net += simulation.Total()
 		volume += simulation.Volume()
 		even += len(simulation.Even)
 	}
 
+	if sum > 0 {
+		won += sum
+	} else {
+		lost -= sum
+	}
+
 	log.Info().Msg(util.Sim + " .")
 	log.Info().Msg(util.Sim + " ..")
-	log.Info().Int("  trading", ether).Msg(util.Sim + " ...")
-	log.Info().Int("  winners", winners).Msg(util.Sim + " ...")
-	log.Info().Int("   losers", losers).Msg(util.Sim + " ...")
+	log.Info().Int("  trading", trading).Msg(util.Sim + " ...")
+	log.Info().Int("      won", winners).Msg(util.Sim + " ...")
+	log.Info().Int("     lost", losers).Msg(util.Sim + " ...")
 	log.Info().Int("     even", even).Msg(util.Sim + " ...")
-	log.Info().Float64("      won", won).Msg(util.Sim + " ...")
-	log.Info().Float64("     lost", lost).Msg(util.Sim + " ...")
-	log.Info().Float64("    total", total).Msg(util.Sim + " ...")
-	log.Info().Float64("   volume", volume).Msg(util.Sim + " ...")
-	log.Info().Float64("        %", (total/volume)*100).Msg(util.Sim + " ...")
+	log.Info().Msg(util.Sim + " ..")
+	log.Info().Float64("       up", won).Msg(util.Sim + " ...")
+	log.Info().Float64("     down", lost).Msg(util.Sim + " ...")
+	log.Info().Float64("      net", net).Msg(util.Sim + " ...")
+	log.Info().Float64("        %", (net/volume)*100).Msg(util.Sim + " ...")
+	log.Info().Str("   volume", util.Usd(volume)).Msg(util.Sim + " ...")
 	log.Info().Msg(util.Sim + " ..")
 	log.Info().Msg(util.Sim + " .")
 
@@ -261,7 +269,7 @@ func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
 	to := from.Add(time.Hour * 4)
 	for {
 
-		rates, err := ses.GetClient().GetHistoricRates(productID, cb.GetHistoricRatesParams{from, to, 60})
+		rates, err := cbp.Client().GetHistoricRates(productID, cb.GetHistoricRatesParams{from, to, 60})
 		if err != nil {
 			return nil, err
 		}

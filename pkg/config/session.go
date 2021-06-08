@@ -140,9 +140,7 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 	}
 
 	if f, err := os.Open(cfg); err == nil {
-		if err = yaml.NewDecoder(f).Decode(session); err != nil {
-			return nil, err
-		}
+		_ = yaml.NewDecoder(f).Decode(session)
 	}
 
 	// Map all patterns by product ID
@@ -150,7 +148,7 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 	for _, pattern := range session.Patterns {
 		patterns[pattern.Id] = pattern
 	}
-	log.Info().Msgf("%s ... patterns configurations found [%d]", util.Fish, len(session.products))
+	log.Info().Msgf("%s ... patterns configurations found [%d]", util.Fish, len(patterns))
 
 	// If no product patterns have been configured
 	if len(patterns) < 1 {
@@ -183,7 +181,7 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 		}
 	}
 
-	log.Info().Msgf("%s ... USD currency selections found [%d]", util.Fish, len(session.products))
+	log.Info().Msgf("%s ... USD currency selections found [%d]", util.Fish, len(session.UsdSelections))
 	log.Info().Msg(util.Fish + " .. ")
 
 	scanner := bufio.NewScanner(os.Stdin)

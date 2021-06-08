@@ -24,7 +24,7 @@ const (
 	Time      = `🗓`
 	Diamond   = `💎`
 	ThumbsUp  = `🏆`
-	ThumbsDn  = `❌`
+	ThumbsDn  = `❌ `
 	Won       = Diamond
 	Lost      = `💩`
 	Even      = `🎭`
