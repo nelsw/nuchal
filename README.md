@@ -118,11 +118,10 @@ nuchal report -c /Users/${USER}/config.yml
 # Prints a simulation result report and serves a local website to host graphical report analysis.
 nuchal sim
 
-# Prints a simulation result report where the net gain for each product simulation was greater than zero.
+# Prints a simulation result report with a positive net gain.
 nuchal sim -t --no-losers
 
-# Prints a simulation result report where the net gain for each product simulation was greater than zero and also 
-# where the amount of positions trading are zero.	
+# Prints a simulation result report with a positive net gain and zero trading positions. 
 nuchal sim -w --winners-only
 ```
 ![sim example][12]
