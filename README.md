@@ -99,7 +99,7 @@ period:
 
 #### cli
 ```shell
-# Displays options for configuring global product pattern criteria, USD selections, and configuration file location.
+# Displays options for configuring global pattern criteria, USD selections, and configuration file location.
 nuchal --help
 ```
 
