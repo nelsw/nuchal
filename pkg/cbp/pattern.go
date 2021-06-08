@@ -27,19 +27,19 @@ import (
 type Pattern struct {
 
 	// Id is concatenation of two currencies. eg. BTC-USD
-	Id string `yaml:"id"`
+	Id string `yaml:"id" json:"id"`
 
 	// Gain is a percentage used to produce the goal sell price from the entry buy price.
-	Gain float64 `yaml:"gain"`
+	Gain float64 `yaml:"gain" json:"gain"`
 
 	// Loss is a percentage used to derive a limit sell price from the entry buy price.
-	Loss float64 `yaml:"loss"`
+	Loss float64 `yaml:"loss" json:"loss"`
 
 	// Size is the amount of the transaction, using the products native quote increment.
-	Size float64 `yaml:"size"`
+	Size float64 `yaml:"size" json:"size"`
 
 	// Delta is the size of an acceptable difference between tweezer bottom candlesticks.
-	Delta float64 `yaml:"delta"`
+	Delta float64 `yaml:"delta" json:"delta"`
 }
 
 func NewPattern(productID string, size, gain, loss, delta float64) *Pattern {

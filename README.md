@@ -2,10 +2,11 @@
 
 An app for evaluating and executing high frequency cryptocurrency trades using statistical pattern analysis. 
 
-## Requirements
-A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
+
+***
 
 ## Installation
+A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
 ```shell
 # Download and install the latest version of nuchal 
 go install github.com/nelsw/nuchal@latest
@@ -16,55 +17,73 @@ export PATH=${PATH}:/Users/${USER}/go/bin
 # Confirm successful installation
 nuchal
 ```
+***
 
 ## Configuration
 
-Products are cryptocurrencies from the Coinbase API. There is no configuration for products. All products are available,
-and while **nuchal** is designed to support multiple currencies, it is currently developed to support USD only.
+### Currency
+**nuchal** supports Fiat (USD) -> Crypto and Crypto -> Fiat (USD) trading only.
 
-Patterns are the criteria used to recognize trends and make critical trading decisions. Default criteria is overridable.
-While **nuchal** is designed to support multiple patterns, it is currently developed to support only a "Tweezer Bottom".
-
-Period is the window of time for command execution and data time frames. Default time frame is from 24hrs ago until now.
-
-**nuchal** supports configuration from multiple sources and in the following order, sorted by highest precedence:
-1. cli - command line interface
-2. env - environment variables
-3. yml - .yml configuration file
-
-### cli
-```shell
-# Displays options for configuring global product pattern criteria, USD selections, and configuration file location.
-nuchal --help
+### Products
+**nuchal** caches all available USD cryptocurrency products from Coinbase on startup.
+```json
+{
+  "id": "BTC-USD",
+  "base_currency": "BTC",
+  "quote_currency": "USD",
+  "base_min_size": "0.0001",
+  "base_max_size": "280",
+  "quote_increment": "0.01"
+}
 ```
 
-### env
-If you're just looking to get this up and running, env configuration is your friend.
+### Patterns
+**nuchal** supports a single "Tweezer Bottom" trend alignment pattern to recognize and define opportunities.
+```json
+{
+ "id": "BTC-USD",
+ "gain": 0.0195,
+ "loss": 0.495,
+ "size": 1,
+ "delta": 0.001
+}
+```
+
+### Sources
+Not all commands work in *Sandbox* mode, *Production* mode requires configuration at least one **source**.
+
+#### env
+Execute the following if you're not interested in pattern configuration on a product level.
 ```shell
-# Create a Coinbase Pro API and export the values
+# Minimum requirement for running in Production mode: key, pass, secret.
 export COINBASE_PRO_KEY="your_coinbase_pro_api_key"
 export COINBASE_PRO_PASSPHRASE="your_coinbase_pro_api_passphrase"
 export COINBASE_PRO_SECRET="your_coinbase_pro_api_secret"
+
+# Coinbase Pro trading information for precise trade results.
 export COINBASE_PRO_MAKER_FEE="your_coinbase_pro_api_maker_fee"
 export COINBASE_PRO_TAKER_FEE="your_coinbase_pro_api_taker_fee"
+
+# A time frame for the command or command data.
 export PERIOD_ALPHA="2021-06-02T08:00:00+00:00"
 export PERIOD_OMEGA="2021-06-03T22:00:00+00:00"
 export PERIOD_DURATION="24h00m00s"
 ```
 
-### yml 
-When you're ready to tune simulations and tweak patterns, create a `config.yml` configuration file like the following.
+#### yml 
+To support product based pattern definitions, create a `config.yml` configuration file like the following.
 ```yaml
-# Coinbase Pro, with maker & taker fees
+# Minimum requirement for running in Production mode: key, pass, secret.
 cbp:
   key:
   pass:
   secret:
+  # Coinbase Pro trading information for precise trade results.
   fees:
     maker:
     taker:
 
-# Product selection and pattern criteria
+# Product selection and pattern criteria.
 patterns:
   - id: SKL-USD
     delta: .01
@@ -75,14 +94,19 @@ patterns:
   - id: TRB-USD
     size: 1.25
 
+# A time frame for the command or command data.
 period:
-    # A time frame for running the command 
     alpha: 2021-06-02T00:00:00+00:00
     omega: 2021-06-03T23:59:59+00:00
-    # The amount of time to run the command
     duration: 24h0m0s
 ```
-You'll need to place this file in the nuchal project directory or define config file location through the cli.
+
+#### cli
+```shell
+# Displays options for configuring global product pattern criteria, USD selections, and configuration file location.
+nuchal --help
+```
+***
 
 ## Commands
 
