@@ -21,15 +21,13 @@ package util
 const (
 	Hyperlink = `🔗`
 	Target    = `🎯`
-	Profit    = `💰`
 	Time      = `🗓`
 	Diamond   = `💎`
-	ThumbsUp  = `👍🏻`
-	ThumbsDn  = `👎🏻`
+	ThumbsUp  = `🏆`
+	ThumbsDn  = `❌ `
 	Won       = Diamond
 	Lost      = `💩`
 	Even      = `🎭`
-	Trading   = `🔁`
 	Sim       = `🐟`
 	Trade     = `🦈`
 	Report    = `🐡`

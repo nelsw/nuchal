@@ -40,21 +40,11 @@ type Config struct {
 	} `yaml:"cbp"`
 }
 
-func (c *Config) client() *cb.Client {
-	return &cb.Client{
-		"https://api.pro.coinbase.com",
-		c.Api.Secret,
-		c.Api.Key,
-		c.Api.Passphrase,
-		&http.Client{
-			Timeout: 15 * time.Second,
-		},
-		0,
-	}
-}
-
-var cfg *Config
-var products = map[string]cb.Product{}
+var (
+	cfg      *Config
+	client   *cb.Client
+	products = map[string]cb.Product{}
+)
 
 func Init(name string) (*time.Time, error) {
 
@@ -62,36 +52,46 @@ func Init(name string) (*time.Time, error) {
 
 	cfg = new(Config)
 
-	err = envconfig.Process("", cfg)
-	if err == nil {
-		if err = validate(); err == nil {
-			return nil, nil
-		}
-	}
-
-	var f *os.File
-	if f, err = os.Open(name); err == nil {
-		if err = yaml.NewDecoder(f).Decode(cfg); err == nil {
-			err = validate()
-		}
+	if err = envconfig.Process("", cfg); err == nil {
+		err = validate()
 	}
 
 	if err != nil {
-		return nil, err
+		var f *os.File
+		if f, err = os.Open(name); err == nil {
+			if err = yaml.NewDecoder(f).Decode(cfg); err == nil {
+				err = validate()
+			}
+		}
+	}
+
+	baseUrl := "https://api.pro.coinbase.com"
+	if err != nil {
+		baseUrl = "https://api-public.sandbox.pro.coinbase.com"
+	}
+
+	client = &cb.Client{
+		baseUrl,
+		cfg.Api.Secret,
+		cfg.Api.Key,
+		cfg.Api.Passphrase,
+		&http.Client{
+			Timeout: 15 * time.Second,
+		},
+		0,
 	}
 
 	if cfg.Api.Fees.Maker == 0 {
 		cfg.Api.Fees.Maker = .005
 	}
-
 	if cfg.Api.Fees.Taker == 0 {
 		cfg.Api.Fees.Taker = .005
 	}
 
-	if allUsdProducts, err := cfg.client().GetProducts(); err != nil {
+	if allProducts, err := client.GetProducts(); err != nil {
 		return nil, err
 	} else {
-		for _, product := range allUsdProducts {
+		for _, product := range allProducts {
 			if product.BaseCurrency == "DAI" ||
 				product.BaseCurrency == "USDT" ||
 				product.BaseMinSize == "" ||
@@ -104,7 +104,7 @@ func Init(name string) (*time.Time, error) {
 	}
 
 	var tme cb.ServerTime
-	if tme, err = cfg.client().GetTime(); err != nil {
+	if tme, err = client.GetTime(); err != nil {
 		return nil, err
 	}
 
@@ -123,6 +123,18 @@ func validate() error {
 		return errors.New("missing Coinbase Pro API passphrase")
 	}
 	return nil
+}
+
+func Client() *cb.Client {
+	return client
+}
+
+func Maker() float64 {
+	return cfg.Api.Fees.Maker
+}
+
+func Taker() float64 {
+	return cfg.Api.Fees.Taker
 }
 
 func GetAllProductIDs() []string {

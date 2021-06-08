@@ -70,7 +70,7 @@ func init() {
 			panic(err)
 		}
 	})
-	rootCmd.PersistentFlags().StringVarP(&cfg, "config", "c", "config.yml", "config file path")
+	rootCmd.PersistentFlags().StringVarP(&cfg, "config", "c", "", "config file path")
 	rootCmd.PersistentFlags().StringArrayVar(&usd, "usd", nil, "scope of USD Products to command")
 	rootCmd.PersistentFlags().Float64VarP(&size, "size", "q", 1, "minimum trade size")
 	rootCmd.PersistentFlags().Float64VarP(&gain, "gain", "g", .0195, "trade gain goal")

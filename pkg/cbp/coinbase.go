@@ -19,7 +19,6 @@
 package cbp
 
 import (
-	"errors"
 	"fmt"
 	ws "github.com/gorilla/websocket"
 	"github.com/nelsw/nuchal/pkg/util"
@@ -45,17 +44,6 @@ type Fees struct {
 	Taker float64 `envconfig:"COINBASE_PRO_TAKER_FEE" yaml:"taker"`
 }
 
-func (a *Api) Validate() error {
-	if a.Key == "" {
-		return errors.New("missing Coinbase Pro API key")
-	} else if a.Secret == "" {
-		return errors.New("missing Coinbase Pro API secret")
-	} else if a.Passphrase == "" {
-		return errors.New("missing Coinbase Pro API passphrase")
-	}
-	return nil
-}
-
 func (a *Api) GetClient() *cb.Client {
 	return &cb.Client{
 		"https://api.pro.coinbase.com",
@@ -67,20 +55,6 @@ func (a *Api) GetClient() *cb.Client {
 		},
 		0,
 	}
-}
-
-func (a *Api) GetFillsByOrderId(id string) (*[]cb.Fill, error) {
-	var newChunks, allChunks []cb.Fill
-	cursor := a.GetClient().ListFills(cb.ListFillsParams{OrderID: id})
-	for cursor.HasMore {
-		if err := cursor.NextPage(&newChunks); err != nil {
-			return nil, err
-		}
-		for _, chunk := range newChunks {
-			allChunks = append(allChunks, chunk)
-		}
-	}
-	return &allChunks, nil
 }
 
 func (a *Api) GetFills(productId string) (*[]cb.Fill, error) {
@@ -102,31 +76,20 @@ func (a *Api) GetFills(productId string) (*[]cb.Fill, error) {
 	return &allChunks, nil
 }
 
-func (a *Api) GetActiveAccounts() (*[]cb.Account, error) {
-	allAccounts, err := a.GetClient().GetAccounts()
-	if err != nil {
-		return nil, err
-	}
-	var actAccounts []cb.Account
-	for _, account := range allAccounts {
-		if util.IsZero(account.Balance) && util.IsZero(account.Hold) {
-			continue
-		}
-		actAccounts = append(actAccounts, account)
-	}
-	return &actAccounts, nil
-}
-
 func (a *Api) GetActivePositions() (*map[string]Position, error) {
 
-	accounts, err := a.GetActiveAccounts()
+	accounts, err := a.GetClient().GetAccounts()
 	if err != nil {
 		return nil, err
 	}
 
 	positions := map[string]Position{}
 
-	for _, account := range *accounts {
+	for _, account := range accounts {
+
+		if util.IsZero(account.Balance) && util.IsZero(account.Hold) {
+			continue
+		}
 
 		productID := account.Currency + "-USD"
 

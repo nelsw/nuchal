@@ -19,17 +19,21 @@
 package cbp
 
 import (
+	"fmt"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"sort"
 )
 
 type Position struct {
-	Product
 	cb.Account
 	cb.Ticker
 	buys,
 	sells []Trade
+}
+
+func (p *Position) Url() string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId())
 }
 
 func (p *Position) IsHeld() bool {
@@ -37,7 +41,7 @@ func (p *Position) IsHeld() bool {
 }
 
 func (p *Position) ProductId() string {
-	return p.Currency + "-USD"
+	return p.buys[0].ProductID
 }
 
 func (p Position) Balance() float64 {
