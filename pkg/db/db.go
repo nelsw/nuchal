@@ -68,19 +68,26 @@ func Init() error {
 		return nil
 	}
 
-	if envs, err := godotenv.Read(".env"); err != nil {
-		return err
-	} else if port, err := strconv.Atoi(envs["POSTGRES_PORT"]); err != nil {
-		return err
-	} else {
-		cfg.Host = envs["POSTGRES_HOST"]
-		cfg.User = envs["POSTGRES_USER"]
-		cfg.Name = envs["POSTGRES_DB"]
-		cfg.Pass = envs["POSTGRES_PASSWORD"]
-		cfg.Port = port
+	if envs, err := godotenv.Read(".env"); err == nil {
+		if port, err := strconv.Atoi(envs["POSTGRES_PORT"]); err == nil {
+			cfg.Host = envs["POSTGRES_HOST"]
+			cfg.User = envs["POSTGRES_USER"]
+			cfg.Name = envs["POSTGRES_DB"]
+			cfg.Pass = envs["POSTGRES_PASSWORD"]
+			cfg.Port = port
+			if err = cfg.validate(); err == nil {
+				return nil
+			}
+		}
 	}
 
-	return cfg.validate()
+	cfg.Host = "localhost"
+	cfg.User = "postgres"
+	cfg.Name = "nuchal"
+	cfg.Port = 5432
+	cfg.Pass = "somePassword"
+
+	return nil
 }
 
 func (c Config) validate() error {
