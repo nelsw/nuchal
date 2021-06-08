@@ -72,9 +72,7 @@ func NewSells(session *config.Session) error {
 
 	done := make(chan error)
 
-	for _, position := range positions {
-
-		productID := position.ProductId()
+	for productID := range session.UsdSelections {
 
 		go func(position cbp.Position) {
 
@@ -82,23 +80,30 @@ func NewSells(session *config.Session) error {
 
 				go func(trade cbp.Trade) {
 
+					productID := position.ProductId()
 					tradeID := trade.CreatedAt.Time()
 					size := trade.Fill.Size
 					entryPrice := trade.Price()
 					entryTime := trade.CreatedAt.Time()
-					goalPrice := position.GoalPrice(entryPrice)
+					product := session.GetProduct(productID)
+					goalPrice := product.GoalPrice(entryPrice)
 					t, _ := session.GetClient().GetTicker(productID)
+					currentPrice := util.Float64(t.Price)
 
-					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, util.Float64(t.Price), goalPrice, "sell")
-					if exitPrice, err := NewSell(session, tradeID, productID, size, entryPrice, goalPrice, entryTime); err == nil {
+					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, currentPrice, goalPrice, "sell")
+
+					exitPrice, err := NewSell(session, tradeID, productID, size, entryPrice, goalPrice, entryTime)
+					if err == nil {
 						prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *exitPrice, goalPrice, "sold")
 					}
 
 					done <- err
+
 					return
+
 				}(trade)
 			}
-		}(position)
+		}(positions[productID])
 	}
 
 	completions := 0

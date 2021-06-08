@@ -38,24 +38,31 @@ func NewExits(session *config.Session) error {
 		return err
 	}
 
-	for productID, position := range positions {
+	if len(positions) < 1 {
+		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Trade + " ...")
+		log.Info().Msg(util.Trade + " ... no available balance found to exit")
+		log.Info().Msg(util.Trade + " ...")
+		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Trade + " .")
+		return nil
+	}
 
-		if len(positions) < 1 {
-			log.Info().Msg(util.Trade + " ..")
-			log.Info().Msg(util.Trade + " ...")
-			log.Info().Msg(util.Trade + " ... no available balance found to exit")
-			log.Info().Msg(util.Trade + " ...")
-			log.Info().Msg(util.Trade + " ..")
-			log.Info().Msg(util.Trade + " .")
-			return nil
-		}
+	for productID, currency := range session.UsdSelections {
 
-		log.Info().Msg(util.Trade + " ... " + productID)
+		log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exit")
+
+		position := positions[productID]
+
 		for _, trade := range position.GetActiveTrades() {
-			if _, err := session.CreateOrder(position.NewMarketSellOrder(trade.Fill.Size)); err != nil {
+
+			product := session.GetProduct(productID)
+			order := product.NewMarketSellOrder(trade.Fill.Size)
+
+			if _, err := session.CreateOrder(order); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... exited")
+			log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exited")
 		}
 		log.Info().Msg(util.Trade + " ..")
 	}

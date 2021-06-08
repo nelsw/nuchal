@@ -95,16 +95,13 @@ func init() {
 	}
 }
 
-// ProductIDs returns a product ID array in alphabetical order.
-func (s *Session) ProductIDs() *[]string {
+func (s *Session) UsdSelectionProductIDs() []string {
 	var productIDs []string
-	for productID, product := range s.products {
-		if _, ok := s.UsdSelections[productID]; ok {
-			productIDs = append(productIDs, product.ID)
-		}
+	for productID := range s.UsdSelections {
+		productIDs = append(productIDs, productID)
 	}
 	sort.Strings(productIDs)
-	return &productIDs
+	return productIDs
 }
 
 // NewSession reads configuration from environment variables and validates it
@@ -125,20 +122,22 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 
 	session := new(Session)
 
+	// is the database established?
+	if err := db.Init(); err != nil {
+		return nil, err
+	}
+	log.Info().Msg(util.Fish + " .. ")
+	log.Info().Msg(util.Fish + " ... database connected")
+
 	// can we connect to coinbase?
 	if now, err := cbp.Init(cfg); err != nil {
 		return nil, err
 	} else {
 		session.started = now
 		log.Info().Msg(util.Fish + " ... coinbase validated")
+		log.Info().Msg(util.Fish + " .. ")
 		log.Info().Msgf("%s ... cryptocurrency products found [%d]", util.Fish, len(cbp.GetAllProductIDs()))
 	}
-
-	// is the database established?
-	if err := db.Init(); err != nil {
-		return nil, err
-	}
-	log.Info().Msg(util.Fish + " ... database connected")
 
 	if f, err := os.Open(cfg); err == nil {
 		if err = yaml.NewDecoder(f).Decode(session); err != nil {
@@ -168,7 +167,6 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 		pattern.InitPattern(size, gain, loss, delta)
 		session.products[productID] = cbp.Product{product, pattern}
 	}
-	log.Info().Msgf("%s ... product patterns configured [%d]", util.Fish, len(session.products))
 
 	session.UsdSelections = map[string]string{}
 	if len(usd) > 0 {
@@ -178,14 +176,15 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 				session.UsdSelections[productID] = fmt.Sprintf("%5s", currency)
 			}
 		}
-		log.Info().Msgf("%s ... USD product selections [%d]", util.Fish, len(usd))
 	} else {
 		for productID := range session.products {
 			currency := strings.Split(productID, "-")[0]
 			session.UsdSelections[productID] = fmt.Sprintf("%5s", currency)
 		}
-		log.Info().Msgf("%s ... USD product selections [%d]", util.Fish, len(session.products))
 	}
+
+	log.Info().Msgf("%s ... USD currency selections found [%d]", util.Fish, len(session.products))
+	log.Info().Msg(util.Fish + " .. ")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	go func() {
@@ -201,7 +200,7 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 				log.Info().Msg(util.Fish + " .")
 				os.Exit(0)
 			} else {
-				log.Info().Msgf("%s %s I'm not familiar with \"%s\"", util.Fish, util.Break, line)
+				log.Info().Msgf("%s ... I'm not familiar with %s", util.Fish, line)
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -216,25 +215,6 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 // GetTradingPositions returns a map of trading positions.
 func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 
-	positions, err := s.GetActivePositions()
-	if err != nil {
-		return nil, err
-	}
-
-	result := map[string]cbp.Position{}
-	for _, position := range *positions {
-		if position.Currency == "USD" || position.Balance() == position.Hold() {
-			continue
-		}
-		result[position.ProductId()] = position
-	}
-
-	return result, nil
-}
-
-// GetActivePositions returns an array of cbp.Position structs.
-func (s *Session) GetActivePositions() (*map[string]cbp.Position, error) {
-
 	positions, err := s.Api.GetActivePositions()
 	if err != nil {
 		return nil, err
@@ -242,15 +222,11 @@ func (s *Session) GetActivePositions() (*map[string]cbp.Position, error) {
 
 	result := map[string]cbp.Position{}
 	for productID, position := range *positions {
-		product := s.products[productID]
-		if position.Product == (cbp.Product{}) {
-			position.Product = product
-		}
-		if position.Currency != "USD" {
-			position.Pattern = product.Pattern
+		if position.Currency == "USD" || position.Balance() == position.Hold() {
+			continue
 		}
 		result[productID] = position
 	}
 
-	return &result, nil
+	return result, nil
 }

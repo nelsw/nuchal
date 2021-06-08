@@ -51,6 +51,8 @@ func NewHolds(session *config.Session) error {
 
 	for productID, position := range positions {
 
+		product := session.GetProduct(productID)
+
 		log.Info().Msg(util.Trade + " ... " + position.ProductId())
 		for _, trade := range position.GetActiveTrades() {
 
@@ -61,11 +63,11 @@ func NewHolds(session *config.Session) error {
 			price := util.Float64(ticker.Price)
 
 			var order *cb.Order
-			goalPrice := position.GoalPrice(trade.Price())
+			goalPrice := product.GoalPrice(trade.Price())
 			if price >= goalPrice {
-				order = position.NewMarketSellOrder(trade.Fill.Size)
+				order = product.NewMarketSellOrder(trade.Fill.Size)
 			} else {
-				order = position.NewLimitSellEntryOrder(goalPrice, trade.Fill.Size)
+				order = product.NewLimitSellEntryOrder(goalPrice, trade.Fill.Size)
 			}
 
 			if _, err := session.CreateOrder(order); err != nil {

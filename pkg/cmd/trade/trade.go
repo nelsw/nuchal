@@ -35,7 +35,7 @@ func New(ses *config.Session) error {
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Trade + " ...")
 	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Trade + " ...")
-	log.Info().Strs(util.Currency, *ses.ProductIDs()).Msg(util.Trade + " ...")
+	log.Info().Strs(util.Currency, ses.UsdSelectionProductIDs()).Msg(util.Trade + " ...")
 	log.Info().Msg(util.Trade + " ..")
 
 	if util.IsEnvVarTrue("TEST") {
@@ -44,7 +44,7 @@ func New(ses *config.Session) error {
 
 	exit := make(chan string)
 	go func() {
-		for _, productID := range *ses.ProductIDs() {
+		for _, productID := range ses.UsdSelectionProductIDs() {
 			go trade(ses, productID)
 		}
 	}()

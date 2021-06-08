@@ -49,27 +49,7 @@ func Round2Places(f float64) string {
 }
 
 func Usd(f float64) string {
-	rounded := Round2Places(f)
-	chunks := strings.Split(rounded, `.`)
-	dollars := chunks[0]
-	cents := chunks[1]
-
-	places := len(dollars)
-
-	if places < 4 {
-		return fmt.Sprintf("$%s.%s", dollars, cents)
-	}
-
-	pivot := places - 3
-	var newFields []string
-	for i, oldField := range dollars {
-		if i == pivot {
-			newFields = append(newFields, ",")
-		}
-		newFields = append(newFields, string(oldField))
-	}
-	rounded = strings.Join(newFields, ``)
-	return fmt.Sprintf("$%s.%s", rounded, cents)
+	return "$" + Money(f)
 }
 
 func Money(f float64) string {
@@ -79,9 +59,18 @@ func Money(f float64) string {
 	dollars := chunks[0]
 	cents := chunks[1]
 
+	isNegative := strings.Contains(dollars, "-")
+	if isNegative {
+		chunks = strings.Split(dollars, "-")
+		dollars = chunks[1]
+	}
+
 	places := len(dollars)
 
 	if places < 4 {
+		if isNegative {
+			return fmt.Sprintf("-%s.%s", dollars, cents)
+		}
 		return fmt.Sprintf("%s.%s", dollars, cents)
 	}
 
@@ -93,7 +82,12 @@ func Money(f float64) string {
 		}
 		newFields = append(newFields, string(oldField))
 	}
+
 	rounded = strings.Join(newFields, ``)
+	if isNegative {
+		return fmt.Sprintf("-%s.%s", rounded, cents)
+	}
+
 	return fmt.Sprintf("%s.%s", rounded, cents)
 }
 

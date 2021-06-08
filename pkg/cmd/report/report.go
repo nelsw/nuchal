@@ -39,7 +39,7 @@ func New(session *config.Session) error {
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " .")
 
-		positions, err := session.GetActivePositions()
+		positions, err := session.Api.GetActivePositions()
 		if err != nil {
 			return err
 		}
@@ -139,6 +139,8 @@ func New(session *config.Session) error {
 				}
 			}
 
+			product := session.GetProduct(position.ProductId())
+
 			trades := position.GetActiveTrades()
 			if len(trades) > 0 {
 				log.Info().Msg(util.Report + " ... active")
@@ -147,7 +149,7 @@ func New(session *config.Session) error {
 						Time("", trade.CreatedAt.Time()).
 						Str("1.", util.Usd(trade.Price())).
 						Str("2.", util.Usd(position.Price())).
-						Str("3.", util.Usd(position.GoalPrice(trade.Price()))).
+						Str("3.", util.Usd(product.GoalPrice(trade.Price()))).
 						Str(util.Quantity, trade.Fill.Size).
 						Msg(util.Report + " ... ")
 				}
