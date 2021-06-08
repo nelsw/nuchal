@@ -31,7 +31,7 @@ func init() {
 
 	c := new(cobra.Command)
 	c.Use = "sim"
-	c.Short = "Evaluates product & pattern configuration through a mock trading session and interactive chart results"
+	c.Short = "Evaluates product & pattern configuration through a mock trading session and interactive chart results."
 	c.Long = util.Banner
 	c.Example = `
 	# Prints a simulation result report and serves a local website to host graphical report analysis.

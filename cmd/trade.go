@@ -27,11 +27,11 @@ import (
 
 func init() {
 
-	var hold, sell, exit bool
+	var drop, hold, sell, exit, eject bool
 
 	c := new(cobra.Command)
 	c.Use = "trade"
-	c.Short = "Polls ticker data and executes buy & sell orders when conditions match product & pattern configuration"
+	c.Short = "Polls ticker data and executes buy & sell orders when conditions match product & pattern configuration."
 	c.Long = util.Banner
 	c.Example = `
   # Trade buys & sells products at prices or at times that meet or exceed pattern criteria, for a specified duration.
@@ -47,7 +47,10 @@ func init() {
   nuchal trade --exit
 
   # Drop will cancel every hold order, allowing the resulting products to be sold or converted.
-  nuchal trade --drop`
+  nuchal trade --drop
+
+  # Sells everything at market price.
+  nuchal trade --eject`
 
 	c.Run = func(cmd *cobra.Command, args []string) {
 
@@ -74,6 +77,7 @@ func init() {
 	c.PersistentFlags().BoolVar(&hold, "hold", false, "Set a limit order for each trading position")
 	c.PersistentFlags().BoolVar(&sell, "sell", false, "Close positions at the goal price or higher")
 	c.PersistentFlags().BoolVar(&exit, "exit", false, "Liquidate all open positions at market price")
-	c.PersistentFlags().BoolVar(&exit, "drop", false, "Cancel all hold orders to sell and convert")
+	c.PersistentFlags().BoolVar(&drop, "drop", false, "Cancel all hold orders to sell and convert")
+	c.PersistentFlags().BoolVar(&eject, "eject", false, "Sells everything at market price")
 	rootCmd.AddCommand(c)
 }

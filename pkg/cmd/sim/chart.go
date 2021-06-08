@@ -31,9 +31,7 @@ import (
 
 // A Chart represents the data used to represent chart activity and trade results.
 type Chart struct {
-
-	// Product is an aggregate of the product to trade, and the pattern which used to trade.
-	cbp.Product
+	cbp.Pattern
 
 	// Rates are used to build a chart. The first 3 rates are the tweezer pattern prefix and the last rate is the exit.
 	Rates []cbp.Rate
@@ -107,13 +105,13 @@ func (c *Chart) exitPlusFee() float64 {
 	return exit + (exit * c.MakerFee)
 }
 
-func newChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product) *Chart {
+func newChart(rates []cbp.Rate, pattern cbp.Pattern) *Chart {
 
 	c := new(Chart)
 
-	c.Product = posture
-	c.MakerFee = makerFee
-	c.TakerFee = takerFee
+	c.Pattern = pattern
+	c.MakerFee = cbp.Maker()
+	c.TakerFee = cbp.Taker()
 
 	iterableRates := rates[3:]
 	if len(iterableRates) < 1 {
@@ -121,8 +119,8 @@ func newChart(makerFee, takerFee float64, rates []cbp.Rate, posture cbp.Product)
 	}
 
 	c.Entry = iterableRates[0].Open
-	c.Goal = posture.GoalPrice(c.Entry)
-	c.Limit = posture.LossPrice(c.Entry)
+	c.Goal = pattern.GoalPrice(c.Entry)
+	c.Limit = pattern.LossPrice(c.Entry)
 
 	firstRateTime := iterableRates[0].Time()
 

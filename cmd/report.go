@@ -30,7 +30,7 @@ func init() {
 	c := new(cobra.Command)
 	c.Use = "report"
 	c.Long = util.Banner
-	c.Short = "Provides a summary of your available currencies, balances, holds, and status of open trading positions"
+	c.Short = "Provides a summary of your available currencies, balances, holds, and status of open trading positions."
 	c.Example = `
 	# Prints USD, Cryptocurrency, and total value of the configured Coinbase Pro account.
 	# Also prints position and trading information, namely size, value, balance and holds.

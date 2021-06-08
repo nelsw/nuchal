@@ -19,6 +19,7 @@
 package trade
 
 import (
+	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/rs/zerolog/log"
@@ -48,21 +49,21 @@ func NewExits(session *config.Session) error {
 		return nil
 	}
 
-	for productID, currency := range session.UsdSelections {
+	for _, productID := range session.UsdSelectionProductIDs() {
 
-		log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exit")
+		currency := session.GetCurrency(productID)
+
+		log.Info().Msg(util.Trade + " ... " + *currency + util.Break + "exit")
 
 		position := positions[productID]
 
 		for _, trade := range position.GetActiveTrades() {
 
-			product := session.GetProduct(productID)
-			order := product.NewMarketSellOrder(trade.Fill.Size)
-
-			if _, err := session.CreateOrder(order); err != nil {
+			order := session.GetPattern(productID).NewMarketSellOrder(trade.Fill.Size)
+			if _, err := cbp.CreateOrder(order); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exited")
+			log.Info().Msg(util.Trade + " ... " + *currency + util.Break + "exited")
 		}
 		log.Info().Msg(util.Trade + " ..")
 	}

@@ -19,10 +19,11 @@
 package report
 
 import (
+	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
-	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
+	"sort"
 	"time"
 )
 
@@ -39,19 +40,23 @@ func New(session *config.Session) error {
 		log.Info().Msg(util.Report + " ..")
 		log.Info().Msg(util.Report + " .")
 
-		positions, err := session.Api.GetActivePositions()
+		positions, err := cbp.GetActivePositions()
 		if err != nil {
 			return err
 		}
 
+		var productIDs []string
 		var cash, coin float64
-		for _, position := range *positions {
+		for productID, position := range positions {
 			if position.Currency == "USD" {
 				cash += position.Balance()
 				continue
 			}
 			coin += position.Value()
+			productIDs = append(productIDs, productID)
 		}
+
+		sort.Strings(productIDs)
 
 		dollar := util.Money(cash)
 		currency := util.Money(coin)
@@ -66,11 +71,9 @@ func New(session *config.Session) error {
 		log.Info().Msg(util.Report + " ... positions")
 		log.Info().Msg(util.Report + " ..")
 
-		for _, position := range *positions {
+		for _, productID := range productIDs {
 
-			if position.Currency == "USD" {
-				continue
-			}
+			position := positions[productID]
 
 			log.Info().
 				Str(util.Sigma, util.Usd(position.Value())).
@@ -78,17 +81,19 @@ func New(session *config.Session) error {
 				Str(util.Hyperlink, position.Url()).
 				Msg(util.Report + util.Break + position.Currency)
 
-			orders, err := session.GetOrders(position.ProductId())
+			orders, err := cbp.GetOrders(productID)
 			if err != nil {
 				return err
 			}
 
 			if len(*orders) > 0 {
-				log.Info().Msg(util.Report + " ... held")
-				fills, err := session.GetFills(position.ProductId())
+
+				fills, err := cbp.GetFills(productID)
 				if err != nil {
 					return err
 				}
+
+				log.Info().Msg(util.Report + " ... held")
 
 				for orderIdx, order := range *orders {
 
@@ -108,18 +113,15 @@ func New(session *config.Session) error {
 							break
 						}
 
-						productID := order.ProductID
-
 						t := order.CreatedAt.Time()
 						from := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 0, 0, t.Location())
 						to := time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), 59, 0, t.Location())
 
-						params := cb.GetHistoricRatesParams{from, to, 60}
-
-						rates, err := session.GetClient().GetHistoricRates(productID, params)
+						rates, err := cbp.GetHistoricRates(productID, from, to)
 						if err != nil {
 							return err
 						}
+
 						if rates == nil || len(rates) < 1 {
 							entryPrice = -1
 						} else {
@@ -139,8 +141,6 @@ func New(session *config.Session) error {
 				}
 			}
 
-			product := session.GetProduct(position.ProductId())
-
 			trades := position.GetActiveTrades()
 			if len(trades) > 0 {
 				log.Info().Msg(util.Report + " ... active")
@@ -149,7 +149,7 @@ func New(session *config.Session) error {
 						Time("", trade.CreatedAt.Time()).
 						Str("1.", util.Usd(trade.Price())).
 						Str("2.", util.Usd(position.Price())).
-						Str("3.", util.Usd(product.GoalPrice(trade.Price()))).
+						Str("3.", util.Usd(session.GetPattern(productID).GoalPrice(trade.Price()))).
 						Str(util.Quantity, trade.Fill.Size).
 						Msg(util.Report + " ... ")
 				}

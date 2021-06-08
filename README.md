@@ -1,6 +1,6 @@
 # nuchal [![Go Report Card][5]][4] [![PkgGoDev][7]][6]
 
-An app for evaluating and executing high frequency cryptocurrency trades using statistical pattern analysis. 
+Evaluates & executes high frequency cryptocurrency trades from configurable trend alignment patterns.
 
 ## Installation
 A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
@@ -104,8 +104,14 @@ nuchal --help
 ```
 
 ## Commands
+**nuchal** has three (3) main functions:
+1. report
+2. trade
+3. simulate
+
 
 ### report
+Provides a summary of your available currencies, balances, holds, and status of open trading positions.
 ```shell
 # Prints USD, Cryptocurrency, and total value of the configured Coinbase Pro account.
 # Also prints position and trading information, namely size, value, balance and holds.
@@ -114,6 +120,7 @@ nuchal report -c /Users/${USER}/config.yml
 ![report example][10]
 
 ### sim
+Evaluates product & pattern configuration through a mock trading session and interactive chart results.
 ```shell
 # Prints a simulation result report and serves a local website to host graphical report analysis.
 nuchal sim
@@ -128,6 +135,7 @@ nuchal sim -w --winners-only
 ![chart example][14]
 
 ### trade
+Polls ticker data and executes buy & sell orders when conditions match product & pattern configuration.
 ```shell
 # Trade buys & sells products at prices or at times that meet or exceed pattern criteria, for a specified duration.
 nuchal trade  --usd XLM,TRB,SKL,STORJ
@@ -143,8 +151,10 @@ nuchal trade --exit
 
 # Drop will cancel every hold order, allowing the resulting products to be sold or converted.
 nuchal trade --drop
-```
 
+# Sells everything at market price.
+nuchal trade --eject
+```
 ![trade example][11]
 
 # Thanks

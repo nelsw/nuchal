@@ -20,11 +20,15 @@ package cbp
 
 import (
 	"errors"
+	"fmt"
+	ws "github.com/gorilla/websocket"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"gopkg.in/yaml.v2"
 	"net/http"
 	"os"
+	"regexp"
 	"time"
 )
 
@@ -44,6 +48,7 @@ var (
 	cfg      *Config
 	client   *cb.Client
 	products = map[string]cb.Product{}
+	usdRegex = regexp.MustCompile(`^((\w{3,5})(-USD))$`)
 )
 
 func Init(name string) (*time.Time, error) {
@@ -125,10 +130,6 @@ func validate() error {
 	return nil
 }
 
-func Client() *cb.Client {
-	return client
-}
-
 func Maker() float64 {
 	return cfg.Api.Fees.Maker
 }
@@ -145,6 +146,230 @@ func GetAllProductIDs() []string {
 	return productIDs
 }
 
-func GetProduct(productID string) cb.Product {
-	return products[productID]
+func GetHistoricRates(productID string, start, end time.Time) ([]cb.HistoricRate, error) {
+	return client.GetHistoricRates(productID, cb.GetHistoricRatesParams{start, end, 60})
+}
+
+func GetFills(productID string) (*[]cb.Fill, error) {
+
+	cursor := client.ListFills(cb.ListFillsParams{ProductID: productID})
+
+	var newChunks, allChunks []cb.Fill
+	for cursor.HasMore {
+
+		if err := cursor.NextPage(&newChunks); err != nil {
+			return nil, err
+		}
+
+		for _, chunk := range newChunks {
+			allChunks = append(allChunks, chunk)
+		}
+	}
+
+	return &allChunks, nil
+}
+
+func GetActivePositions() (map[string]Position, error) {
+
+	accounts, err := client.GetAccounts()
+	if err != nil {
+		return nil, err
+	}
+
+	positions := map[string]Position{}
+
+	for _, account := range accounts {
+
+		if util.IsZero(account.Balance) && util.IsZero(account.Hold) {
+			continue
+		}
+
+		productID := account.Currency + "-USD"
+
+		if account.Currency == "USD" {
+			positions[productID] = *NewUsdPosition(account)
+			continue
+		}
+
+		fills, err := GetFills(productID)
+		if err != nil {
+			return nil, err
+		}
+
+		ticker, err := client.GetTicker(productID)
+		if err != nil {
+			return nil, err
+		}
+
+		positions[productID] = *NewPosition(account, ticker, *fills)
+	}
+
+	return positions, nil
+}
+
+func GetOrders(productID string) (*[]cb.Order, error) {
+
+	cursor := client.ListOrders(cb.ListOrdersParams{ProductID: productID})
+
+	var newChunks, allChunks []cb.Order
+	for cursor.HasMore {
+
+		if err := cursor.NextPage(&newChunks); err != nil {
+			return nil, err
+		}
+
+		for _, chunk := range newChunks {
+			allChunks = append(allChunks, chunk)
+		}
+	}
+
+	return &allChunks, nil
+}
+
+// CreateOrder creates an order on Coinbase and returns the order once it is no longer pending and has settled.
+// Given that there are many different types of orders that can be created in many different scenarios, it is the
+// responsibility of the method calling this function to perform logging.
+func CreateOrder(order *cb.Order, attempt ...int) (*cb.Order, error) {
+
+	r, err := client.CreateOrder(order)
+	if err == nil {
+		return GetOrder(r.ID)
+	}
+
+	i := util.FirstIntOrZero(attempt)
+	if util.IsInsufficientFunds(err) || i > 2 {
+		return nil, err
+	}
+
+	i++
+	time.Sleep(time.Duration(i*3) * time.Second)
+	return CreateOrder(order, i)
+}
+
+// GetOrder is a recursive function that returns an order equal to the given id once it is settled and not pending.
+// This function also performs extensive logging given its variable and seriously critical nature.
+func GetOrder(id string, attempt ...int) (*cb.Order, error) {
+
+	order, err := client.GetOrder(id)
+
+	if err == nil && order.Status != "pending" {
+		return &order, nil
+	}
+
+	if err != nil {
+
+		i := util.FirstIntOrZero(attempt)
+		if i > 10 {
+			return nil, err
+		}
+
+		i++
+		time.Sleep(time.Duration(i*3) * time.Second)
+		return GetOrder(id, i)
+	}
+
+	time.Sleep(1 * time.Second)
+	return GetOrder(id)
+}
+
+// CancelOrder is a recursive function that cancels an order equal to the given id.
+func CancelOrder(id string, attempt ...int) error {
+
+	err := client.CancelOrder(id)
+	if err == nil {
+		return nil
+	}
+
+	i := util.FirstIntOrZero(attempt)
+	if i > 10 {
+		return err
+	}
+
+	i++
+	time.Sleep(time.Duration(i*3) * time.Second)
+	return CancelOrder(id, i)
+}
+
+// GetPrice gets the latest ticker price for the given productID. This method does not perform logging as it is executed
+// thousands of times per second.
+func GetPrice(wsConn *ws.Conn, productID string) (*float64, error) {
+
+	if err := wsConn.WriteJSON(&cb.Message{
+		Type:     "subscribe",
+		Channels: []cb.MessageChannel{{"ticker", []string{productID}}},
+	}); err != nil {
+		return nil, err
+	}
+
+	var receivedMessage cb.Message
+	for {
+		if err := wsConn.ReadJSON(&receivedMessage); err != nil {
+			return nil, err
+		}
+		if receivedMessage.Type != "subscriptions" {
+			break
+		}
+	}
+
+	if receivedMessage.Type != "ticker" {
+		err := fmt.Errorf("message type != ticker, %v", receivedMessage)
+		return nil, err
+	}
+
+	f := util.Float64(receivedMessage.Price)
+	return &f, nil
+}
+
+func GetRate(productID string) (*Rate, error) {
+
+	var wsDialer ws.Dialer
+	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func(wsConn *ws.Conn) {
+		if err := wsConn.Close(); err != nil {
+		}
+	}(wsConn)
+
+	end := time.Now().Add(time.Minute)
+
+	var low, high, open, vol float64
+	for {
+
+		price, err := GetPrice(wsConn, productID)
+		if err != nil {
+			return nil, err
+		}
+
+		vol++
+
+		if low == 0 {
+			low = *price
+			high = *price
+			open = *price
+		} else if high < *price {
+			high = *price
+		} else if low > *price {
+			low = *price
+		}
+
+		if now := time.Now(); now.After(end) {
+			return &Rate{
+				now.UnixNano(),
+				productID,
+				cb.HistoricRate{now, low, high, open, *price, vol},
+			}, nil
+		}
+	}
+}
+
+func GetTickerPrice(productID string) (*float64, error) {
+	ticker, err := client.GetTicker(productID)
+	if err != nil {
+		return nil, err
+	}
+	price := util.Float64(ticker.Price)
+	return &price, nil
 }

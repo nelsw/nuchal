@@ -36,37 +36,28 @@ import (
 
 // Session of the application - only active while the executable is run within the defined period range.
 type Session struct {
-
-	// Period is a range of time representing when to start and stop executing the trade command.
-	Period `yaml:"period"`
-
-	*cbp.Api `yaml:"cbp"`
-
-	products map[string]cbp.Product
-
 	Patterns []cbp.Pattern `yaml:"patterns"`
 
-	UsdSelections map[string]string
-}
+	// Period is a range of time representing when to start and stop executing the trade command.
+	Period struct {
 
-func (s Session) GetProduct(productID string) cbp.Product {
-	return s.products[productID]
-}
+		// Alpha defines when command functionality should start.
+		Alpha *time.Time `envconfig:"PERIOD_ALPHA" yaml:"alpha"`
 
-func (s Session) SimPort() int {
+		// Omega defines when command functionality should cease.
+		Omega *time.Time `envconfig:"PERIOD_OMEGA" yaml:"omega"`
 
-	port := os.Getenv("PORT")
-	if len(port) < 4 {
-		port = "8080"
-	}
+		// Duration is the amount of time the command should be available.
+		// sim uses this as the amount of time to host result pages.
+		// trade uses this to override Alpha and Omega values.
+		Duration *time.Duration `envconfig:"PERIOD_DURATION" yaml:"duration"`
+	} `yaml:"period"`
 
-	prt, err := strconv.Atoi(port)
-	if err != nil {
-		log.Error().Err(err).Send()
-		prt = 8080
-	}
+	patterns map[string]cbp.Pattern
 
-	return prt
+	usdSelections map[string]string
+
+	started *time.Time
 }
 
 func init() {
@@ -93,15 +84,6 @@ func init() {
 	output.FormatFieldValue = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("%s", i))
 	}
-}
-
-func (s *Session) UsdSelectionProductIDs() []string {
-	var productIDs []string
-	for productID := range s.UsdSelections {
-		productIDs = append(productIDs, productID)
-	}
-	sort.Strings(productIDs)
-	return productIDs
 }
 
 // NewSession reads configuration from environment variables and validates it
@@ -136,7 +118,7 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 		session.started = now
 		log.Info().Msg(util.Fish + " ... coinbase validated")
 		log.Info().Msg(util.Fish + " .. ")
-		log.Info().Msgf("%s ... cryptocurrency products found [%d]", util.Fish, len(cbp.GetAllProductIDs()))
+		log.Info().Msgf("%s ... cryptocurrency products ready [%d]", util.Fish, len(cbp.GetAllProductIDs()))
 	}
 
 	if f, err := os.Open(cfg); err == nil {
@@ -146,42 +128,35 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 	// Map all patterns by product ID
 	patterns := map[string]cbp.Pattern{}
 	for _, pattern := range session.Patterns {
-		patterns[pattern.Id] = pattern
+		patterns[pattern.ID] = pattern
 	}
 	log.Info().Msgf("%s ... patterns configurations found [%d]", util.Fish, len(patterns))
 
-	// If no product patterns have been configured
-	if len(patterns) < 1 {
-		// create new patterns for every Usd product
-		for _, productID := range cbp.GetAllProductIDs() {
+	for _, productID := range cbp.GetAllProductIDs() {
+		if _, ok := patterns[productID]; ok {
+			pattern := patterns[productID]
+			pattern.InitPattern(size, gain, loss, delta)
+			patterns[productID] = pattern
+		} else {
 			patterns[productID] = *cbp.NewPattern(productID, size, gain, loss, delta)
 		}
 	}
+	log.Info().Msgf("%s ... patterns configurations ready [%d]", util.Fish, len(patterns))
 
-	// now we have a map of coinbase products and nuchal patterns, make the session products map
-	session.products = map[string]cbp.Product{}
-	for productID, pattern := range patterns {
-		product := cbp.GetProduct(productID)
-		pattern.InitPattern(size, gain, loss, delta)
-		session.products[productID] = cbp.Product{product, pattern}
-	}
-
-	session.UsdSelections = map[string]string{}
+	log.Info().Msgf("%s ... USD currency selections found [%d]", util.Fish, len(usd))
+	session.usdSelections = map[string]string{}
 	if len(usd) > 0 {
 		for _, currency := range usd {
 			productID := currency + "-USD"
-			if _, ok := session.products[productID]; ok {
-				session.UsdSelections[productID] = fmt.Sprintf("%5s", currency)
-			}
+			session.usdSelections[productID] = fmt.Sprintf("%5s", currency)
 		}
 	} else {
-		for productID := range session.products {
+		for _, productID := range cbp.GetAllProductIDs() {
 			currency := strings.Split(productID, "-")[0]
-			session.UsdSelections[productID] = fmt.Sprintf("%5s", currency)
+			session.usdSelections[productID] = fmt.Sprintf("%5s", currency)
 		}
 	}
-
-	log.Info().Msgf("%s ... USD currency selections found [%d]", util.Fish, len(session.UsdSelections))
+	log.Info().Msgf("%s ... USD currency selections ready [%d]", util.Fish, len(session.usdSelections))
 	log.Info().Msg(util.Fish + " .. ")
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -210,16 +185,51 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 	return session, nil
 }
 
+func (s *Session) GetPattern(productID string) *cbp.Pattern {
+	p := s.patterns[productID]
+	return &p
+}
+
+func (s *Session) SimPort() int {
+
+	port := os.Getenv("PORT")
+	if len(port) < 4 {
+		port = "8080"
+	}
+
+	prt, err := strconv.Atoi(port)
+	if err != nil {
+		log.Error().Err(err).Send()
+		prt = 8080
+	}
+
+	return prt
+}
+
+func (s *Session) GetCurrency(productID string) *string {
+	currency := s.usdSelections[productID]
+	return &currency
+}
+
+func (s *Session) UsdSelectionProductIDs() []string {
+	var productIDs []string
+	for productID := range s.usdSelections {
+		productIDs = append(productIDs, productID)
+	}
+	sort.Strings(productIDs)
+	return productIDs
+}
+
 // GetTradingPositions returns a map of trading positions.
 func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 
-	positions, err := s.Api.GetActivePositions()
+	positions, err := cbp.GetActivePositions()
 	if err != nil {
 		return nil, err
 	}
 
 	result := map[string]cbp.Position{}
-	for productID, position := range *positions {
+	for productID, position := range positions {
 		if position.Currency == "USD" || position.Balance() == position.Hold() {
 			continue
 		}
@@ -227,4 +237,49 @@ func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
 	}
 
 	return result, nil
+}
+
+// InPeriod is an exclusive range function to determine if the given time falls within the defined period.
+func (s *Session) InPeriod(t time.Time) bool {
+	return s.Start().Before(t) && s.Stop().After(t)
+}
+
+// Start returns the configured Start time. If no time is configured, Start returns today at noon UTC.
+func (s *Session) Start() *time.Time {
+	if s.Period.Alpha.Year() != 1 {
+		return s.Period.Alpha
+	}
+	then, _ := time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT12:00:00+00:00", year(), month(), day()))
+	return &then
+}
+
+// Stop returns the configured Stop time. If no time is configured, Stop returns today at 10pm UTC.
+func (s *Session) Stop() *time.Time {
+	if s.Period.Omega.Year() != 1 {
+		return s.Period.Omega
+	}
+	then, _ := time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT22:00:00+00:00", year(), month(), day()))
+	return &then
+}
+
+func year() int {
+	return time.Now().Year()
+}
+
+func month() string {
+	m := int(time.Now().Month())
+	s := strconv.Itoa(m)
+	if m < 10 {
+		return "0" + s
+	}
+	return s
+}
+
+func day() string {
+	d := time.Now().Day()
+	s := strconv.Itoa(d)
+	if d < 10 {
+		return "0" + s
+	}
+	return s
 }

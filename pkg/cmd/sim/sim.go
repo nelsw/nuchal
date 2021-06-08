@@ -26,7 +26,6 @@ import (
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/util"
-	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/rs/zerolog/log"
 	"io"
 	"net/http"
@@ -51,17 +50,15 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	simulations := map[string]simulation{}
 
 	var results []simulation
-	for productID, currency := range session.UsdSelections {
-
-		product := session.GetProduct(productID)
+	for _, productID := range session.UsdSelectionProductIDs() {
 
 		rates, err := getRates(session, productID)
 		if err != nil {
 			return err
 		}
 
-		simulation := newSimulation(rates, product, cbp.Maker(), cbp.Taker(), session.Period)
-		log.Info().Msg(util.Sim + util.Break + currency + util.Break + "complete")
+		simulation := newSimulation(session, productID, rates)
+		log.Info().Msg(util.Sim + util.Break + *session.GetCurrency(productID) + util.Break + "complete")
 
 		if simulation.Volume() == 0 {
 			continue
@@ -89,14 +86,12 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	var sum, won, lost, net, volume float64
 	for _, simulation := range results {
 
-		currency := session.UsdSelections[simulation.ID]
-
 		log.Info().
 			Float64(util.Delta, simulation.Delta).
 			Float64(util.UpArrow, simulation.Gain).
 			Float64(util.Quantity, simulation.Size).
 			Str(util.Hyperlink, simulation.Url()).
-			Msg(util.Sim + util.Break + currency)
+			Msg(util.Sim + util.Break + *session.GetCurrency(simulation.ID))
 
 		if simulation.WonLen() > 0 {
 			log.Info().
@@ -257,19 +252,19 @@ func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
 		Order("unix desc").
 		First(&r)
 
-	var from time.Time
+	var start time.Time
 	if r != (cbp.Rate{}) {
 		log.Debug().Msg("found previous rate found for " + productID)
-		from = r.Time()
+		start = r.Time()
 	} else {
 		log.Debug().Msg("no previous rate found for " + productID)
-		from = ses.Alpha
+		start = *ses.Start()
 	}
 
-	to := from.Add(time.Hour * 4)
+	to := start.Add(time.Hour * 4)
 	for {
 
-		rates, err := cbp.Client().GetHistoricRates(productID, cb.GetHistoricRatesParams{from, to, 60})
+		rates, err := cbp.GetHistoricRates(productID, start, to)
 		if err != nil {
 			return nil, err
 		}
@@ -283,14 +278,14 @@ func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
 			break
 		}
 
-		from = to
+		start = to
 		to = to.Add(time.Hour * 4)
 		log.Debug().Int("... building simulation data", len(rates)).Send()
 	}
 
 	var savedRates []cbp.Rate
 	pg.Where("product_id = ?", productID).
-		Where("unix >= ?", ses.Alpha.UnixNano()).
+		Where("unix >= ?", ses.Start().UnixNano()).
 		Order("unix asc").
 		Find(&savedRates)
 

@@ -60,29 +60,29 @@ func trade(session *config.Session, productID string) {
 
 	log.Info().Time("", time.Now()).Msgf("%s ... %5s ... %s", util.Trade, productID, "poll")
 
-	product := session.GetProduct(productID)
+	pattern := session.GetPattern(productID)
 
 	var then, that cbp.Rate
 	for {
 		if this, err := cbp.GetRate(productID); err != nil {
 			then = cbp.Rate{}
 			that = cbp.Rate{}
-		} else if !product.MatchesTweezerBottomPattern(then, that, *this) {
+		} else if !pattern.MatchesTweezerBottomPattern(then, that, *this) {
 			then = that
 			that = *this
 		} else {
-			go buy(session, product)
+			go buy(session, pattern)
 			then = cbp.Rate{}
 			that = cbp.Rate{}
 		}
 	}
 }
 
-func buy(session *config.Session, product cbp.Product) {
+func buy(session *config.Session, product *cbp.Pattern) {
 
 	log.Info().Time("", time.Now()).Msgf("%s ... %5s ... %s", util.Trade, product.ID, "buy")
 
-	order, err := session.CreateOrder(product.NewMarketBuyOrder())
+	order, err := cbp.CreateOrder(product.NewMarketBuyOrder())
 	if err == nil {
 
 		productID := product.ID
