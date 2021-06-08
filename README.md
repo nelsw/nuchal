@@ -2,9 +2,6 @@
 
 An app for evaluating and executing high frequency cryptocurrency trades using statistical pattern analysis. 
 
-
-***
-
 ## Installation
 A [Coinbase Pro][1] account, a working installation of [GO][2], and a running instance of [Docker][3] **are required**.
 ```shell
@@ -17,7 +14,6 @@ export PATH=${PATH}:/Users/${USER}/go/bin
 # Confirm successful installation
 nuchal
 ```
-***
 
 ## Configuration
 
@@ -106,7 +102,6 @@ period:
 # Displays options for configuring global product pattern criteria, USD selections, and configuration file location.
 nuchal --help
 ```
-***
 
 ## Commands
 
