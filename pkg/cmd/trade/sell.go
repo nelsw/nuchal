@@ -34,7 +34,7 @@ import (
 // NewSells attempts to sell the available balance at or beyond goal prices.
 func NewSells(session *config.Session) error {
 
-	positions, err := session.GetTradingPositions()
+	positions, err := cbp.GetTradingPositions()
 	if err != nil {
 		return err
 	}
