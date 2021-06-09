@@ -86,26 +86,28 @@ func Init(name string) (*time.Time, error) {
 		0,
 	}
 
+	var allProducts []cb.Product
+	allProducts, err = client.GetProducts()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, product := range allProducts {
+		if product.BaseCurrency == "DAI" ||
+			product.BaseCurrency == "USDT" ||
+			product.BaseMinSize == "" ||
+			product.QuoteIncrement == "" ||
+			!usdRegex.MatchString(product.ID) {
+			continue
+		}
+		products[product.ID] = product
+	}
+
 	if cfg.Api.Fees.Maker == 0 {
 		cfg.Api.Fees.Maker = .005
 	}
 	if cfg.Api.Fees.Taker == 0 {
 		cfg.Api.Fees.Taker = .005
-	}
-
-	if allProducts, err := client.GetProducts(); err != nil {
-		return nil, err
-	} else {
-		for _, product := range allProducts {
-			if product.BaseCurrency == "DAI" ||
-				product.BaseCurrency == "USDT" ||
-				product.BaseMinSize == "" ||
-				product.QuoteIncrement == "" ||
-				!usdRegex.MatchString(product.ID) {
-				continue
-			}
-			products[product.ID] = product
-		}
 	}
 
 	var tme cb.ServerTime
@@ -205,6 +207,25 @@ func GetActivePositions() (map[string]Position, error) {
 	}
 
 	return positions, nil
+}
+
+// GetTradingPositions returns a map of trading positions.
+func GetTradingPositions() (map[string]Position, error) {
+
+	positions, err := GetActivePositions()
+	if err != nil {
+		return nil, err
+	}
+
+	result := map[string]Position{}
+	for productID, position := range positions {
+		if position.Currency == "USD" || position.Balance() == position.Hold() {
+			continue
+		}
+		result[productID] = position
+	}
+
+	return result, nil
 }
 
 func GetOrders(productID string) (*[]cb.Order, error) {
