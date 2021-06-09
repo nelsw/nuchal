@@ -36,10 +36,10 @@ import (
 
 // Session of the application - only active while the executable is run within the defined period range.
 type Session struct {
-	Patterns []cbp.Pattern `yaml:"patterns"`
+	Patterns *[]cbp.Pattern `yaml:"patterns"`
 
 	// Period is a range of time representing when to start and stop executing the trade command.
-	Period struct {
+	Period *struct {
 
 		// Alpha defines when command functionality should start.
 		Alpha *time.Time `envconfig:"PERIOD_ALPHA" yaml:"alpha"`
@@ -60,11 +60,12 @@ type Session struct {
 	started *time.Time
 }
 
-func init() {
+// NewSession reads configuration from environment variables and validates it
+func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug ...bool) (*Session, error) {
 
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-	if util.IsEnvVarTrue("DEBUG") {
+	if util.IsEnvVarTrue("DEBUG") || debug != nil && len(debug) > 0 && debug[0] {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	} else {
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -84,10 +85,6 @@ func init() {
 	output.FormatFieldValue = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("%s", i))
 	}
-}
-
-// NewSession reads configuration from environment variables and validates it
-func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug ...bool) (*Session, error) {
 
 	fmt.Println(util.Banner)
 	log.Info().Msg(util.Fish + " . ")
@@ -95,12 +92,6 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 	log.Info().Msg(util.Fish + " ... hello " + os.Getenv("USER"))
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
-
-	if debug != nil && len(debug) > 0 && debug[0] {
-		if err := os.Setenv("DEBUG", "true"); err != nil {
-			return nil, err
-		}
-	}
 
 	session := new(Session)
 
@@ -127,18 +118,19 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 
 	// Map all patterns by product ID
 	patterns := map[string]cbp.Pattern{}
-	for _, pattern := range session.Patterns {
+	for _, pattern := range *session.Patterns {
 		patterns[pattern.ID] = pattern
 	}
 	log.Info().Msgf("%s ... patterns configurations found [%d]", util.Fish, len(patterns))
 
+	session.patterns = map[string]cbp.Pattern{}
 	for _, productID := range cbp.GetAllProductIDs() {
 		if _, ok := patterns[productID]; ok {
 			pattern := patterns[productID]
 			pattern.InitPattern(size, gain, loss, delta)
-			patterns[productID] = pattern
+			session.patterns[productID] = pattern
 		} else {
-			patterns[productID] = *cbp.NewPattern(productID, size, gain, loss, delta)
+			session.patterns[productID] = *cbp.NewPattern(productID, size, gain, loss, delta)
 		}
 	}
 	log.Info().Msgf("%s ... patterns configurations ready [%d]", util.Fish, len(patterns))
@@ -149,6 +141,11 @@ func NewSession(cfg string, usd []string, size, gain, loss, delta float64, debug
 		for _, currency := range usd {
 			productID := currency + "-USD"
 			session.usdSelections[productID] = fmt.Sprintf("%5s", currency)
+		}
+	} else if len(*session.Patterns) > 0 {
+		for _, pattern := range *session.Patterns {
+			currency := strings.Split(pattern.ID, "-")[0]
+			session.usdSelections[pattern.ID] = fmt.Sprintf("%5s", currency)
 		}
 	} else {
 		for _, productID := range cbp.GetAllProductIDs() {
@@ -191,18 +188,11 @@ func (s *Session) GetPattern(productID string) *cbp.Pattern {
 }
 
 func (s *Session) SimPort() int {
-
-	port := os.Getenv("PORT")
-	if len(port) < 4 {
-		port = "8080"
-	}
-
-	prt, err := strconv.Atoi(port)
+	prt, err := strconv.Atoi(os.Getenv("PORT"))
 	if err != nil {
 		log.Error().Err(err).Send()
 		prt = 8080
 	}
-
 	return prt
 }
 
@@ -220,25 +210,6 @@ func (s *Session) UsdSelectionProductIDs() []string {
 	return productIDs
 }
 
-// GetTradingPositions returns a map of trading positions.
-func (s *Session) GetTradingPositions() (map[string]cbp.Position, error) {
-
-	positions, err := cbp.GetActivePositions()
-	if err != nil {
-		return nil, err
-	}
-
-	result := map[string]cbp.Position{}
-	for productID, position := range positions {
-		if position.Currency == "USD" || position.Balance() == position.Hold() {
-			continue
-		}
-		result[productID] = position
-	}
-
-	return result, nil
-}
-
 // InPeriod is an exclusive range function to determine if the given time falls within the defined period.
 func (s *Session) InPeriod(t time.Time) bool {
 	return s.Start().Before(t) && s.Stop().After(t)
@@ -249,7 +220,7 @@ func (s *Session) Start() *time.Time {
 	if s.Period.Alpha.Year() != 1 {
 		return s.Period.Alpha
 	}
-	then, _ := time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT12:00:00+00:00", year(), month(), day()))
+	then, _ := time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT12:00:00+00:00", s.year(), s.month(), s.day()))
 	return &then
 }
 
@@ -258,28 +229,26 @@ func (s *Session) Stop() *time.Time {
 	if s.Period.Omega.Year() != 1 {
 		return s.Period.Omega
 	}
-	then, _ := time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT22:00:00+00:00", year(), month(), day()))
+	then, _ := time.Parse(time.RFC3339, fmt.Sprintf("%d-%s-%sT22:00:00+00:00", s.year(), s.month(), s.day()))
 	return &then
 }
 
-func year() int {
-	return time.Now().Year()
+func (s *Session) year() int {
+	return s.started.Year()
 }
 
-func month() string {
-	m := int(time.Now().Month())
-	s := strconv.Itoa(m)
+func (s *Session) month() string {
+	m := int(s.started.Month())
 	if m < 10 {
-		return "0" + s
+		return "0" + strconv.Itoa(m)
 	}
-	return s
+	return strconv.Itoa(m)
 }
 
-func day() string {
-	d := time.Now().Day()
-	s := strconv.Itoa(d)
+func (s *Session) day() string {
+	d := s.started.Day()
 	if d < 10 {
-		return "0" + s
+		return "0" + strconv.Itoa(d)
 	}
-	return s
+	return strconv.Itoa(d)
 }

@@ -35,7 +35,7 @@ func NewHolds(session *config.Session) error {
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Msg(util.Trade + " .")
 
-	positions, err := session.GetTradingPositions()
+	positions, err := cbp.GetTradingPositions()
 	if err != nil {
 		return err
 	}
