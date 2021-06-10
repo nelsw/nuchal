@@ -34,8 +34,14 @@ var (
 		Long:  util.Banner,
 	}
 
-	// cfg is the where the configuration file is located. todo
+	// debug is a flag to turn on debug logging
+	debug bool
+
+	// cfg is the where the configuration file is located.
 	cfg string
+
+	// dur is parsed by time.Duration to determine command or command data time frame
+	dur string
 
 	// usd represents the the USD Products to command
 	usd []string
@@ -56,24 +62,36 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(func() {
-		if cfg != "" {
-			viper.SetConfigFile(cfg) // Use config file from the flag.
-		} else {
-			home, err := homedir.Dir() // Find home directory.
-			cobra.CheckErr(err)
-			viper.AddConfigPath(home)  // Search for a config in the home directory
-			viper.AddConfigPath(".")   // Search for a config in the current directory
-			viper.SetConfigType("yml") // Search for configs that end in yml
+
+		viper.SetConfigFile(cfg)
+		if err := viper.ReadInConfig(); err == nil {
+			return
 		}
-		viper.AutomaticEnv() // read in environment variables that match
-		if err := viper.ReadInConfig(); err != nil {
-			panic(err)
+
+		home, err := homedir.Dir() // Find home directory.
+		cobra.CheckErr(err)
+
+		cfg = home + "/nuchal.yml"
+		viper.SetConfigFile(cfg)
+		if err := viper.ReadInConfig(); err == nil {
+			return
 		}
+
+		cfg = home + "/Desktop/nuchal.yml"
+		viper.SetConfigFile(cfg)
+		_ = viper.ReadInConfig()
 	})
+	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "x", false, "debug mode")
+	rootCmd.PersistentFlags().StringVarP(&dur, "duration", "p", "", "period duration")
 	rootCmd.PersistentFlags().StringVarP(&cfg, "config", "c", "", "config file path")
 	rootCmd.PersistentFlags().StringArrayVar(&usd, "usd", nil, "scope of USD Products to command")
 	rootCmd.PersistentFlags().Float64VarP(&size, "size", "q", 1, "minimum trade size")
 	rootCmd.PersistentFlags().Float64VarP(&gain, "gain", "g", .0195, "trade gain goal")
 	rootCmd.PersistentFlags().Float64VarP(&loss, "loss", "l", .195, "trade loss limit")
 	rootCmd.PersistentFlags().Float64VarP(&delta, "delta", "d", .001, "pattern similarity")
+}
+
+func initConfig() error {
+	viper.SetConfigFile(cfg)
+	return viper.ReadInConfig()
 }

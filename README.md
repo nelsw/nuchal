@@ -67,7 +67,8 @@ export PERIOD_DURATION="24h00m00s"
 ```
 
 #### yml 
-To support product based pattern definitions, create a `config.yml` configuration file like the following.
+To support product based pattern definitions, create a `nuchal.yml` configuration file like the following.
+**nuchal** will look in the home and desktop directories for this file. You may also define config location on the cli.
 ```yaml
 # Minimum requirement for running in Production mode: key, pass, secret.
 cbp:

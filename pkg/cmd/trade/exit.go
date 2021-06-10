@@ -51,9 +51,9 @@ func NewExits(session *config.Session) error {
 
 	for _, productID := range session.UsdSelectionProductIDs() {
 
-		currency := session.GetCurrency(productID)
+		currency := util.GetCurrency(productID)
 
-		log.Info().Msg(util.Trade + " ... " + *currency + util.Break + "exit")
+		log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exit")
 
 		position := positions[productID]
 
@@ -63,7 +63,7 @@ func NewExits(session *config.Session) error {
 			if _, err := cbp.CreateOrder(order); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... " + *currency + util.Break + "exited")
+			log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exited")
 		}
 		log.Info().Msg(util.Trade + " ..")
 	}

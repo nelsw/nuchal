@@ -16,28 +16,44 @@
  * /
  */
 
-package test
+package config
 
-import "github.com/nelsw/nuchal/pkg/config"
+import "sort"
 
-const (
-	size  = 1.0
-	gain  = .0195
-	loss  = .495
-	delta = .001
-	cfg   = "test/config.yml"
-	dur   = ""
-	debug = true
-)
+type cull struct {
+	ids *[]string
+}
 
-var (
-	usd = []string{}
-)
+func (c cull) UsdSelectionProductIDs() []string {
+	return *c.ids
+}
 
-func Session() *config.Session {
-	session, err := config.NewSession(cfg, dur, usd, size, gain, loss, delta, debug)
-	if err != nil {
-		panic(err)
+func (c cull) IDS() []string {
+	return *c.ids
+}
+
+func NewCull(usd, pat, all []string) *cull {
+
+	c := new(cull)
+
+	var ids []string
+	if len(usd) > 0 {
+		for _, id := range usd {
+			ids = append(ids, id)
+		}
+	} else if len(pat) > 0 {
+		for _, id := range pat {
+			ids = append(ids, id)
+		}
+	} else {
+		for _, id := range all {
+			ids = append(ids, id)
+		}
 	}
-	return session
+
+	sort.Strings(ids)
+
+	c.ids = &ids
+
+	return c
 }
