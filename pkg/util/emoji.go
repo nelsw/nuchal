@@ -19,20 +19,22 @@
 package util
 
 const (
-	Hyperlink = `🔗`
-	Target    = `🎯`
-	Time      = `🗓`
-	Diamond   = `💎`
-	ThumbsUp  = `🏆`
-	ThumbsDn  = `❌ `
-	Won       = Diamond
-	Lost      = `💩`
-	Even      = `🎭`
-	Sim       = `🐟`
-	Trade     = `🦈`
-	Report    = `🐡`
-	Fish      = `🐠`
-	UpTrend   = `📈`
-	DnTrend   = `📉`
-	NoTrend   = `📊`
+	Hyperlink  = `🔗`
+	Target     = `🎯`
+	Time       = `🗓`
+	Diamond    = `💎`
+	ThumbsUp   = `🏆`
+	ThumbsDn   = `❌`
+	Won        = Diamond
+	Lost       = `💩`
+	Even       = `🎭`
+	Sim        = `🐟`
+	Trade      = `🦈`
+	Report     = `🐡`
+	Fish       = `🐠`
+	UpTrend    = `📈`
+	DnTrend    = `📉`
+	NoTrend    = `📊`
+	GreenCheck = `✅`
+	Coin       = `🪙`
 )

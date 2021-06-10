@@ -20,18 +20,12 @@ package sim
 
 import (
 	"fmt"
-	"github.com/go-echarts/go-echarts/v2/components"
-	"github.com/go-echarts/go-echarts/v2/render"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/db"
 	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/rs/zerolog/log"
-	"io"
-	"net/http"
-	"os"
 	"sort"
-	"strconv"
 	"time"
 )
 
@@ -43,12 +37,6 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	log.Info().Msg(util.Sim + " ..")
 	log.Info().Msg(util.Sim + " ... simulation")
 	log.Info().Msg(util.Sim + " ..")
-	log.Info().Time(util.Alpha, *session.Start()).Msg(util.Sim + " ...")
-	log.Info().Time(util.Omega, *session.Stop()).Msg(util.Sim + " ...")
-	log.Info().Strs(util.Currency, session.UsdSelectionProductIDs()).Msg(util.Sim + " ...")
-	log.Info().Msg(util.Sim + " ..")
-
-	simulations := map[string]simulation{}
 
 	var results []simulation
 	for _, productID := range session.UsdSelectionProductIDs() {
@@ -59,7 +47,8 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 		}
 
 		simulation := newSimulation(session, productID, rates)
-		log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "complete")
+		log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + util.ChequeredFlag)
+		log.Info().Msg(util.Sim + " .. ")
 
 		if simulation.TotalEntries() == 0 {
 			continue
@@ -74,10 +63,8 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 		}
 
 		results = append(results, *simulation)
-		simulations[productID] = *simulation
 	}
 
-	log.Info().Msg(util.Sim + " .. ")
 	log.Info().Msg(util.Sim + " . ")
 	log.Info().Msg(util.Sim + " .. ")
 
@@ -179,68 +166,7 @@ func New(session *config.Session, winnersOnly, noLosers bool) error {
 	log.Info().Msg(util.Sim + " ..")
 	log.Info().Msg(util.Sim + " .")
 
-	if err := makePath("html"); err != nil {
-		return err
-	}
-
-	for productID, simulation := range simulations {
-
-		if simulation.WonLen() > 0 {
-			if err := handlePage(productID, "won", simulation.Won); err != nil {
-				return err
-			}
-		}
-		if simulation.LostLen() > 0 {
-			if err := handlePage(productID, "lst", simulation.Lost); err != nil {
-				return err
-			}
-		}
-		if simulation.TradingLen() > 0 {
-			if err := handlePage(productID, "dnf", simulation.Trading); err != nil {
-				return err
-			}
-		}
-	}
-
-	log.Info().Msg(util.Sim + " .. ")
-	log.Info().Msgf("%s ... charts ... http://localhost:%d", util.Sim, port())
-	log.Info().Msg(util.Sim + " .. ")
-	log.Info().Msg(util.Sim + " . ")
-
-	fs := http.FileServer(http.Dir("html"))
-	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", port()), logRequest(fs)))
-
-	return nil
-}
-
-func handlePage(productID, dir string, charts []Chart) error {
-
-	page := &components.Page{}
-	page.Assets.InitAssets()
-	page.Renderer = render.NewPageRender(page, page.Validate)
-	page.Layout = components.PageFlexLayout
-	page.PageTitle = "nuchal | simulation"
-
-	sort.SliceStable(charts, func(i, j int) bool {
-		return charts[i].result() > charts[j].result()
-	})
-
-	for _, s := range charts {
-		page.AddCharts(s)
-	}
-
-	if err := makePath("html/" + productID); err != nil {
-		return err
-	}
-
-	fileName := fmt.Sprintf("./html/%s/%s.html", productID, dir)
-
-	if f, err := os.Create(fileName); err != nil {
-		return err
-	} else if err := page.Render(io.MultiWriter(f)); err != nil {
-		return err
-	}
-	return nil
+	return newSite(results)
 }
 
 func resultUrl(productID, dir string, port int) string {
@@ -302,27 +228,4 @@ func getRates(ses *config.Session, productID string) ([]cbp.Rate, error) {
 	log.Debug().Msgf("got [%d] rates for [%s]", len(savedRates), productID)
 
 	return savedRates, nil
-}
-
-func logRequest(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Info().Msgf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
-		handler.ServeHTTP(w, r)
-	})
-}
-
-func makePath(path string) error {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.Mkdir(path, 0755); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func port() int {
-	if prt, err := strconv.Atoi(os.Getenv("PORT")); err == nil {
-		return prt
-	}
-	return 8080
 }

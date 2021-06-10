@@ -110,11 +110,18 @@ func IsZero(s string) bool {
 }
 
 func GetCurrency(productID string) string {
-	currency := strings.Split(productID, "0")[0]
-	currency = fmt.Sprintf("%5s", currency)
-	return currency
+	return fmt.Sprintf("%5s", strings.Split(productID, "-")[0])
 }
 
 func CbUrl(productID string) string {
 	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, productID)
+}
+
+func MakePath(path string) error {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if err := os.Mkdir(path, 0755); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"gopkg.in/yaml.v2"
 	"os"
+	"sort"
 )
 
 type ParagonConfig struct {
@@ -78,4 +79,13 @@ func (p *ParagonConfig) isValid() bool {
 		return false
 	}
 	return true
+}
+
+func (p *paragon) patternIDs() *[]string {
+	var productIDs []string
+	for productID := range p.patterns {
+		productIDs = append(productIDs, productID)
+	}
+	sort.Strings(productIDs)
+	return &productIDs
 }

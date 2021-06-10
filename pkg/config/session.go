@@ -68,7 +68,7 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 	fmt.Println(util.Banner)
 	log.Info().Msg(util.Fish + " . ")
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... hello " + os.Getenv("USER"))
+	log.Info().Msgf("%s ... hello %s", util.Fish, os.Getenv("USER"))
 	log.Info().Msg(util.Fish + " .. ")
 	log.Info().Msg(util.Fish + " . ")
 
@@ -79,34 +79,53 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 		return nil, err
 	}
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... database ready")
+	log.Info().Msg(util.Fish + " ... database " + util.GreenCheck)
 
 	// can we connect to coinbase?
 	now, err := cbp.Init(cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	all := cbp.GetAllProductIDs()
-
-	log.Info().Msg(util.Fish + " ... coinbase ready")
+	log.Info().Msg(util.Fish + " ... coinbase " + util.GreenCheck)
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msgf("%s ... products found [%d]", util.Fish, len(all))
+
 	session.period = NewPeriod(cfg, dur, now)
-	a := session.period.Alpha.String()
-	o := session.period.Omega.String()
-	d := session.period.Duration.String()
-	log.Info().Msgf("%s ... period defined [%s - %s] [%s]", util.Fish, a, o, d)
+	log.Info().Time(util.Alpha, *session.Alpha).Msgf("%s ...   period %s", util.Fish, util.GreenCheck)
+	log.Info().Time(util.Omega, *session.Omega).Msgf("%s ...          %s", util.Fish, util.GreenCheck)
+	log.Info().Str("⏳", session.Duration.String()).Msgf("%s ...          %s", util.Fish, util.GreenCheck)
+	log.Info().Msg(util.Fish + " .. ")
+
+	log.Info().
+		Int(util.Quantity, len(cbp.GetAllProductIDs())).
+		Msgf("%s ... products %s", util.Fish, util.GreenCheck)
+
 	session.paragon = NewParagon(cfg, size, gain, loss, delta)
 	var pat []string
 	for _, pattern := range session.paragon.patterns {
 		pat = append(pat, pattern.ID)
 	}
 	sort.Strings(pat)
-	log.Info().Msgf("%s ... patterns found [%d]", util.Fish, len(pat))
-	log.Info().Msgf("%s ... USD selections [%d]", util.Fish, len(usd))
-	session.cull = NewCull(usd, pat, all)
-	log.Info().Msgf("%s ... new cull ready [%d]", util.Fish, len(session.cull.IDS()))
+
+	log.Info().
+		Int(util.Quantity, len(pat)).
+		Strs(util.Coin, *session.paragon.patternIDs()).
+		Msgf("%s ... patterns %s", util.Fish, util.GreenCheck)
+
+	if len(usd) > 0 {
+		log.Info().
+			Int(util.Quantity, len(usd)).
+			Strs(util.Coin, usd).
+			Msgf("%s ... selected %s", util.Fish, util.GreenCheck)
+	} else {
+		log.Info().Int(util.Quantity, len(usd)).Msgf("%s ... selected %s", util.Fish, util.ThumbsDn)
+	}
+
+	session.cull = NewCull(usd, pat, cbp.GetAllProductIDs())
+	log.Info().Msg(util.Fish + " ..")
+	log.Info().
+		Int(util.Quantity, len(session.cull.IDS())).
+		Strs(util.Coin, session.cull.IDS()).
+		Msgf("%s ... new cull %s", util.Fish, util.GreenCheck)
 	log.Info().Msg(util.Fish + " .. ")
 
 	scanner := bufio.NewScanner(os.Stdin)
