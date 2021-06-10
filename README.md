@@ -93,9 +93,9 @@ patterns:
 
 # A time frame for the command or command data.
 period:
-    alpha: 2021-06-02T00:00:00+00:00
-    omega: 2021-06-03T23:59:59+00:00
-    duration: 24h0m0s
+  alpha: 2021-06-02T00:00:00+00:00
+  omega: 2021-06-03T23:59:59+00:00
+  duration: 24h0m0s
 ```
 
 #### cli
