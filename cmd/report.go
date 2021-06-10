@@ -36,7 +36,7 @@ func init() {
 	# Also prints position and trading information, namely size, value, balance and holds.
 	nuchal report`
 	c.Run = func(cmd *cobra.Command, args []string) {
-		if session, err := config.NewSession(cfg, usd, size, gain, loss, delta); err != nil {
+		if session, err := config.NewSession(cfg, dur, usd, size, gain, loss, delta, debug); err != nil {
 			panic(err)
 		} else if err := report.New(session); err != nil {
 			panic(err)

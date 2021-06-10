@@ -22,10 +22,10 @@ import (
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
+	"github.com/rs/zerolog/log"
 )
 
 type simulation struct {
-	cbp.Pattern
 
 	// Won are charts where we were profitable or broke even.
 	Won []Chart
@@ -38,12 +38,14 @@ type simulation struct {
 
 	// Even are charts that broke even, not bad.
 	Even []Chart
+
+	productID string
 }
 
 func (s *simulation) symbol() string {
-	if s.Total() > 0 {
+	if s.TotalAfterFees() > 0 {
 		return util.Won
-	} else if s.Total() == 0 {
+	} else if s.TotalAfterFees() == 0 {
 		return util.Even
 	} else {
 		return util.Lost
@@ -52,10 +54,8 @@ func (s *simulation) symbol() string {
 
 func newSimulation(session *config.Session, productID string, rates []cbp.Rate) *simulation {
 
-	pattern := session.GetPattern(productID)
-
 	simulation := new(simulation)
-	simulation.Pattern = *session.GetPattern(productID)
+	simulation.productID = productID
 
 	var then, that cbp.Rate
 	for i, this := range rates {
@@ -66,14 +66,18 @@ func newSimulation(session *config.Session, productID string, rates []cbp.Rate) 
 
 		if session.GetPattern(productID).MatchesTweezerBottomPattern(then, that, this) {
 
-			chart := newChart(rates[i-2:], *pattern)
+			chart := newChart(session, rates[i-2:], productID)
 			if chart.isWinner() {
+				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "winner")
 				simulation.Won = append(simulation.Won, *chart)
 			} else if chart.isLoser() {
+				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "loser")
 				simulation.Lost = append(simulation.Lost, *chart)
 			} else if chart.isTrading() {
+				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "trading")
 				simulation.Trading = append(simulation.Trading, *chart)
 			} else if chart.isEven() {
+				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "broke even")
 				simulation.Even = append(simulation.Even, *chart)
 			}
 		}
@@ -99,7 +103,7 @@ func (s *simulation) EvenLen() int {
 	return len(s.Even)
 }
 
-func (s *simulation) WonSum() float64 {
+func (s *simulation) TotalWonAfterFees() float64 {
 	sum := 0.0
 	for _, w := range s.Won {
 		sum += w.result()
@@ -107,7 +111,7 @@ func (s *simulation) WonSum() float64 {
 	return sum
 }
 
-func (s *simulation) LostSum() float64 {
+func (s *simulation) TotalLostAfterFees() float64 {
 	sum := 0.0
 	for _, l := range s.Lost {
 		sum += l.result()
@@ -115,7 +119,7 @@ func (s *simulation) LostSum() float64 {
 	return sum
 }
 
-func (s *simulation) TradingSum() float64 {
+func (s *simulation) TotalTradingAfterFees() float64 {
 	sum := 0.0
 	for _, l := range s.Trading {
 		sum += l.result()
@@ -123,7 +127,7 @@ func (s *simulation) TradingSum() float64 {
 	return sum
 }
 
-func (s *simulation) Volume() float64 {
+func (s *simulation) TotalEntries() float64 {
 	sum := 0.0
 	for _, w := range s.Won {
 		sum += w.Entry
@@ -134,13 +138,13 @@ func (s *simulation) Volume() float64 {
 	for _, e := range s.Trading {
 		sum += e.Entry
 	}
-	return sum * s.Size
+	return sum
 }
 
-func (s *simulation) Total() float64 {
-	return s.WonSum() + s.LostSum() + s.TradingSum()
+func (s *simulation) TotalAfterFees() float64 {
+	return s.TotalWonAfterFees() + s.TotalLostAfterFees() + s.TotalTradingAfterFees()
 }
 
 func (s *simulation) Net() float64 {
-	return s.Total() / s.Volume() * 100
+	return s.TotalAfterFees() / s.TotalEntries() * 100
 }

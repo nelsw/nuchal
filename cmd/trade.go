@@ -54,7 +54,7 @@ func init() {
 
 	c.Run = func(cmd *cobra.Command, args []string) {
 
-		session, err := config.NewSession(cfg, usd, size, gain, loss, delta)
+		session, err := config.NewSession(cfg, dur, usd, size, gain, loss, delta, debug)
 		if err != nil {
 			panic(err)
 		}

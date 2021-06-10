@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
+	"github.com/go-echarts/go-echarts/v2/types"
 	"github.com/nelsw/nuchal/pkg/cbp"
+	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	"math"
 	"strings"
@@ -31,7 +33,7 @@ import (
 
 // A Chart represents the data used to represent chart activity and trade results.
 type Chart struct {
-	cbp.Pattern
+	charts.RectChart
 
 	// Rates are used to build a chart. The first 3 rates are the tweezer pattern prefix and the last rate is the exit.
 	Rates []cbp.Rate
@@ -45,8 +47,8 @@ type Chart struct {
 	// Goal is the target price where we place a stop loss order.
 	Goal float64
 
-	// Limit is the target price where we sell to avoid taking a bath.
-	Limit float64
+	// Loss is the target price where we sell to avoid taking a bath.
+	Loss float64
 
 	// Exit is the actual price which the trade was exited.
 	Exit float64
@@ -60,17 +62,15 @@ type Chart struct {
 	Last float64
 }
 
-// symbol returns an emoji correlated the the status of the chart
-func (c *Chart) symbol() string {
-	if c.isTrading() {
-		return "🌌"
-	} else if c.isLoser() {
-		return "💩"
-	} else if c.isEven() {
-		return "👊🏻"
-	} else {
-		return "💎"
-	}
+// Type returns the chart type.
+func (Chart) Type() string { return types.ChartKline }
+
+func (c Chart) Validate() {
+	c.RectChart.Validate()
+}
+
+func (c Chart) GetAssets() opts.Assets {
+	return c.RectChart.Assets
 }
 
 func (c *Chart) isWinner() bool {
@@ -90,7 +90,7 @@ func (c *Chart) isEven() bool {
 }
 
 func (c *Chart) result() float64 {
-	return (c.exitPlusFee() - c.entryPlusFee()) * c.Size
+	return c.exitPlusFee() - c.entryPlusFee()
 }
 
 func (c *Chart) entryPlusFee() float64 {
@@ -105,11 +105,10 @@ func (c *Chart) exitPlusFee() float64 {
 	return exit + (exit * c.MakerFee)
 }
 
-func newChart(rates []cbp.Rate, pattern cbp.Pattern) *Chart {
+func newChart(session *config.Session, rates []cbp.Rate, productID string) *Chart {
 
 	c := new(Chart)
 
-	c.Pattern = pattern
 	c.MakerFee = cbp.Maker()
 	c.TakerFee = cbp.Taker()
 
@@ -119,8 +118,8 @@ func newChart(rates []cbp.Rate, pattern cbp.Pattern) *Chart {
 	}
 
 	c.Entry = iterableRates[0].Open
-	c.Goal = pattern.GoalPrice(c.Entry)
-	c.Limit = pattern.LossPrice(c.Entry)
+	c.Goal = session.GetPattern(productID).GoalPrice(c.Entry)
+	c.Loss = session.GetPattern(productID).LossPrice(c.Entry)
 
 	firstRateTime := iterableRates[0].Time()
 
@@ -130,12 +129,12 @@ func newChart(rates []cbp.Rate, pattern cbp.Pattern) *Chart {
 	for j, rate = range iterableRates {
 
 		// if the low meets or exceeds our loss limit ...
-		if rate.Low <= c.Limit {
+		if rate.Low <= c.Loss {
 
 			// ok, not the worst thing in the world, maybe a stop order already sold this for us
 			if c.Exit == 0 {
 				// nope, we never established a stop order for this chart, we took a bath
-				c.Exit = c.Limit
+				c.Exit = c.Loss
 			}
 			break
 		}
@@ -177,17 +176,23 @@ func newChart(rates []cbp.Rate, pattern cbp.Pattern) *Chart {
 
 	f := math.Min(float64(j+6), float64(len(iterableRates)))
 	c.Rates = rates[:int(f)]
-	return c
-}
 
-func (c *Chart) kline() *charts.Kline {
+	k := []string{"IN: ", "GOAL: ", "OUT: ", "NET: "}
+	for i := 0; i < len(k); i++ {
+		k[i] = k[i] + " %s"
+	}
 
-	kline := charts.NewKLine()
+	title := fmt.Sprintf(strings.Join(k, "\t\t\t\t"),
+		util.Usd(c.Entry),
+		util.Usd(c.Goal),
+		util.Usd(c.Exit),
+		util.Usd(c.result()),
+	)
 
-	kline.SetGlobalOptions(
+	c.SetGlobalOptions(
 
 		charts.WithTitleOpts(opts.Title{
-			Title: c.title(),
+			Title: title,
 		}),
 
 		charts.WithXAxisOpts(opts.XAxis{
@@ -213,42 +218,21 @@ func (c *Chart) kline() *charts.Kline {
 		y = append(y, opts.KlineData{Value: rate.Data()})
 	}
 
-	kline.SetXAxis(x).
-		AddSeries("kline", y).
-		SetSeriesOptions(
-			charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
-				Label: &opts.Label{
-					Show: true,
-				},
-			}),
-			charts.WithItemStyleOpts(opts.ItemStyle{
-				Color0:       "#ec0000",
-				Color:        "#00da3c",
-				BorderColor0: "#8A0000",
-				BorderColor:  "#008F28",
-			}),
-		)
-
-	return kline
-}
-
-func (c *Chart) title() string {
-
-	k := []string{"⊣", util.Target, "⊢", util.Sigma}
-	for i := 0; i < len(k); i++ {
-		k[i] = k[i] + " %s"
-	}
-
-	f := c.symbol() + "\t" + strings.Join(k, "\t\t\t\t")
-
-	return fmt.Sprintf(f,
-		round(c.Entry),
-		round(c.Goal),
-		round(c.Exit),
-		round(c.result()),
+	c.XAxisList[0].Data = x
+	c.MultiSeries = append(c.MultiSeries, charts.SingleSeries{Name: "kline", Type: types.ChartKline, Data: y})
+	c.SetSeriesOptions(
+		charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
+			Label: &opts.Label{
+				Show: true,
+			},
+		}),
+		charts.WithItemStyleOpts(opts.ItemStyle{
+			Color0:       "#ec0000",
+			Color:        "#00da3c",
+			BorderColor0: "#8A0000",
+			BorderColor:  "#008F28",
+		}),
 	)
-}
 
-func round(f float64) string {
-	return fmt.Sprintf("%.3f", f)
+	return c
 }

@@ -49,6 +49,9 @@ func Round2Places(f float64) string {
 }
 
 func Usd(f float64) string {
+	if f == 0 {
+		return "$0.00"
+	}
 	return "$" + Money(f)
 }
 
@@ -104,4 +107,14 @@ func IsInsufficientFunds(err error) bool {
 
 func IsZero(s string) bool {
 	return Float64(s) == 0.0
+}
+
+func GetCurrency(productID string) string {
+	currency := strings.Split(productID, "0")[0]
+	currency = fmt.Sprintf("%5s", currency)
+	return currency
+}
+
+func CbUrl(productID string) string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, productID)
 }
