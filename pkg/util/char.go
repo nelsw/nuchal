@@ -44,4 +44,8 @@ const (
 	UpArrow = `ꜛ`
 
 	Break = ` ... `
+
+	Check = `✔︎`
+
+	ChequeredFlag = `🏁`
 )

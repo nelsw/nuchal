@@ -43,12 +43,27 @@ type simulation struct {
 }
 
 func (s *simulation) symbol() string {
-	if s.TotalAfterFees() > 0 {
-		return util.Won
-	} else if s.TotalAfterFees() == 0 {
-		return util.Even
+	if s.WonLen() > 0 {
+		return util.ThumbsUp
+	} else if s.EvenLen() > 0 {
+		return util.NoTrend
+	} else if s.LostLen() > 0 {
+		return util.ThumbsDn
+	} else if s.TotalTradingAfterFees() > 0 {
+		return util.UpTrend
+	}
+	return util.DnTrend
+}
+
+func (s *simulation) directory() string {
+	if s.WonLen() > 0 {
+		return "won"
+	} else if s.EvenLen() > 0 {
+		return "evn"
+	} else if s.LostLen() > 0 {
+		return "lst"
 	} else {
-		return util.Lost
+		return "dnf"
 	}
 }
 
@@ -56,6 +71,7 @@ func newSimulation(session *config.Session, productID string, rates []cbp.Rate) 
 
 	simulation := new(simulation)
 	simulation.productID = productID
+	msg := util.Sim + util.Break + util.GetCurrency(productID) + util.Break
 
 	var then, that cbp.Rate
 	for i, this := range rates {
@@ -67,17 +83,25 @@ func newSimulation(session *config.Session, productID string, rates []cbp.Rate) 
 		if session.GetPattern(productID).MatchesTweezerBottomPattern(then, that, this) {
 
 			chart := newChart(session, rates[i-2:], productID)
+			if chart == nil {
+				continue
+			}
+
 			if chart.isWinner() {
-				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "winner")
+				log.Info().Msg(msg + util.ThumbsUp)
 				simulation.Won = append(simulation.Won, *chart)
 			} else if chart.isLoser() {
-				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "loser")
+				log.Info().Msg(msg + util.ThumbsDn)
 				simulation.Lost = append(simulation.Lost, *chart)
 			} else if chart.isTrading() {
-				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "trading")
+				s := util.UpTrend
+				if chart.result() < 0 {
+					s = util.DnTrend
+				}
+				log.Info().Msg(msg + s)
 				simulation.Trading = append(simulation.Trading, *chart)
 			} else if chart.isEven() {
-				log.Info().Msg(util.Sim + util.Break + util.GetCurrency(productID) + util.Break + "broke even")
+				log.Info().Msg(msg + util.NoTrend)
 				simulation.Even = append(simulation.Even, *chart)
 			}
 		}

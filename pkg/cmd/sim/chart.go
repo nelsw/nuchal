@@ -22,10 +22,8 @@ import (
 	"fmt"
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
-	"github.com/go-echarts/go-echarts/v2/types"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/config"
-	"github.com/nelsw/nuchal/pkg/util"
 	"math"
 	"strings"
 	"time"
@@ -33,7 +31,6 @@ import (
 
 // A Chart represents the data used to represent chart activity and trade results.
 type Chart struct {
-	charts.RectChart
 
 	// Rates are used to build a chart. The first 3 rates are the tweezer pattern prefix and the last rate is the exit.
 	Rates []cbp.Rate
@@ -60,17 +57,8 @@ type Chart struct {
 	TakerFee float64
 
 	Last float64
-}
 
-// Type returns the chart type.
-func (Chart) Type() string { return types.ChartKline }
-
-func (c Chart) Validate() {
-	c.RectChart.Validate()
-}
-
-func (c Chart) GetAssets() opts.Assets {
-	return c.RectChart.Assets
+	SellIndex float64
 }
 
 func (c *Chart) isWinner() bool {
@@ -107,21 +95,17 @@ func (c *Chart) exitPlusFee() float64 {
 
 func newChart(session *config.Session, rates []cbp.Rate, productID string) *Chart {
 
-	c := new(Chart)
-
-	c.MakerFee = cbp.Maker()
-	c.TakerFee = cbp.Taker()
-
 	iterableRates := rates[3:]
 	if len(iterableRates) < 1 {
-		return c
+		return nil
 	}
 
+	c := new(Chart)
+	c.MakerFee = cbp.Maker()
+	c.TakerFee = cbp.Taker()
 	c.Entry = iterableRates[0].Open
 	c.Goal = session.GetPattern(productID).GoalPrice(c.Entry)
 	c.Loss = session.GetPattern(productID).LossPrice(c.Entry)
-
-	firstRateTime := iterableRates[0].Time()
 
 	var j int
 	var rate cbp.Rate
@@ -136,6 +120,7 @@ func newChart(session *config.Session, rates []cbp.Rate, productID string) *Char
 				// nope, we never established a stop order for this chart, we took a bath
 				c.Exit = c.Loss
 			}
+			c.SellIndex = math.Min(float64(j+4), float64(len(iterableRates)))
 			break
 		}
 
@@ -150,6 +135,7 @@ func newChart(session *config.Session, rates []cbp.Rate, productID string) *Char
 
 			// now if the rate closes less than our exit, the entry order would have been triggered.
 			if rate.Close < c.Exit {
+				c.SellIndex = math.Min(float64(j+3), float64(len(iterableRates)))
 				break
 			}
 
@@ -166,49 +152,40 @@ func newChart(session *config.Session, rates []cbp.Rate, productID string) *Char
 			continue
 		}
 
-		if c.Exit == 0 && iterableRates[j-1].Time().Sub(firstRateTime) > time.Minute*75 && rate.High >= c.entryPlusFee() {
+		if c.Exit == 0 && rate.Time().Sub(iterableRates[0].Time()) > time.Minute*75 && rate.High >= c.entryPlusFee() {
 			c.Exit = c.entryPlusFee()
+			c.SellIndex = math.Min(float64(j+4), float64(len(iterableRates)))
 			break
 		}
 	}
 
 	c.Last = rate.Close
 
-	f := math.Min(float64(j+6), float64(len(iterableRates)))
-	c.Rates = rates[:int(f)]
+	c.Rates = rates[:int(c.SellIndex)]
+	return c
+}
+
+func (c *Chart) kline() *charts.Kline {
+
+	kline := charts.NewKLine()
 
 	k := []string{"IN: ", "GOAL: ", "OUT: ", "NET: "}
 	for i := 0; i < len(k); i++ {
 		k[i] = k[i] + " %s"
 	}
 
-	title := fmt.Sprintf(strings.Join(k, "\t\t\t\t"),
-		util.Usd(c.Entry),
-		util.Usd(c.Goal),
-		util.Usd(c.Exit),
-		util.Usd(c.result()),
+	title := "\n\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + fmt.Sprintf(strings.Join(k, "\t\t\t\t"),
+		fmt.Sprintf("%.3f", c.Entry),
+		fmt.Sprintf("%.3f", c.Goal),
+		fmt.Sprintf("%.3f", c.Exit),
+		fmt.Sprintf("%.3f", c.result()),
 	)
 
-	c.SetGlobalOptions(
-
-		charts.WithTitleOpts(opts.Title{
-			Title: title,
-		}),
-
-		charts.WithXAxisOpts(opts.XAxis{
-			SplitNumber: 1,
-		}),
-
-		charts.WithYAxisOpts(opts.YAxis{
-			SplitNumber: 10,
-			Scale:       true,
-		}),
-
-		charts.WithDataZoomOpts(opts.DataZoom{
-			Start:      0,
-			End:        100,
-			XAxisIndex: []int{0},
-		}),
+	kline.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{Title: title}),
+		charts.WithXAxisOpts(opts.XAxis{SplitNumber: 1}),
+		charts.WithYAxisOpts(opts.YAxis{SplitNumber: 10, Scale: true}),
+		charts.WithDataZoomOpts(opts.DataZoom{Start: 0, End: 100, XAxisIndex: []int{0}}),
 	)
 
 	x := make([]string, 0)
@@ -218,21 +195,11 @@ func newChart(session *config.Session, rates []cbp.Rate, productID string) *Char
 		y = append(y, opts.KlineData{Value: rate.Data()})
 	}
 
-	c.XAxisList[0].Data = x
-	c.MultiSeries = append(c.MultiSeries, charts.SingleSeries{Name: "kline", Type: types.ChartKline, Data: y})
-	c.SetSeriesOptions(
-		charts.WithMarkPointStyleOpts(opts.MarkPointStyle{
-			Label: &opts.Label{
-				Show: true,
-			},
-		}),
-		charts.WithItemStyleOpts(opts.ItemStyle{
-			Color0:       "#ec0000",
-			Color:        "#00da3c",
-			BorderColor0: "#8A0000",
-			BorderColor:  "#008F28",
-		}),
-	)
-
-	return c
+	kline.SetXAxis(x).
+		AddSeries("kline", y).
+		SetSeriesOptions(
+			charts.WithMarkPointStyleOpts(opts.MarkPointStyle{Label: &opts.Label{Show: true}}),
+			charts.WithItemStyleOpts(opts.ItemStyle{"#00da3c", "#ec0000", "#008F28", "#8A0000", 1}),
+		)
+	return kline
 }
