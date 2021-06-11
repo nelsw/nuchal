@@ -67,9 +67,8 @@ func (s *simulation) directory() string {
 	}
 }
 
-func newSimulation(session *config.Session, productID string, rates []cbp.Rate) *simulation {
+func newSimulation(session *config.Session, productID string, rates []cbp.Rate, simulation *simulation) {
 
-	simulation := new(simulation)
 	simulation.productID = productID
 	msg := util.Sim + util.Break + util.GetCurrency(productID) + util.Break
 
@@ -108,7 +107,6 @@ func newSimulation(session *config.Session, productID string, rates []cbp.Rate) 
 		then = that
 		that = this
 	}
-	return simulation
 }
 
 func (s *simulation) WonLen() int {

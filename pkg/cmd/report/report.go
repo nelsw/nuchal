@@ -79,12 +79,14 @@ func New(session *config.Session) error {
 				Str(util.Sigma, util.Usd(position.Value())).
 				Float64(util.Quantity, position.Balance()).
 				Str(util.Hyperlink, position.Url()).
-				Msg(util.Report + util.Break + position.Currency)
+				Msg(util.Report + util.Break + util.GetCurrency(productID))
 
 			orders, err := cbp.GetOrders(productID)
 			if err != nil {
 				return err
 			}
+
+			pattern := session.GetPattern(productID)
 
 			if len(*orders) > 0 {
 
@@ -92,8 +94,6 @@ func New(session *config.Session) error {
 				if err != nil {
 					return err
 				}
-
-				log.Info().Msg(util.Report + " ... held")
 
 				for orderIdx, order := range *orders {
 
@@ -132,26 +132,25 @@ func New(session *config.Session) error {
 					}
 
 					log.Info().
-						Time("", order.CreatedAt.Time()).
-						Str("1.", util.Usd(entryPrice)).
-						Str("2.", util.Usd(position.Price())).
-						Str("3.", util.Usd(util.Float64(order.Price))).
-						Str(util.Quantity, order.Size).
-						Msg(util.Report + " ... ")
+						Str(".", pattern.PrecisePrice(entryPrice)).
+						Str(":", pattern.PrecisePrice(position.Price())).
+						Str("⠇", pattern.PrecisePriceFromString(order.Price)).
+						Str(util.Quantity, pattern.PreciseSize(order.Size)).
+						Time(util.Time, order.CreatedAt.Time()).
+						Msg(util.Report + util.Break + "   " + util.Hold)
 				}
 			}
 
 			trades := position.GetActiveTrades()
 			if len(trades) > 0 {
-				log.Info().Msg(util.Report + " ... active")
 				for _, trade := range trades {
 					log.Info().
-						Time("", trade.CreatedAt.Time()).
-						Str("1.", util.Usd(trade.Price())).
-						Str("2.", util.Usd(position.Price())).
-						Str("3.", util.Usd(session.GetPattern(productID).GoalPrice(trade.Price()))).
-						Str(util.Quantity, trade.Fill.Size).
-						Msg(util.Report + " ... ")
+						Str(".", pattern.PrecisePrice(position.Price())).
+						Str(":", pattern.PrecisePrice(trade.Price())).
+						Str("⠇", pattern.PrecisePrice(pattern.GoalPrice(trade.Price()))).
+						Str(util.Quantity, pattern.PreciseSize(trade.Fill.Size)).
+						Time(util.Time, trade.CreatedAt.Time()).
+						Msg(util.Report + util.Break + "   " + util.Trading)
 				}
 			}
 			log.Info().Msg(util.Report + " ..")

@@ -45,7 +45,7 @@ const (
 
 	Break = ` ... `
 
-	Check = `✔︎`
-
 	ChequeredFlag = `🏁`
+
+	Duration = `䷟`
 )

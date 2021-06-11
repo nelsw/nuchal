@@ -34,6 +34,9 @@ func IsEnvVarTrue(key string) bool {
 }
 
 func Float64(s string) float64 {
+	if s == "" {
+		return 0.0
+	}
 	if f, err := strconv.ParseFloat(s, 64); err != nil {
 		log.Error().Err(err).Send()
 		return 0.0
@@ -60,7 +63,10 @@ func Money(f float64) string {
 	rounded := Round2Places(f)
 	chunks := strings.Split(rounded, `.`)
 	dollars := chunks[0]
-	cents := chunks[1]
+	var cents string
+	if len(chunks) > 1 {
+		cents = chunks[1]
+	}
 
 	isNegative := strings.Contains(dollars, "-")
 	if isNegative {

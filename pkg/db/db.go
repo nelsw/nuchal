@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/nelsw/nuchal/pkg/cbp"
+	"github.com/rs/zerolog/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	reggol "gorm.io/gorm/logger"
@@ -100,13 +102,30 @@ func (c Config) validate() error {
 		return err
 	} else if err := sql.Close(); err != nil {
 		return err
+	} else if err := pg.AutoMigrate(cbp.Rate{}); err != nil {
+		return err
+	} else if err := pg.AutoMigrate(cbp.Product{}); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func NewDB() *gorm.DB {
-	db, _ := openDB(cfg.dsn())
+func NewDB(vv ...interface{}) *gorm.DB {
+
+	db, err := openDB(cfg.dsn())
+	if err == nil && vv != nil && len(vv) > 0 {
+		for _, v := range vv {
+			if err = db.AutoMigrate(v); err != nil {
+				break
+			}
+		}
+	}
+
+	if err != nil {
+		log.Debug().Err(err).Send()
+	}
+
 	return db
 }
 

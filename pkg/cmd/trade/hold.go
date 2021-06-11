@@ -52,8 +52,6 @@ func NewHolds(session *config.Session) error {
 
 	for productID, position := range positions {
 
-		pattern := session.GetPattern(productID)
-
 		log.Info().Msg(util.Trade + " ... " + productID)
 		for _, trade := range position.GetActiveTrades() {
 
@@ -63,11 +61,11 @@ func NewHolds(session *config.Session) error {
 			}
 
 			var order *cb.Order
-			goalPrice := pattern.GoalPrice(trade.Price())
+			goalPrice := session.GetPattern(productID).GoalPrice(trade.Price())
 			if *tickerPrice >= goalPrice {
-				order = pattern.NewMarketSellOrder(trade.Fill.Size)
+				order = session.GetPattern(productID).NewMarketSellOrder(trade.Fill.Size)
 			} else {
-				order = pattern.NewLimitSellEntryOrder(goalPrice, trade.Fill.Size)
+				order = session.GetPattern(productID).NewLimitSellEntryOrder(goalPrice, trade.Fill.Size)
 			}
 
 			if _, err := cbp.CreateOrder(order); err != nil {

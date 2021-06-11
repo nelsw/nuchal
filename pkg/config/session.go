@@ -19,7 +19,6 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
@@ -79,25 +78,34 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 		return nil, err
 	}
 	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... database " + util.GreenCheck)
+	log.Info().Msg(util.Fish + " ... database " + util.Check)
 
 	// can we connect to coinbase?
-	now, err := cbp.Init(cfg)
+	var products []cbp.Product
+	db.NewDB().Find(&products)
+	now, err := cbp.Init(cfg, products)
 	if err != nil {
 		return nil, err
 	}
-	log.Info().Msg(util.Fish + " ... coinbase " + util.GreenCheck)
+	log.Info().Msg(util.Fish + " ... coinbase " + util.Check)
 	log.Info().Msg(util.Fish + " .. ")
 
+	allProductIDs := cbp.GetAllProductIDs()
+	pg := db.NewDB(cbp.Product{})
+	for _, productID := range allProductIDs {
+		product := cbp.GetProduct(productID)
+		pg.Create(&product)
+	}
+
 	session.period = NewPeriod(cfg, dur, now)
-	log.Info().Time(util.Alpha, *session.Alpha).Msgf("%s ...   period %s", util.Fish, util.GreenCheck)
-	log.Info().Time(util.Omega, *session.Omega).Msgf("%s ...          %s", util.Fish, util.GreenCheck)
-	log.Info().Str("⏳", session.Duration.String()).Msgf("%s ...          %s", util.Fish, util.GreenCheck)
+	log.Info().Time(util.Alpha, *session.Alpha).Msgf("%s ...   period %s", util.Fish, util.Check)
+	log.Info().Time(util.Omega, *session.Omega).Msgf("%s ...          %s", util.Fish, util.Check)
+	log.Info().Str(util.Duration, session.Duration.String()).Msgf("%s ...          %s", util.Fish, util.Check)
 	log.Info().Msg(util.Fish + " .. ")
 
 	log.Info().
-		Int(util.Quantity, len(cbp.GetAllProductIDs())).
-		Msgf("%s ... products %s", util.Fish, util.GreenCheck)
+		Int(util.Quantity, len(allProductIDs)).
+		Msgf("%s ... products %s", util.Fish, util.Check)
 
 	session.paragon = NewParagon(cfg, size, gain, loss, delta)
 	var pat []string
@@ -109,47 +117,28 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 	log.Info().
 		Int(util.Quantity, len(pat)).
 		Strs(util.Coin, *session.paragon.patternIDs()).
-		Msgf("%s ... patterns %s", util.Fish, util.GreenCheck)
+		Msgf("%s ... patterns %s", util.Fish, util.Check)
 
 	if len(usd) > 0 {
 		log.Info().
 			Int(util.Quantity, len(usd)).
 			Strs(util.Coin, usd).
-			Msgf("%s ... selected %s", util.Fish, util.GreenCheck)
+			Msgf("%s ... selected %s", util.Fish, util.Check)
 	} else {
 		log.Info().Int(util.Quantity, len(usd)).Msgf("%s ... selected %s", util.Fish, util.ThumbsDn)
 	}
 
-	session.cull = NewCull(usd, pat, cbp.GetAllProductIDs())
+	session.cull = NewCull(usd, pat, allProductIDs)
 	log.Info().Msg(util.Fish + " ..")
 	log.Info().
 		Int(util.Quantity, len(session.cull.IDS())).
 		Strs(util.Coin, session.cull.IDS()).
-		Msgf("%s ... new cull %s", util.Fish, util.GreenCheck)
+		Msgf("%s ... new cull %s", util.Fish, util.Check)
 	log.Info().Msg(util.Fish + " .. ")
 
-	scanner := bufio.NewScanner(os.Stdin)
-	go func() {
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "exit" {
-				log.Info().Msg(util.Fish + " .")
-				log.Info().Msg(util.Fish + " ..")
-				log.Info().Msg(util.Fish + " ...")
-				log.Info().Msg(util.Fish + " ... goodbye")
-				log.Info().Msg(util.Fish + " ...")
-				log.Info().Msg(util.Fish + " ..")
-				log.Info().Msg(util.Fish + " .")
-				os.Exit(0)
-			} else {
-				log.Info().Msgf("%s ... I'm not familiar with %s", util.Fish, line)
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			log.Error().Err(err).Send()
-			panic(err)
-		}
-	}()
+	if err := util.MakePath("html"); err != nil {
+		return nil, err
+	}
 
 	return session, nil
 }

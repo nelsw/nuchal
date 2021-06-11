@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -39,7 +40,9 @@ func newPage(productID, symbol, dir string, charts []Chart) error {
 	page.Assets.InitAssets()
 	page.Renderer = render.NewPageRender(page, page.Validate)
 	page.Layout = components.PageFlexLayout
-	page.PageTitle = "nuchal  " + symbol + "  " + strings.TrimSpace(util.GetCurrency(productID))
+	currency := strings.TrimSpace(util.GetCurrency(productID))
+	size := strconv.Itoa(len(charts))
+	page.PageTitle = fmt.Sprintf("nuchal | %s > %s (%s)", symbol, currency, size)
 
 	sort.SliceStable(charts, func(i, j int) bool {
 		return charts[i].result() > charts[j].result()

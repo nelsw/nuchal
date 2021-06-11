@@ -16,37 +16,25 @@
  * /
  */
 
-package util
+package cbp
 
-const (
-	Hyperlink = `🔗`
-	Target    = `🎯`
-	Time      = `🗓`
-	Diamond   = `💎`
-	ThumbsUp  = `🏆`
-	ThumbsDn  = `❌`
-	Lost      = `💩`
-	Even      = `🎭`
-	Sim       = `🐟`
-	Trade     = `🦈`
-	Report    = `🐡`
-	Fish      = `🐠`
-	UpTrend   = `📈`
-	DnTrend   = `📉`
-	NoTrend   = `📊`
-	Check     = `✅`
-	Coin      = `🪙`
-	Arrival   = `🛬`
-	Current   = `⛵️`
-	Look      = `👀`
-	Purchase  = `🧾`
-	Anchor    = `⚓`
-	Climb     = `🪢`
-	Hold      = `🧷`
-	Fell      = `🪂`
-	Camp      = `⛺️`
-	Ex        = `🤬`
-	Entry     = `🚪`
-	Exit      = `🏷`
-	Trading   = `🎲`
+import (
+	cb "github.com/preichenberger/go-coinbasepro/v2"
+	"gorm.io/gorm"
 )
+
+type Product struct {
+	gorm.Model
+	cb.Product
+	Pattern
+}
+
+func (p *Product) ID() string {
+	return p.Product.ID
+}
+
+func NewProduct(product cb.Product) Product {
+	p := new(Product)
+	p.Product = product
+	return *p
+}

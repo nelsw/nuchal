@@ -45,11 +45,6 @@ func newSite(simulations []simulation) error {
 		}
 	}
 
-	log.Info().Msg(util.Sim + " .. ")
-	log.Info().Msgf("%s ... charts ... http://localhost:%d", util.Sim, port())
-	log.Info().Msg(util.Sim + " .. ")
-	log.Info().Msg(util.Sim + " . ")
-
 	fs := http.FileServer(http.Dir("html"))
 
 	log.Print(http.ListenAndServe(fmt.Sprintf("localhost:%d", port()), logRequest(fs)))

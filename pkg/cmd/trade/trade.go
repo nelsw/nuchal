@@ -33,10 +33,6 @@ func New(ses *config.Session) error {
 	log.Info().Msg(util.Trade + " ..")
 	log.Info().Msg(util.Trade + " ... trade")
 	log.Info().Msg(util.Trade + " ..")
-	log.Info().Time(util.Alpha, *ses.Start()).Msg(util.Trade + " ...")
-	log.Info().Time(util.Omega, *ses.Stop()).Msg(util.Trade + " ...")
-	log.Info().Strs(util.Currency, ses.UsdSelectionProductIDs()).Msg(util.Trade + " ...")
-	log.Info().Msg(util.Trade + " ..")
 
 	if util.IsEnvVarTrue("TEST") {
 		return nil
@@ -58,52 +54,45 @@ func New(ses *config.Session) error {
 
 func trade(session *config.Session, productID string) {
 
-	log.Info().Time("", time.Now()).Msgf("%s ... %5s ... %s", util.Trade, productID, "poll")
-
-	pattern := session.GetPattern(productID)
+	log.Info().Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Look)
 
 	var then, that cbp.Rate
 	for {
 		if this, err := cbp.GetRate(productID); err != nil {
 			then = cbp.Rate{}
 			that = cbp.Rate{}
-		} else if !pattern.MatchesTweezerBottomPattern(then, that, *this) {
+		} else if !session.GetPattern(productID).MatchesTweezerBottomPattern(then, that, *this) {
 			then = that
 			that = *this
 		} else {
-			go buy(session, pattern)
+			go buy(session, productID)
 			then = cbp.Rate{}
 			that = cbp.Rate{}
 		}
 	}
 }
 
-func buy(session *config.Session, product *cbp.Pattern) {
+func buy(session *config.Session, productID string) {
 
-	log.Info().Time("", time.Now()).Msgf("%s ... %5s ... %s", util.Trade, product.ID, "buy")
+	log.Info().Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Purchase)
 
-	order, err := cbp.CreateOrder(product.NewMarketBuyOrder())
+	order, err := cbp.CreateOrder(session.GetPattern(productID).NewMarketBuyOrder())
 	if err == nil {
 
-		productID := product.ID
 		size := order.Size
 		entryPrice := util.Float64(order.ExecutedValue) / util.Float64(size)
-		goalPrice := product.GoalPrice(entryPrice)
+		goalPrice := session.GetPattern(productID).GoalPrice(entryPrice)
 		entryTime := order.CreatedAt.Time()
 
 		if _, err := NewSell(session, entryTime, productID, size, entryPrice, goalPrice, entryTime); err != nil {
-			log.Error().Err(err).Msg("while selling")
+			log.Error().Err(err).Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Purchase)
 		}
 		return
 	}
 
-	if util.IsInsufficientFunds(err) {
-		log.Warn().Err(err).Msg("Insufficient funds ... sleeping ...")
-		time.Sleep(time.Hour) // todo check if has funds and if more sleep required
-		return
-	}
+	log.Error().Err(err).Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Purchase)
 
-	log.Error().Send()
-	log.Error().Err(err).Str(util.Currency, product.ID).Msg("buying")
-	log.Error().Send()
+	if util.IsInsufficientFunds(err) {
+		time.Sleep(time.Hour) // todo check if has funds and if more sleep required
+	}
 }
