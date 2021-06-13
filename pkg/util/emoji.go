@@ -19,34 +19,40 @@
 package util
 
 const (
-	Hyperlink = `🔗`
-	Target    = `🎯`
-	Time      = `🗓`
-	Diamond   = `💎`
-	ThumbsUp  = `🏆`
-	ThumbsDn  = `❌`
-	Lost      = `💩`
-	Even      = `🎭`
-	Sim       = `🐟`
-	Trade     = `🦈`
-	Report    = `🐡`
-	Fish      = `🐠`
-	UpTrend   = `📈`
-	DnTrend   = `📉`
-	NoTrend   = `📊`
-	Check     = `✅`
-	Coin      = `🪙`
-	Arrival   = `🛬`
-	Current   = `⛵️`
-	Look      = `👀`
-	Purchase  = `🧾`
-	Anchor    = `⚓`
-	Climb     = `🪢`
-	Hold      = `🧷`
-	Fell      = `🪂`
-	Camp      = `⛺️`
-	Ex        = `🤬`
-	Entry     = `🚪`
-	Exit      = `🏷`
-	Trading   = `🎲`
+	Cichlid = `🐠`
+	Shark   = `🦈`
+	Tuna    = `🐟`
+	Puffer  = `🐡`
+
+	Trading = `🎲`
+	UpTrend = `📈`
+	DnTrend = `📉`
+	NoTrend = `📊`
+
+	Won  = `🏆`
+	Lost = `❌`
+
+	Link = `🔗`
+	Time = `🗓`
+
+	Ice = `💎`
+	Poo = `💩`
+	Evn = `🎭`
+
+	Check = `✅`
+	Coin  = `🪙`
+
+	Receipt = `🧾`
+	Hold    = `📌`
+
+	Anchor = `⚓`
+	Climb  = `🪢`
+	Camp   = `⛺️`
+	Fell   = `🪂`
+	Volume = `🔈`
+	Net    = `🥅`
+
+	Ex = `🤬`
+
+	Flag = `🏁`
 )

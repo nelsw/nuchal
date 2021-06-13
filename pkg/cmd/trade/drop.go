@@ -28,14 +28,14 @@ import (
 // NewDrops cancels active orders.
 func NewDrops(session *config.Session) error {
 
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --drop")
-	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " ... trade --drop")
+	log.Info().Msg(util.Shark + " ..")
 
 	for _, productID := range session.UsdSelectionProductIDs() {
 
-		log.Info().Msg(util.Trade + " ... " + productID)
+		log.Info().Msg(util.Shark + " ... " + productID)
 
 		orders, err := cbp.GetOrders(productID)
 		if err != nil {
@@ -46,11 +46,11 @@ func NewDrops(session *config.Session) error {
 			if err := cbp.CancelOrder(order.ID); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... dropped")
+			log.Info().Msg(util.Shark + " ... dropped")
 		}
-		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Shark + " ..")
 	}
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
 
 	return nil
 

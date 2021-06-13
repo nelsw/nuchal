@@ -30,11 +30,11 @@ import (
 // Developed
 func NewEject(session *config.Session) error {
 
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --eject")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " ... trade --eject")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " .")
 
 	positions, err := cbp.GetTradingPositions()
 	if err != nil {
@@ -42,12 +42,12 @@ func NewEject(session *config.Session) error {
 	}
 
 	if len(positions) < 1 {
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ... nothing found to sell")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " .")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ... nothing found to sell")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " .")
 		return nil
 	}
 
@@ -55,7 +55,7 @@ func NewEject(session *config.Session) error {
 
 		currency := util.GetCurrency(productID)
 
-		log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exit")
+		log.Info().Msg(util.Shark + " ... " + currency + util.Break + "exit")
 
 		position := positions[productID]
 
@@ -65,11 +65,11 @@ func NewEject(session *config.Session) error {
 			if _, err := cbp.CreateOrder(order); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exited")
+			log.Info().Msg(util.Shark + " ... " + currency + util.Break + "exited")
 		}
-		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Shark + " ..")
 	}
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
 
 	return nil
 }

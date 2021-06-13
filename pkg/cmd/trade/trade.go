@@ -29,10 +29,10 @@ import (
 // New will attempt to buy and sell automagically.
 func New(ses *config.Session) error {
 
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade")
-	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " ... trade")
+	log.Info().Msg(util.Shark + " ..")
 
 	if util.IsEnvVarTrue("TEST") {
 		return nil
@@ -54,7 +54,7 @@ func New(ses *config.Session) error {
 
 func trade(session *config.Session, productID string) {
 
-	log.Info().Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Look)
+	log.Info().Msgf("%s ... %5s ... %s", util.Shark, util.GetCurrency(productID), util.Trading)
 
 	var then, that cbp.Rate
 	for {
@@ -74,7 +74,7 @@ func trade(session *config.Session, productID string) {
 
 func buy(session *config.Session, productID string) {
 
-	log.Info().Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Purchase)
+	log.Info().Msgf("%s ... %5s ... %s", util.Shark, util.GetCurrency(productID), util.Receipt)
 
 	order, err := cbp.CreateOrder(session.GetPattern(productID).NewMarketBuyOrder())
 	if err == nil {
@@ -85,12 +85,12 @@ func buy(session *config.Session, productID string) {
 		entryTime := order.CreatedAt.Time()
 
 		if _, err := NewSell(session, entryTime, productID, size, entryPrice, goalPrice, entryTime); err != nil {
-			log.Error().Err(err).Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Purchase)
+			log.Error().Err(err).Msgf("%s ... %5s ... %s", util.Shark, util.GetCurrency(productID), util.Receipt)
 		}
 		return
 	}
 
-	log.Error().Err(err).Msgf("%s ... %5s ... %s", util.Trade, util.GetCurrency(productID), util.Purchase)
+	log.Error().Err(err).Msgf("%s ... %5s ... %s", util.Shark, util.GetCurrency(productID), util.Receipt)
 
 	if util.IsInsufficientFunds(err) {
 		time.Sleep(time.Hour) // todo check if has funds and if more sleep required

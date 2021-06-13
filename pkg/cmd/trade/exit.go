@@ -28,11 +28,11 @@ import (
 // NewExits sells every active trading position.
 func NewExits(session *config.Session) error {
 
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --exit")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " ... trade --exit")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " .")
 
 	positions, err := cbp.GetTradingPositions()
 	if err != nil {
@@ -40,12 +40,12 @@ func NewExits(session *config.Session) error {
 	}
 
 	if len(positions) < 1 {
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ... no available balance found to exit")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " .")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ... no available balance found to exit")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " .")
 		return nil
 	}
 
@@ -53,7 +53,7 @@ func NewExits(session *config.Session) error {
 
 		currency := util.GetCurrency(productID)
 
-		log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exit")
+		log.Info().Msg(util.Shark + " ... " + currency + util.Break + "exit")
 
 		position := positions[productID]
 
@@ -63,11 +63,11 @@ func NewExits(session *config.Session) error {
 			if _, err := cbp.CreateOrder(order); err != nil {
 				return err
 			}
-			log.Info().Msg(util.Trade + " ... " + currency + util.Break + "exited")
+			log.Info().Msg(util.Shark + " ... " + currency + util.Break + "exited")
 		}
-		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Shark + " ..")
 	}
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
 
 	return nil
 }

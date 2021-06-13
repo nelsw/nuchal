@@ -69,10 +69,6 @@ func (p *Pattern) LossPrice(price float64) float64 {
 	return price - (price * p.Loss)
 }
 
-func (p *Pattern) Url() string {
-	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ID)
-}
-
 func (p *Pattern) NewMarketBuyOrder() *cb.Order {
 
 	size := GetProduct(p.ID).BaseMinSize
@@ -128,20 +124,12 @@ func (p *Pattern) NewLimitLossOrder(price float64, size string) *cb.Order {
 }
 
 func (p *Pattern) MatchesTweezerBottomPattern(then, that, this Rate) bool {
-	return isTweezerBottomTrend(then, that, this) && isTweezerBottomValue(that, this, p.Delta)
-}
-
-func isTweezerBottomValue(u, v Rate, d float64) bool {
-	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
-	b := f <= d
-	if b {
-		log.Info().Str("product", v.ProductId).Float64("tweezer", d-f)
-	}
-	return b
-}
-
-func isTweezerBottomTrend(t, u, v Rate) bool {
-	return t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
+	return then.IsInit() &&
+		then.IsDown() &&
+		that.IsInit() &&
+		that.IsDown() &&
+		this.IsUp() &&
+		math.Abs(math.Min(that.Low, that.Close)-math.Min(this.Low, this.Open)) <= p.Delta
 }
 
 func (p *Pattern) PreciseSize(s string) string {

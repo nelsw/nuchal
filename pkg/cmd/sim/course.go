@@ -23,15 +23,14 @@ import (
 	"github.com/nelsw/nuchal/pkg/config"
 	"github.com/nelsw/nuchal/pkg/util"
 	"github.com/rs/zerolog/log"
-	"math"
 	"sort"
 	"time"
 )
 
 func NewResult(session *config.Session, results []simulation, start time.Time) {
 
-	log.Info().Msg(util.Sim + " . ")
-	log.Info().Msg(util.Sim + " .. ")
+	log.Info().Msg(util.Tuna + " . ")
+	log.Info().Msg(util.Tuna + " .. ")
 
 	// sort by most successful net gain in asc order
 	// so the best result is closest to the summary
@@ -52,39 +51,39 @@ func NewResult(session *config.Session, results []simulation, start time.Time) {
 
 		log.Info().
 			Float64(util.Delta, session.GetPattern(productID).Delta).
-			Float64(util.UpArrow, session.GetPattern(productID).Gain).
+			Float64(util.Goal, session.GetPattern(productID).Gain).
 			Float64(util.Quantity, size).
-			Str(util.Hyperlink, util.CbUrl(productID)).
-			Msg(util.Sim + util.Break + util.GetCurrency(productID))
+			Str(util.Link, util.CbUrl(productID)).
+			Msg(util.Tuna + util.Break + util.GetCurrency(productID))
 
 		log.Info().
 			Str(util.Sigma, util.Usd(simulation.TotalAfterFees()*size)).
 			Str(util.Quantity, util.Usd(simulation.TotalEntries()*size)).
 			Str("%", util.Money(simulation.Net()*size)).
-			Msg(util.Sim + util.Break + fmt.Sprintf("%4s", simulation.symbol()))
+			Msg(util.Tuna + util.Break + fmt.Sprintf("%4s", simulation.symbol()))
 
 		if simulation.WonLen() > 0 {
 			log.Info().
 				Int(util.Quantity, simulation.WonLen()).
 				Str(util.Sigma, util.Usd(simulation.TotalWonAfterFees())).
-				Str(util.Hyperlink, resultUrl(simulation.productID, "won", port())).
-				Msg(util.Sim + " ... " + fmt.Sprintf("%4s", util.Diamond))
+				Str(util.Link, resultUrl(simulation.productID, "won", port())).
+				Msg(util.Tuna + " ... " + fmt.Sprintf("%4s", util.Ice))
 		}
 
 		if simulation.LostLen() > 0 {
 			log.Info().
 				Int(util.Quantity, simulation.LostLen()).
 				Str(util.Sigma, util.Usd(simulation.TotalLostAfterFees())).
-				Str(util.Hyperlink, resultUrl(productID, "lst", port())).
-				Msg(util.Sim + " ... " + fmt.Sprintf("%5s", util.Lost))
+				Str(util.Link, resultUrl(productID, "lst", port())).
+				Msg(util.Tuna + " ... " + fmt.Sprintf("%5s", util.Poo))
 		}
 
 		if simulation.EvenLen() > 0 {
 			log.Info().
 				Int(util.Quantity, simulation.EvenLen()).
 				Str(util.Sigma, "$0.000").
-				Str(util.Hyperlink, resultUrl(productID, "evn", port())).
-				Msg(util.Sim + " ... " + fmt.Sprintf("%4s", util.Even))
+				Str(util.Link, resultUrl(productID, "evn", port())).
+				Msg(util.Tuna + " ... " + fmt.Sprintf("%4s", util.Evn))
 		}
 
 		if simulation.TradingLen() > 0 {
@@ -96,8 +95,8 @@ func NewResult(session *config.Session, results []simulation, start time.Time) {
 			log.Info().
 				Int(util.Quantity, simulation.TradingLen()).
 				Str(util.Sigma, util.Usd(simulation.TotalTradingAfterFees())).
-				Str(util.Hyperlink, resultUrl(productID, "dnf", port())).
-				Msg(util.Sim + " ... " + fmt.Sprintf("%4s", symbol))
+				Str(util.Link, resultUrl(productID, "dnf", port())).
+				Msg(util.Tuna + " ... " + fmt.Sprintf("%4s", symbol))
 		}
 
 		winners += simulation.WonLen()
@@ -109,7 +108,7 @@ func NewResult(session *config.Session, results []simulation, start time.Time) {
 		volume += simulation.TotalEntries() * session.GetPattern(simulation.productID).Size
 		even += simulation.EvenLen()
 
-		log.Info().Msg(util.Sim + " ..")
+		log.Info().Msg(util.Tuna + " ..")
 	}
 
 	if sum > 0 {
@@ -118,29 +117,29 @@ func NewResult(session *config.Session, results []simulation, start time.Time) {
 		lost -= sum
 	}
 
-	log.Info().Msg(util.Sim + " .")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Int("    trading", trading).Msg(util.Sim + " ...")
-	log.Info().Int("       lost", losers).Msg(util.Sim + " ...")
-	log.Info().Int("       even", even).Msg(util.Sim + " ...")
-	log.Info().Int("        won", winners).Msg(util.Sim + " ...")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Str("       lost", util.Usd(lost)).Msg(util.Sim + " ...")
-	log.Info().Str("        won", util.Usd(won)).Msg(util.Sim + " ...")
-	log.Info().Str("        net", util.Usd(net)).Msg(util.Sim + " ...")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Str("     volume", util.Usd(volume)).Msg(util.Sim + " ...")
-	log.Info().Str("          %", util.Money((math.Min(1, net)/math.Min(1, volume))*100)).Msg(util.Sim + " ...")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Msg(util.Sim + " .")
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Msgf("%s ... simulation generated in %f seconds", util.Sim, time.Now().Sub(start).Seconds())
-	log.Info().Msg(util.Sim + " ..")
-	log.Info().Msg(util.Sim + " .")
-	log.Info().Msg(util.Sim + " .. ")
-	log.Info().Msgf("%s ... charts home page http://localhost:%d", util.Sim, port())
-	log.Info().Msg(util.Sim + " .. ")
-	log.Info().Msg(util.Sim + " . ")
+	log.Info().Msg(util.Tuna + " .")
+	log.Info().Msg(util.Tuna + " ..")
+	log.Info().Int("     "+util.Trading, trading).Msg(util.Tuna + " ...")
+	log.Info().Int("     "+util.Lost, losers).Msg(util.Tuna + " ...")
+	log.Info().Int("     "+util.Evn, even).Msg(util.Tuna + " ...")
+	log.Info().Int("     "+util.Won, winners).Msg(util.Tuna + " ...")
+	log.Info().Msg(util.Tuna + " ..")
+	log.Info().Str("     "+util.Ice, util.Usd(won)).Msg(util.Tuna + " ...")
+	log.Info().Str("     "+util.Poo, util.Usd(lost)).Msg(util.Tuna + " ...")
+	log.Info().Str("     "+util.Net, util.Usd(net)).Msg(util.Tuna + " ...")
+	log.Info().Msg(util.Tuna + " ..")
+	log.Info().Str("     "+util.Volume, util.Usd(volume)).Msg(util.Tuna + " ...")
+	log.Info().Str("      %", util.Money((net/volume)*100)).Msg(util.Tuna + " ...")
+	log.Info().Msg(util.Tuna + " ..")
+	log.Info().Msg(util.Tuna + " .")
+	log.Info().Msg(util.Tuna + " ..")
+	log.Info().Msgf("%s ... simulation generated in %f seconds", util.Tuna, time.Now().Sub(start).Seconds())
+	log.Info().Msg(util.Tuna + " ..")
+	log.Info().Msg(util.Tuna + " .")
+	log.Info().Msg(util.Tuna + " .. ")
+	log.Info().Msgf("%s ... charts home page http://localhost:%d", util.Tuna, port())
+	log.Info().Msg(util.Tuna + " .. ")
+	log.Info().Msg(util.Tuna + " . ")
 
 }
 

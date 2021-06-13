@@ -29,11 +29,11 @@ import (
 // NewHolds will create a limit sell entry order for every trade that does not already meet or exceed the goal price.
 func NewHolds(session *config.Session) error {
 
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --hold")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " ... trade --hold")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " .")
 
 	positions, err := cbp.GetTradingPositions()
 	if err != nil {
@@ -41,18 +41,18 @@ func NewHolds(session *config.Session) error {
 	}
 
 	if len(positions) < 1 {
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ... no available balance found to hold")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " .")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ... no available balance found to hold")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " .")
 		return nil
 	}
 
 	for productID, position := range positions {
 
-		log.Info().Msg(util.Trade + " ... " + productID)
+		log.Info().Msg(util.Shark + " ... " + productID)
 		for _, trade := range position.GetActiveTrades() {
 
 			tickerPrice, err := cbp.GetTickerPrice(productID)
@@ -72,11 +72,11 @@ func NewHolds(session *config.Session) error {
 				return err
 			}
 
-			log.Info().Msg(util.Trade + " ... held")
+			log.Info().Msg(util.Shark + " ... held")
 		}
-		log.Info().Msg(util.Trade + " ..")
+		log.Info().Msg(util.Shark + " ..")
 	}
-	log.Info().Msg(util.Trade + " .")
+	log.Info().Msg(util.Shark + " .")
 
 	return nil
 }

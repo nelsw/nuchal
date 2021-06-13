@@ -31,6 +31,18 @@ import (
 	"time"
 )
 
+const (
+	f0 = "%s ...    hello %s"
+	g0 = "%s ... database %s"
+	h0 = "%s ... coinbase %s"
+	f1 = "%s ...   period %s"
+	fn = "%s ...          %s"
+	f2 = "%s ... products %s"
+	f3 = "%s ... patterns %s"
+	f4 = "%s ... selected %s"
+	f5 = "%s ... new cull %s"
+)
+
 // Session of the application - only active while the executable is run within the defined period range.
 type Session struct {
 	*paragon
@@ -65,47 +77,43 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 	}
 
 	fmt.Println(util.Banner)
-	log.Info().Msg(util.Fish + " . ")
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msgf("%s ... hello %s", util.Fish, os.Getenv("USER"))
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " . ")
-
-	session := new(Session)
+	log.Info().Msg(util.Cichlid + " . ")
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Msgf(f0, util.Cichlid, os.Getenv("USER"))
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Msg(util.Cichlid + " . ")
 
 	// is the database established?
 	if err := db.Init(); err != nil {
 		return nil, err
 	}
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... database " + util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Msgf(g0, util.Cichlid, util.Check)
 
 	// can we connect to coinbase?
 	var products []cbp.Product
-	db.NewDB().Find(&products)
-	now, err := cbp.Init(cfg, products)
+	pg := db.NewDB(cbp.Product{})
+	pg.Find(&products)
+	now, err := cbp.Init(cfg, &products)
 	if err != nil {
 		return nil, err
 	}
-	log.Info().Msg(util.Fish + " ... coinbase " + util.Check)
-	log.Info().Msg(util.Fish + " .. ")
+	log.Info().Msgf(h0, util.Cichlid, util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
 
 	allProductIDs := cbp.GetAllProductIDs()
-	pg := db.NewDB(cbp.Product{})
 	for _, productID := range allProductIDs {
 		product := cbp.GetProduct(productID)
 		pg.Create(&product)
 	}
 
+	session := new(Session)
 	session.period = NewPeriod(cfg, dur, now)
-	log.Info().Time(util.Alpha, *session.Alpha).Msgf("%s ...   period %s", util.Fish, util.Check)
-	log.Info().Time(util.Omega, *session.Omega).Msgf("%s ...          %s", util.Fish, util.Check)
-	log.Info().Str(util.Duration, session.Duration.String()).Msgf("%s ...          %s", util.Fish, util.Check)
-	log.Info().Msg(util.Fish + " .. ")
-
-	log.Info().
-		Int(util.Quantity, len(allProductIDs)).
-		Msgf("%s ... products %s", util.Fish, util.Check)
+	log.Info().Time(util.Alpha, *session.Alpha).Msgf(f1, util.Cichlid, util.Check)
+	log.Info().Time(util.Omega, *session.Omega).Msgf(fn, util.Cichlid, util.Check)
+	log.Info().Str(util.Duration, session.Duration.String()).Msgf(fn, util.Cichlid, util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Int(util.Quantity, len(allProductIDs)).Msgf(f2, util.Cichlid, util.Check)
 
 	session.paragon = NewParagon(cfg, size, gain, loss, delta)
 	var pat []string
@@ -114,31 +122,15 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 	}
 	sort.Strings(pat)
 
-	log.Info().
-		Int(util.Quantity, len(pat)).
-		Strs(util.Coin, *session.paragon.patternIDs()).
-		Msgf("%s ... patterns %s", util.Fish, util.Check)
-
-	if len(usd) > 0 {
-		log.Info().
-			Int(util.Quantity, len(usd)).
-			Strs(util.Coin, usd).
-			Msgf("%s ... selected %s", util.Fish, util.Check)
-	} else {
-		log.Info().Int(util.Quantity, len(usd)).Msgf("%s ... selected %s", util.Fish, util.ThumbsDn)
-	}
+	ids := *session.paragon.patternIDs()
+	log.Info().Int(util.Quantity, len(pat)).Strs(util.Coin, ids).Msgf(f3, util.Cichlid, util.Check)
+	log.Info().Int(util.Quantity, len(usd)).Strs(util.Coin, usd).Msgf(f4, util.Cichlid, util.Check)
 
 	session.cull = NewCull(usd, pat, allProductIDs)
-	log.Info().Msg(util.Fish + " ..")
-	log.Info().
-		Int(util.Quantity, len(session.cull.IDS())).
-		Strs(util.Coin, session.cull.IDS()).
-		Msgf("%s ... new cull %s", util.Fish, util.Check)
-	log.Info().Msg(util.Fish + " .. ")
+	cls := session.cull.IDS()
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Int(util.Quantity, len(cls)).Strs(util.Coin, cls).Msgf(f5, util.Cichlid, util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
 
-	if err := util.MakePath("html"); err != nil {
-		return nil, err
-	}
-
-	return session, nil
+	return session, util.MakePath("html")
 }

@@ -45,12 +45,6 @@ func Float64(s string) float64 {
 	}
 }
 
-func Round2Places(f float64) string {
-	x := (f * 100) + 0.5
-	x = x / 100
-	return fmt.Sprintf("%.3f", x)
-}
-
 func Usd(f float64) string {
 	if f == 0 {
 		return "$0.00"
@@ -59,8 +53,9 @@ func Usd(f float64) string {
 }
 
 func Money(f float64) string {
-
-	rounded := Round2Places(f)
+	x := (f * 100) + 0.5
+	x = x / 100
+	rounded := fmt.Sprintf("%.3f", x)
 	chunks := strings.Split(rounded, `.`)
 	dollars := chunks[0]
 	var cents string
@@ -130,4 +125,8 @@ func MakePath(path string) error {
 		}
 	}
 	return nil
+}
+
+func CbpUrl(productID string) string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, productID)
 }

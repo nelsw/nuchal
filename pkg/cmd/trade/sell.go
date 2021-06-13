@@ -51,21 +51,21 @@ func NewSells(session *config.Session) error {
 		}
 	}
 
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " ... trade --sell")
-	log.Info().Int("positions", len(positionIds)).Msg(util.Trade + " ...")
-	log.Info().Int("   trades", len(tradeIds)).Msg(util.Trade + " ...")
-	log.Info().Msg(util.Trade + " ..")
-	log.Info().Msg(util.Trade + " .")
-	log.Info().Msg(util.Trade + " ..")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " ... trade --sell")
+	log.Info().Int("positions", len(positionIds)).Msg(util.Shark + " ...")
+	log.Info().Int("   trades", len(tradeIds)).Msg(util.Shark + " ...")
+	log.Info().Msg(util.Shark + " ..")
+	log.Info().Msg(util.Shark + " .")
+	log.Info().Msg(util.Shark + " ..")
 
 	if len(positions) < 1 {
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ... no available balance found to sell")
-		log.Info().Msg(util.Trade + " ...")
-		log.Info().Msg(util.Trade + " ..")
-		log.Info().Msg(util.Trade + " .")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ... no available balance found to sell")
+		log.Info().Msg(util.Shark + " ...")
+		log.Info().Msg(util.Shark + " ..")
+		log.Info().Msg(util.Shark + " .")
 		return nil
 	}
 
@@ -86,7 +86,7 @@ func NewSells(session *config.Session) error {
 				goalPrice := session.GetPattern(productID).GoalPrice(entryPrice)
 
 				if currentPrice, err := cbp.GetTickerPrice(productID); err == nil {
-					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *currentPrice, goalPrice, util.Look)
+					prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *currentPrice, goalPrice, util.Trading)
 				}
 
 				if exitPrice, err := NewSell(session, tradeID, productID, size, entryPrice, goalPrice, entryTime); err == nil {
@@ -107,15 +107,15 @@ func NewSells(session *config.Session) error {
 			completions++
 
 			if err != nil {
-				log.Error().Err(err).Msg(util.Trade + " ...")
+				log.Error().Err(err).Msg(util.Shark + " ...")
 			}
 
 			if completions == len(tradeIds) {
-				log.Info().Msg(util.Trade + " ...")
-				log.Info().Msg(util.Trade + " ... available balance sold, go party.")
-				log.Info().Msg(util.Trade + " ...")
-				log.Info().Msg(util.Trade + " ..")
-				log.Info().Msg(util.Trade + " .")
+				log.Info().Msg(util.Shark + " ...")
+				log.Info().Msg(util.Shark + " ... available balance sold, go party.")
+				log.Info().Msg(util.Shark + " ...")
+				log.Info().Msg(util.Shark + " ..")
+				log.Info().Msg(util.Shark + " .")
 				return nil
 			}
 		}
@@ -136,13 +136,13 @@ func NewSell(
 	var wsDialer ws.Dialer
 	wsConn, _, err := wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil)
 	if err != nil {
-		log.Error().Err(err).Str("action", "open").Msgf("%s ... %5s ...", util.Trade, util.GetCurrency(productID))
+		log.Error().Err(err).Str("action", "open").Msgf("%s ... %5s ...", util.Shark, util.GetCurrency(productID))
 		return nil, err
 	}
 
 	defer func(wsConn *ws.Conn) {
 		if err := wsConn.Close(); err != nil {
-			log.Error().Err(err).Str("action", "close").Msgf("%s ... %5s ...", util.Trade, util.GetCurrency(productID))
+			log.Error().Err(err).Str("action", "close").Msgf("%s ... %5s ...", util.Shark, util.GetCurrency(productID))
 		}
 	}(wsConn)
 
@@ -154,14 +154,14 @@ func NewSell(
 		currentPrice, err := cbp.GetPrice(wsConn, productID)
 		if err != nil {
 			if err = wsConn.Close(); err != nil {
-				log.Error().Err(err).Msgf("%s ... %s ... %s ", util.Trade, util.GetCurrency(productID), util.Ex)
+				log.Error().Err(err).Msgf("%s ... %s ... %s ", util.Shark, util.GetCurrency(productID), util.Ex)
 			}
 			if wsConn, _, err = wsDialer.Dial("wss://ws-feed.pro.coinbase.com", nil); err != nil {
-				log.Error().Err(err).Str("action", "open").Msgf("%s ... %5s ...", util.Trade, util.GetCurrency(productID))
+				log.Error().Err(err).Str("action", "open").Msgf("%s ... %5s ...", util.Shark, util.GetCurrency(productID))
 				return nil, err
 			}
 			if currentPrice, err = cbp.GetTickerPrice(productID); err != nil {
-				log.Error().Msgf("%s ... %s ... %s ", util.Trade, util.GetCurrency(productID), util.Ex)
+				log.Error().Msgf("%s ... %s ... %s ", util.Shark, util.GetCurrency(productID), util.Ex)
 				time.Sleep(time.Second * 5 * time.Duration(i))
 				continue
 			}
@@ -180,7 +180,7 @@ func NewSell(
 		// else, get the next price and keep the dream alive that it meets or exceeds our goal price.
 		i++
 		if i%10 == 0 {
-			prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *currentPrice, goalPrice, util.Look)
+			prt(zerolog.InfoLevel, tradeID, productID, entryPrice, *currentPrice, goalPrice, util.Trading)
 		}
 	}
 }
@@ -237,15 +237,15 @@ func prt(
 	goal float64,
 	args ...string) {
 
-	msg := util.Trade + " ... " + util.GetCurrency(productID)
+	msg := util.Shark + " ... " + util.GetCurrency(productID)
 	if args != nil && len(args) > 0 {
 		msg = msg + " ... " + args[0]
 	}
 
 	log.WithLevel(level).
 		Time("", id).
-		Str("1."+util.Arrival, fmt.Sprintf("%.3f", entry)).
-		Str("2."+util.Current, fmt.Sprintf("%.3f", current)).
-		Str("3."+util.Target, fmt.Sprintf("%.3f", goal)).
+		Str(util.Entry, fmt.Sprintf("%.3f", entry)).
+		Str(util.Current, fmt.Sprintf("%.3f", current)).
+		Str(util.Goal, fmt.Sprintf("%.3f", goal)).
 		Msg(msg)
 }

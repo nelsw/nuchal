@@ -41,11 +41,13 @@ const (
 
 	Delta = `Δ`
 
-	UpArrow = `ꜛ`
-
 	Break = ` ... `
 
-	ChequeredFlag = `🏁`
-
 	Duration = `䷟`
+
+	Entry = `  ⠂`
+
+	Current = ` ⠂⠂`
+
+	Goal = `⠂⠂⠂`
 )

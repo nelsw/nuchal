@@ -53,7 +53,7 @@ var (
 	usdRegex = regexp.MustCompile(`^((\w{3,5})(-USD))$`)
 )
 
-func Init(name string, dbProducts []Product) (*time.Time, error) {
+func Init(name string, dbProducts *[]Product) (*time.Time, error) {
 
 	var err error
 
@@ -88,9 +88,16 @@ func Init(name string, dbProducts []Product) (*time.Time, error) {
 		0,
 	}
 
-	if len(dbProducts) > 0 {
-		for _, product := range dbProducts {
-			products[product.ID()] = product
+	if len(*dbProducts) > 0 {
+		for _, product := range *dbProducts {
+			if product.BaseCurrency == "DAI" ||
+				product.BaseCurrency == "USDT" ||
+				product.BaseMinSize == "" ||
+				product.QuoteIncrement == "" ||
+				!usdRegex.MatchString(product.ID()) {
+				continue
+			}
+			products[product.ID()] = NewProduct(product.Product)
 		}
 	} else {
 		var allProducts []cb.Product
@@ -161,7 +168,7 @@ func GetAllProductIDs() []string {
 	return productIDs
 }
 
-func Rates(productID string, params *[]cb.GetHistoricRatesParams) ([]Rate, error) {
+func GetRates(productID string, params *[]cb.GetHistoricRatesParams) ([]Rate, error) {
 	var rates []Rate
 	for _, params := range *params {
 		if out, err := client.GetHistoricRates(productID, params); err != nil {
@@ -181,7 +188,7 @@ func GetHistoricRates(productID string, alpha, omega time.Time) ([]Rate, error) 
 
 	out, err := client.GetHistoricRates(productID, cb.GetHistoricRatesParams{alpha, omega, 60})
 	if err != nil {
-		log.Debug().Err(err).Msgf("%s ... %s ... coinbase", util.Sim, cur)
+		log.Debug().Err(err).Msgf("%s ... %s ... coinbase", util.Tuna, cur)
 		return nil, err
 	}
 
@@ -189,12 +196,6 @@ func GetHistoricRates(productID string, alpha, omega time.Time) ([]Rate, error) 
 	for _, rate := range out {
 		rates = append(rates, *NewRate(productID, rate))
 	}
-
-	log.Debug().
-		Time(util.Alpha, alpha).
-		Time(util.Omega, omega).
-		Int(util.Quantity, len(rates)).
-		Msgf("%s ... %s ... coinbase %s", util.Sim, cur, util.Check)
 
 	return rates, nil
 }
@@ -236,7 +237,7 @@ func GetActivePositions() (map[string]Position, error) {
 		productID := account.Currency + "-USD"
 
 		if account.Currency == "USD" {
-			positions[productID] = *NewUsdPosition(account)
+			positions[productID] = *NewPosition(account, cb.Ticker{}, nil)
 			continue
 		}
 
@@ -266,7 +267,7 @@ func GetTradingPositions() (map[string]Position, error) {
 
 	result := map[string]Position{}
 	for productID, position := range positions {
-		if position.Currency == "USD" || position.Balance() == position.Hold() {
+		if position.Currency == "USD" || position.IsHeld() {
 			continue
 		}
 		result[productID] = position

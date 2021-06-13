@@ -23,6 +23,10 @@ import (
 	"gorm.io/gorm"
 )
 
+type Posture interface {
+	ID() string
+}
+
 type Product struct {
 	gorm.Model
 	cb.Product
@@ -30,7 +34,7 @@ type Product struct {
 }
 
 func (p *Product) ID() string {
-	return p.Product.ID
+	return p.Product.BaseCurrency + "-" + p.QuoteCurrency
 }
 
 func NewProduct(product cb.Product) Product {
