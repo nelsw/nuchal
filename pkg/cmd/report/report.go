@@ -32,13 +32,13 @@ func New(session *config.Session) error {
 
 	for {
 
-		log.Info().Msg(util.Report + " .")
-		log.Info().Msg(util.Report + " ..")
-		log.Info().Msg(util.Report + " ...")
-		log.Info().Msg(util.Report + " ... report")
-		log.Info().Msg(util.Report + " ...")
-		log.Info().Msg(util.Report + " ..")
-		log.Info().Msg(util.Report + " .")
+		log.Info().Msg(util.Puffer + " .")
+		log.Info().Msg(util.Puffer + " ..")
+		log.Info().Msg(util.Puffer + " ...")
+		log.Info().Msg(util.Puffer + " ... report")
+		log.Info().Msg(util.Puffer + " ...")
+		log.Info().Msg(util.Puffer + " ..")
+		log.Info().Msg(util.Puffer + " .")
 
 		positions, err := cbp.GetActivePositions()
 		if err != nil {
@@ -62,14 +62,14 @@ func New(session *config.Session) error {
 		currency := util.Money(coin)
 		sigma := util.Usd(cash + coin)
 
-		log.Info().Msg(util.Report + " ..")
-		log.Info().Msg(util.Report + " ... portfolio")
-		log.Info().Str(util.Dollar, dollar).Str(util.Currency, currency).Str(util.Sigma, sigma).Msg(util.Report + " ...")
-		log.Info().Msg(util.Report + " ..")
-		log.Info().Msg(util.Report + " .")
-		log.Info().Msg(util.Report + " ..")
-		log.Info().Msg(util.Report + " ... positions")
-		log.Info().Msg(util.Report + " ..")
+		log.Info().Msg(util.Puffer + " ..")
+		log.Info().Msg(util.Puffer + " ... portfolio")
+		log.Info().Str(util.Dollar, dollar).Str(util.Currency, currency).Str(util.Sigma, sigma).Msg(util.Puffer + " ...")
+		log.Info().Msg(util.Puffer + " ..")
+		log.Info().Msg(util.Puffer + " .")
+		log.Info().Msg(util.Puffer + " ..")
+		log.Info().Msg(util.Puffer + " ... positions")
+		log.Info().Msg(util.Puffer + " ..")
 
 		for _, productID := range productIDs {
 
@@ -78,13 +78,15 @@ func New(session *config.Session) error {
 			log.Info().
 				Str(util.Sigma, util.Usd(position.Value())).
 				Float64(util.Quantity, position.Balance()).
-				Str(util.Hyperlink, position.Url()).
-				Msg(util.Report + util.Break + position.Currency)
+				Str(util.Link, util.CbUrl(productID)).
+				Msg(util.Puffer + util.Break + util.GetCurrency(productID))
 
 			orders, err := cbp.GetOrders(productID)
 			if err != nil {
 				return err
 			}
+
+			pattern := session.GetPattern(productID)
 
 			if len(*orders) > 0 {
 
@@ -92,8 +94,6 @@ func New(session *config.Session) error {
 				if err != nil {
 					return err
 				}
-
-				log.Info().Msg(util.Report + " ... held")
 
 				for orderIdx, order := range *orders {
 
@@ -132,32 +132,31 @@ func New(session *config.Session) error {
 					}
 
 					log.Info().
-						Time("", order.CreatedAt.Time()).
-						Str("1.", util.Usd(entryPrice)).
-						Str("2.", util.Usd(position.Price())).
-						Str("3.", util.Usd(util.Float64(order.Price))).
-						Str(util.Quantity, order.Size).
-						Msg(util.Report + " ... ")
+						Str(util.Entry, pattern.PrecisePrice(entryPrice)).
+						Str(util.Current, pattern.PrecisePrice(position.Price())).
+						Str(util.Goal, pattern.PrecisePriceFromString(order.Price)).
+						Str(util.Quantity, pattern.PreciseSize(order.Size)).
+						Time(util.Time, order.CreatedAt.Time()).
+						Msg(util.Puffer + util.Break + "   " + util.Hold)
 				}
 			}
 
 			trades := position.GetActiveTrades()
 			if len(trades) > 0 {
-				log.Info().Msg(util.Report + " ... active")
 				for _, trade := range trades {
 					log.Info().
-						Time("", trade.CreatedAt.Time()).
-						Str("1.", util.Usd(trade.Price())).
-						Str("2.", util.Usd(position.Price())).
-						Str("3.", util.Usd(session.GetPattern(productID).GoalPrice(trade.Price()))).
-						Str(util.Quantity, trade.Fill.Size).
-						Msg(util.Report + " ... ")
+						Str(util.Entry, pattern.PrecisePrice(trade.Price())).
+						Str(util.Current, pattern.PrecisePrice(position.Price())).
+						Str(util.Goal, pattern.PrecisePrice(pattern.GoalPrice(trade.Price()))).
+						Str(util.Quantity, pattern.PreciseSize(trade.Fill.Size)).
+						Time(util.Time, trade.CreatedAt.Time()).
+						Msg(util.Puffer + util.Break + "   " + util.Trading)
 				}
 			}
-			log.Info().Msg(util.Report + " ..")
+			log.Info().Msg(util.Puffer + " ..")
 		}
 
-		log.Info().Msg(util.Report + " .")
+		log.Info().Msg(util.Puffer + " .")
 		time.Sleep(time.Second * 30)
 	}
 }

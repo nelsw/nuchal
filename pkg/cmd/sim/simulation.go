@@ -44,15 +44,15 @@ type simulation struct {
 
 func (s *simulation) symbol() string {
 	if s.WonLen() > 0 {
-		return util.ThumbsUp
+		return util.Won
 	} else if s.EvenLen() > 0 {
-		return util.NoTrend
+		return util.Evn
 	} else if s.LostLen() > 0 {
-		return util.ThumbsDn
+		return util.Lost
 	} else if s.TotalTradingAfterFees() > 0 {
-		return util.UpTrend
+		return util.TradingUp
 	}
-	return util.DnTrend
+	return util.TradingDown
 }
 
 func (s *simulation) directory() string {
@@ -67,11 +67,10 @@ func (s *simulation) directory() string {
 	}
 }
 
-func newSimulation(session *config.Session, productID string, rates []cbp.Rate) *simulation {
+func newSimulation(session *config.Session, productID string, rates []cbp.Rate, simulation *simulation) {
 
-	simulation := new(simulation)
 	simulation.productID = productID
-	msg := util.Sim + util.Break + util.GetCurrency(productID) + util.Break
+	msg := util.Tuna + util.Break + util.GetCurrency(productID) + util.Break
 
 	var then, that cbp.Rate
 	for i, this := range rates {
@@ -88,27 +87,26 @@ func newSimulation(session *config.Session, productID string, rates []cbp.Rate) 
 			}
 
 			if chart.isWinner() {
-				log.Info().Msg(msg + util.ThumbsUp)
+				log.Info().Msg(msg + util.Won)
 				simulation.Won = append(simulation.Won, *chart)
 			} else if chart.isLoser() {
-				log.Info().Msg(msg + util.ThumbsDn)
+				log.Info().Msg(msg + util.Lost)
 				simulation.Lost = append(simulation.Lost, *chart)
 			} else if chart.isTrading() {
-				s := util.UpTrend
+				s := util.TradingUp
 				if chart.result() < 0 {
-					s = util.DnTrend
+					s = util.TradingDown
 				}
 				log.Info().Msg(msg + s)
 				simulation.Trading = append(simulation.Trading, *chart)
 			} else if chart.isEven() {
-				log.Info().Msg(msg + util.NoTrend)
+				log.Info().Msg(msg + util.Evn)
 				simulation.Even = append(simulation.Even, *chart)
 			}
 		}
 		then = that
 		that = this
 	}
-	return simulation
 }
 
 func (s *simulation) WonLen() int {

@@ -19,7 +19,6 @@
 package cbp
 
 import (
-	"fmt"
 	"github.com/nelsw/nuchal/pkg/util"
 	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"sort"
@@ -32,24 +31,12 @@ type Position struct {
 	sells []Trade
 }
 
-func (p *Position) Url() string {
-	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ProductId())
-}
-
 func (p *Position) IsHeld() bool {
-	return p.Balance() == p.Hold()
-}
-
-func (p *Position) ProductId() string {
-	return p.buys[0].ProductID
+	return p.Balance() == p.hold()
 }
 
 func (p Position) Balance() float64 {
 	return util.Float64(p.Account.Balance)
-}
-
-func (p Position) Hold() float64 {
-	return util.Float64(p.Account.Hold)
 }
 
 func (p Position) Value() float64 {
@@ -60,8 +47,8 @@ func (p Position) Price() float64 {
 	return util.Float64(p.Ticker.Price)
 }
 
-func NewUsdPosition(account cb.Account) *Position {
-	return NewPosition(account, cb.Ticker{}, nil)
+func (p Position) hold() float64 {
+	return util.Float64(p.Account.Hold)
 }
 
 func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Position {
@@ -73,7 +60,7 @@ func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Positio
 	for _, fill := range fills {
 		if fill.Side == "buy" {
 			p.buys = append(p.buys, *NewTrade(fill))
-		} else {
+		} else if fill.Side == "sell" {
 			p.sells = append(p.sells, *NewTrade(fill))
 		}
 	}
@@ -83,7 +70,7 @@ func NewPosition(account cb.Account, ticker cb.Ticker, fills []cb.Fill) *Positio
 
 func (p *Position) GetActiveTrades() []Trade {
 
-	if p.Hold() == p.Balance() {
+	if p.IsHeld() {
 		return nil
 	}
 
@@ -93,7 +80,7 @@ func (p *Position) GetActiveTrades() []Trade {
 	})
 
 	var trading []Trade
-	hold := p.Hold()
+	hold := p.hold()
 	for _, trade := range buys {
 		if hold >= p.Balance() {
 			break

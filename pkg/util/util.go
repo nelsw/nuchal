@@ -34,18 +34,15 @@ func IsEnvVarTrue(key string) bool {
 }
 
 func Float64(s string) float64 {
+	if s == "" {
+		return 0.0
+	}
 	if f, err := strconv.ParseFloat(s, 64); err != nil {
 		log.Error().Err(err).Send()
 		return 0.0
 	} else {
 		return f
 	}
-}
-
-func Round2Places(f float64) string {
-	x := (f * 100) + 0.5
-	x = x / 100
-	return fmt.Sprintf("%.3f", x)
 }
 
 func Usd(f float64) string {
@@ -56,11 +53,15 @@ func Usd(f float64) string {
 }
 
 func Money(f float64) string {
-
-	rounded := Round2Places(f)
+	x := (f * 100) + 0.5
+	x = x / 100
+	rounded := fmt.Sprintf("%.3f", x)
 	chunks := strings.Split(rounded, `.`)
 	dollars := chunks[0]
-	cents := chunks[1]
+	var cents string
+	if len(chunks) > 1 {
+		cents = chunks[1]
+	}
 
 	isNegative := strings.Contains(dollars, "-")
 	if isNegative {
@@ -124,4 +125,8 @@ func MakePath(path string) error {
 		}
 	}
 	return nil
+}
+
+func CbpUrl(productID string) string {
+	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, productID)
 }

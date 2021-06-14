@@ -84,14 +84,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "x", false, "debug mode")
 	rootCmd.PersistentFlags().StringVarP(&dur, "duration", "p", "", "period duration")
 	rootCmd.PersistentFlags().StringVarP(&cfg, "config", "c", "", "config file path")
-	rootCmd.PersistentFlags().StringArrayVar(&usd, "usd", nil, "scope of USD Products to command")
+	rootCmd.PersistentFlags().StringSliceVar(&usd, "usd", nil, "scope of USD Products to command")
 	rootCmd.PersistentFlags().Float64VarP(&size, "size", "q", 1, "minimum trade size")
 	rootCmd.PersistentFlags().Float64VarP(&gain, "gain", "g", .0195, "trade gain goal")
 	rootCmd.PersistentFlags().Float64VarP(&loss, "loss", "l", .195, "trade loss limit")
 	rootCmd.PersistentFlags().Float64VarP(&delta, "delta", "d", .001, "pattern similarity")
-}
-
-func initConfig() error {
-	viper.SetConfigFile(cfg)
-	return viper.ReadInConfig()
 }

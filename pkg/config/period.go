@@ -21,6 +21,7 @@ package config
 import (
 	"fmt"
 	"github.com/kelseyhightower/envconfig"
+	cb "github.com/preichenberger/go-coinbasepro/v2"
 	"gopkg.in/yaml.v2"
 	"os"
 	"strconv"
@@ -128,4 +129,19 @@ func (p *period) Start() *time.Time {
 
 func (p *period) Stop() *time.Time {
 	return p.Omega
+}
+
+func (p period) RateParams() *[]cb.GetHistoricRatesParams {
+	start := *p.Alpha
+	end := start.Add(time.Hour * 4)
+	var results []cb.GetHistoricRatesParams
+	for i := 0; i < 24; i += 4 {
+		results = append(results, cb.GetHistoricRatesParams{start, end, 60})
+		start = end
+		end = end.Add(time.Hour * 4)
+		if end.After(*p.Omega) {
+			break
+		}
+	}
+	return &results
 }

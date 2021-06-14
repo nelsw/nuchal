@@ -19,7 +19,6 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/nelsw/nuchal/pkg/cbp"
 	"github.com/nelsw/nuchal/pkg/db"
@@ -30,6 +29,18 @@ import (
 	"sort"
 	"strings"
 	"time"
+)
+
+const (
+	f0 = "%s ...    hello %s"
+	g0 = "%s ... database %s"
+	h0 = "%s ... coinbase %s"
+	f1 = "%s ...   period %s"
+	fn = "%s ...          %s"
+	f2 = "%s ... products %s"
+	f3 = "%s ... patterns %s"
+	f4 = "%s ... selected %s"
+	f5 = "%s ... new cull %s"
 )
 
 // Session of the application - only active while the executable is run within the defined period range.
@@ -66,38 +77,43 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 	}
 
 	fmt.Println(util.Banner)
-	log.Info().Msg(util.Fish + " . ")
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msgf("%s ... hello %s", util.Fish, os.Getenv("USER"))
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " . ")
-
-	session := new(Session)
+	log.Info().Msg(util.Cichlid + " . ")
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Msgf(f0, util.Cichlid, os.Getenv("USER"))
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Msg(util.Cichlid + " . ")
 
 	// is the database established?
 	if err := db.Init(); err != nil {
 		return nil, err
 	}
-	log.Info().Msg(util.Fish + " .. ")
-	log.Info().Msg(util.Fish + " ... database " + util.GreenCheck)
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Msgf(g0, util.Cichlid, util.Check)
 
 	// can we connect to coinbase?
-	now, err := cbp.Init(cfg)
+	var products []cbp.Product
+	pg := db.NewDB(cbp.Product{})
+	pg.Find(&products)
+	now, err := cbp.Init(cfg, &products)
 	if err != nil {
 		return nil, err
 	}
-	log.Info().Msg(util.Fish + " ... coinbase " + util.GreenCheck)
-	log.Info().Msg(util.Fish + " .. ")
+	log.Info().Msgf(h0, util.Cichlid, util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
 
+	allProductIDs := cbp.GetAllProductIDs()
+	for _, productID := range allProductIDs {
+		product := cbp.GetProduct(productID)
+		pg.Create(&product)
+	}
+
+	session := new(Session)
 	session.period = NewPeriod(cfg, dur, now)
-	log.Info().Time(util.Alpha, *session.Alpha).Msgf("%s ...   period %s", util.Fish, util.GreenCheck)
-	log.Info().Time(util.Omega, *session.Omega).Msgf("%s ...          %s", util.Fish, util.GreenCheck)
-	log.Info().Str("⏳", session.Duration.String()).Msgf("%s ...          %s", util.Fish, util.GreenCheck)
-	log.Info().Msg(util.Fish + " .. ")
-
-	log.Info().
-		Int(util.Quantity, len(cbp.GetAllProductIDs())).
-		Msgf("%s ... products %s", util.Fish, util.GreenCheck)
+	log.Info().Time(util.Alpha, *session.Alpha).Msgf(f1, util.Cichlid, util.Check)
+	log.Info().Time(util.Omega, *session.Omega).Msgf(fn, util.Cichlid, util.Check)
+	log.Info().Str(util.Duration, session.Duration.String()).Msgf(fn, util.Cichlid, util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Int(util.Quantity, len(allProductIDs)).Msgf(f2, util.Cichlid, util.Check)
 
 	session.paragon = NewParagon(cfg, size, gain, loss, delta)
 	var pat []string
@@ -106,50 +122,15 @@ func NewSession(cfg, dur string, usd []string, size, gain, loss, delta float64, 
 	}
 	sort.Strings(pat)
 
-	log.Info().
-		Int(util.Quantity, len(pat)).
-		Strs(util.Coin, *session.paragon.patternIDs()).
-		Msgf("%s ... patterns %s", util.Fish, util.GreenCheck)
+	ids := *session.paragon.patternIDs()
+	log.Info().Int(util.Quantity, len(pat)).Strs(util.Coin, ids).Msgf(f3, util.Cichlid, util.Check)
+	log.Info().Int(util.Quantity, len(usd)).Strs(util.Coin, usd).Msgf(f4, util.Cichlid, util.Check)
 
-	if len(usd) > 0 {
-		log.Info().
-			Int(util.Quantity, len(usd)).
-			Strs(util.Coin, usd).
-			Msgf("%s ... selected %s", util.Fish, util.GreenCheck)
-	} else {
-		log.Info().Int(util.Quantity, len(usd)).Msgf("%s ... selected %s", util.Fish, util.ThumbsDn)
-	}
+	session.cull = NewCull(usd, pat, allProductIDs)
+	cls := session.cull.IDS()
+	log.Info().Msg(util.Cichlid + " .. ")
+	log.Info().Int(util.Quantity, len(cls)).Strs(util.Coin, cls).Msgf(f5, util.Cichlid, util.Check)
+	log.Info().Msg(util.Cichlid + " .. ")
 
-	session.cull = NewCull(usd, pat, cbp.GetAllProductIDs())
-	log.Info().Msg(util.Fish + " ..")
-	log.Info().
-		Int(util.Quantity, len(session.cull.IDS())).
-		Strs(util.Coin, session.cull.IDS()).
-		Msgf("%s ... new cull %s", util.Fish, util.GreenCheck)
-	log.Info().Msg(util.Fish + " .. ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	go func() {
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "exit" {
-				log.Info().Msg(util.Fish + " .")
-				log.Info().Msg(util.Fish + " ..")
-				log.Info().Msg(util.Fish + " ...")
-				log.Info().Msg(util.Fish + " ... goodbye")
-				log.Info().Msg(util.Fish + " ...")
-				log.Info().Msg(util.Fish + " ..")
-				log.Info().Msg(util.Fish + " .")
-				os.Exit(0)
-			} else {
-				log.Info().Msgf("%s ... I'm not familiar with %s", util.Fish, line)
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			log.Error().Err(err).Send()
-			panic(err)
-		}
-	}()
-
-	return session, nil
+	return session, util.MakePath("html")
 }

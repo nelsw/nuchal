@@ -24,6 +24,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"math"
 	"strconv"
+	"strings"
 )
 
 // Pattern defines the criteria for matching rates and placing orders.
@@ -43,16 +44,6 @@ type Pattern struct {
 
 	// Delta is the size of an acceptable difference between tweezer bottom candlesticks.
 	Delta float64 `yaml:"delta" json:"delta"`
-}
-
-func NewPattern(productID string, size, gain, loss, delta float64) *Pattern {
-	pattern := new(Pattern)
-	pattern.ID = productID
-	pattern.Size = size
-	pattern.Gain = gain
-	pattern.Loss = loss
-	pattern.Delta = delta
-	return pattern
 }
 
 func (p *Pattern) InitPattern(size, gain, loss, delta float64) {
@@ -78,15 +69,19 @@ func (p *Pattern) LossPrice(price float64) float64 {
 	return price - (price * p.Loss)
 }
 
-func (p *Pattern) Url() string {
-	return fmt.Sprintf(`https://pro.coinbase.com/trade/%s`, p.ID)
-}
-
 func (p *Pattern) NewMarketBuyOrder() *cb.Order {
+
+	size := GetProduct(p.ID).BaseMinSize
+	if qty, err := strconv.ParseFloat(size, 64); err != nil {
+		log.Debug().Err(err).Str("𝑓", "size").Str("𝑽", size).Send()
+	} else if qty < p.Size {
+		size = preciseResult(size, p.Size)
+	}
+
 	o := new(cb.Order)
 	o.ProductID = p.ID
 	o.Side = "buy"
-	o.Size = strconv.FormatFloat(p.Size, 'f', -1, 64)
+	o.Size = size
 	o.Type = "market"
 	return o
 }
@@ -95,7 +90,7 @@ func (p *Pattern) NewMarketSellOrder(size string) *cb.Order {
 	o := new(cb.Order)
 	o.ProductID = p.ID
 	o.Side = "sell"
-	o.Size = size
+	o.Size = p.PreciseSize(size)
 	o.Type = "market"
 	return o
 }
@@ -106,41 +101,65 @@ func (p *Pattern) NewLimitSellEntryOrderAtGoalPrice(trade *Trade) *cb.Order {
 
 func (p *Pattern) NewLimitSellEntryOrder(price float64, size string) *cb.Order {
 	o := new(cb.Order)
-	o.Price = fmt.Sprintf("%.3f", price)
+	o.Price = p.PrecisePrice(price)
 	o.ProductID = p.ID
 	o.Side = "sell"
-	o.Size = size
+	o.Size = p.PreciseSize(size)
 	o.Stop = "entry"
-	o.StopPrice = fmt.Sprintf("%.3f", price)
+	o.StopPrice = p.PrecisePrice(price)
 	o.Type = "limit"
 	return o
 }
 
 func (p *Pattern) NewLimitLossOrder(price float64, size string) *cb.Order {
 	o := new(cb.Order)
-	o.Price = fmt.Sprintf("%.3f", price)
+	o.Price = p.PrecisePrice(price)
 	o.ProductID = p.ID
 	o.Side = "sell"
-	o.Size = size
+	o.Size = p.PreciseSize(size)
 	o.Stop = "loss"
-	o.StopPrice = fmt.Sprintf("%.3f", price)
+	o.StopPrice = p.PrecisePrice(price)
 	o.Type = "limit"
 	return o
 }
 
 func (p *Pattern) MatchesTweezerBottomPattern(then, that, this Rate) bool {
-	return isTweezerBottomTrend(then, that, this) && isTweezerBottomValue(that, this, p.Delta)
+	return then.IsInit() &&
+		then.IsDown() &&
+		that.IsInit() &&
+		that.IsDown() &&
+		this.IsUp() &&
+		math.Abs(math.Min(that.Low, that.Close)-math.Min(this.Low, this.Open)) <= p.Delta
 }
 
-func isTweezerBottomValue(u, v Rate, d float64) bool {
-	f := math.Abs(math.Min(u.Low, u.Close) - math.Min(v.Low, v.Open))
-	b := f <= d
-	if b {
-		log.Info().Str("product", v.ProductId).Float64("tweezer", d-f)
+func (p *Pattern) PreciseSize(s string) string {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		log.Debug().Err(err).Str("𝑓", "size").Str("𝑽", s).Send()
+		return s
 	}
-	return b
+	return preciseResult(GetProduct(p.ID).BaseMinSize, f)
 }
 
-func isTweezerBottomTrend(t, u, v Rate) bool {
-	return t.IsInit() && u.IsInit() && t.IsDown() && u.IsDown() && v.IsUp()
+func (p *Pattern) PrecisePrice(f float64) string {
+	return preciseResult(GetProduct(p.ID).QuoteIncrement, f)
+}
+
+func (p *Pattern) PrecisePriceFromString(s string) string {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		log.Debug().Err(err).Str("𝑓", "size").Str("𝑽", s).Send()
+		return s
+	}
+	return preciseResult(GetProduct(p.ID).QuoteIncrement, f)
+}
+
+func preciseResult(c string, f float64) string {
+	if !strings.Contains(c, `.`) {
+		return c
+	}
+	chunks := strings.Split(c, `.`)
+	format := fmt.Sprintf("%s.%df", "%", len(chunks[1]))
+	result := fmt.Sprintf(format, f)
+	return result
 }
