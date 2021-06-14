@@ -24,10 +24,9 @@ const (
 	Tuna    = `🐟`
 	Puffer  = `🐡`
 
-	Trading = `🎲`
-	UpTrend = `📈`
-	DnTrend = `📉`
-	NoTrend = `📊`
+	Trading     = `🎲`
+	TradingUp   = `📈`
+	TradingDown = `📉`
 
 	Won  = `🏆`
 	Lost = `❌`

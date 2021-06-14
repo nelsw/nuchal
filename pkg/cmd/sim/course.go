@@ -27,20 +27,20 @@ import (
 	"time"
 )
 
-func NewResult(session *config.Session, results []simulation, start time.Time) {
+func NewResult(session *config.Session, simulations []simulation, start time.Time) {
 
 	log.Info().Msg(util.Tuna + " . ")
 	log.Info().Msg(util.Tuna + " .. ")
 
 	// sort by most successful net gain in asc order
 	// so the best result is closest to the summary
-	sort.SliceStable(results, func(i, j int) bool {
-		return results[i].Net() < results[j].Net()
+	sort.SliceStable(simulations, func(i, j int) bool {
+		return simulations[i].Net() < simulations[j].Net()
 	})
 
 	var trading, winners, losers, even int
 	var sum, won, lost, net, volume float64
-	for _, simulation := range results {
+	for _, simulation := range simulations {
 
 		if simulation.TotalEntries() == 0 {
 			continue
@@ -88,9 +88,9 @@ func NewResult(session *config.Session, results []simulation, start time.Time) {
 
 		if simulation.TradingLen() > 0 {
 			sum += simulation.TotalTradingAfterFees()
-			symbol := util.UpTrend
+			symbol := util.TradingUp
 			if simulation.TotalTradingAfterFees() < 0 {
-				symbol = util.DnTrend
+				symbol = util.TradingDown
 			}
 			log.Info().
 				Int(util.Quantity, simulation.TradingLen()).
